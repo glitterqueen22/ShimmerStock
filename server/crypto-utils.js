@@ -4,9 +4,9 @@
  * Uses AES-256-GCM for encrypting access tokens before storage in the database.
  *
  * Environment:
- *   ENCRYPTION_KEY — 32-byte hex string (64 hex chars) for AES-256.
+ *   ENCRYPTION_KEY — 32-byte hex string (64 hex chars) for AES-256 (REQUIRED).
  *                    Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
- *                    Falls back to a derived key in dev.
+ *                    The server will refuse to start if this is not set.
  */
 
 import crypto from "crypto";
@@ -15,20 +15,35 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 
+/** @type {Buffer|null} — initialized once at startup, throws if ENCRYPTION_KEY is missing */
+let _encryptionKey = null;
+
 /**
- * Derive a 32-byte key from the environment or fallback.
- * In production, always set ENCRYPTION_KEY.
+ * Lazily load and validate the encryption key from environment.
+ * Throws a clear error on first call if ENCRYPTION_KEY is missing or invalid.
+ * Cached after first successful load.
  */
 function getEncryptionKey() {
+  if (_encryptionKey) return _encryptionKey;
+
   const envKey = process.env.ENCRYPTION_KEY;
-  if (envKey && envKey.length === 64) {
-    return Buffer.from(envKey, "hex");
+  if (!envKey) {
+    throw new Error(
+      "ENCRYPTION_KEY environment variable is not set. " +
+      "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\" " +
+      "and add it to your .env file. The server cannot start without it."
+    );
   }
 
-  // Dev fallback — deterministic 32-byte key derived from a fixed seed
-  // NOT SECURE FOR PRODUCTION — only used when ENCRYPTION_KEY is not set
-  const fallbackSeed = "shimmerstock-shopify-oauth-dev-key-v1";
-  return crypto.createHash("sha256").update(fallbackSeed).digest();
+  if (envKey.length !== 64) {
+    throw new Error(
+      `ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes), got ${envKey.length} characters. ` +
+      "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+    );
+  }
+
+  _encryptionKey = Buffer.from(envKey, "hex");
+  return _encryptionKey;
 }
 
 /**
@@ -78,6 +93,16 @@ export function decryptToken(encrypted) {
   decrypted += decipher.final("utf8");
 
   return decrypted;
+}
+
+// Eagerly validate ENCRYPTION_KEY at module load time (before any routes are mounted).
+// This ensures the server refuses to start if the key is missing or invalid,
+// rather than failing cryptically later when a token is first encrypted/decrypted.
+try {
+  getEncryptionKey();
+} catch (err) {
+  console.error("[crypto-utils] FATAL:", err.message);
+  process.exit(1);
 }
 
 console.log("[crypto-utils] Token encryption utility loaded");

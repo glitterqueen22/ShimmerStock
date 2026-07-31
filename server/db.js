@@ -96,6 +96,14 @@ const DEFAULT_PERMISSIONS = {
   ],
 };
 
+/**
+ * Generate a secure random password for seeding.
+ * Uses 16 random bytes encoded as base64url (21 chars, ~95 bits entropy).
+ */
+function generateSecurePassword() {
+  return crypto.randomBytes(16).toString("base64url");
+}
+
 export function initDb() {
   const db = new Database(DB_PATH);
 
@@ -597,7 +605,7 @@ export function initDb() {
     );
 
     // Create owner user (no business_id — uses user_businesses junction)
-    const ownerPassword = "changeme123";
+    const ownerPassword = process.env.OWNER_INITIAL_PASSWORD || generateSecurePassword();
     const ownerHash = Bun.password.hashSync(ownerPassword);
     const ownerResult = db.run(
       "INSERT INTO users (username, password_hash, display_name, role, password_changed_at) VALUES (?, ?, ?, ?, datetime('now'))",
@@ -636,7 +644,7 @@ export function initDb() {
 
   const existingUsers = db.query("SELECT COUNT(*) as count FROM users").get();
   if (existingUsers.count === 0) {
-    const password = "shimmerstock2024";
+    const password = process.env.ADMIN_INITIAL_PASSWORD || generateSecurePassword();
     const hash = Bun.password.hashSync(password);
     // password_changed_at is left NULL so first login triggers mustChangePassword
     const adminResult = db.run(
@@ -661,7 +669,7 @@ export function initDb() {
     // Ensure admin user exists (for migration case: business created but admin user missing)
     const existingAdmin = db.query("SELECT id FROM users WHERE username = ?").get("admin");
     if (!existingAdmin) {
-      const password = "shimmerstock2024";
+      const password = process.env.ADMIN_INITIAL_PASSWORD || generateSecurePassword();
       const hash = Bun.password.hashSync(password);
       const adminResult = db.run(
         "INSERT INTO users (username, password_hash, display_name, role, password_changed_at) VALUES (?, ?, ?, ?, datetime('now'))",
