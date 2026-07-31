@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import path from "path";
+import crypto from "node:crypto";
 
 const DB_PATH = path.join(import.meta.dirname, "..", "shimmerstock.db");
 
