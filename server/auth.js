@@ -1,4 +1,5 @@
 import * as store from "./store.js";
+import crypto from "node:crypto";
 
 /**
  * Hash a password using bcrypt (via Bun.password).

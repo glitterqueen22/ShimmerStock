@@ -57,7 +57,7 @@ app.use(express.json());
   app.use(cors());
 
 // Initialize database
-const db = initDb();
+const db = initDb(process.env.SHIMMERSTOCK_DB_PATH);
 
 // Initialize provider registry (CommerceProvider abstraction)
 initRegistry();
@@ -505,7 +505,7 @@ app.get("/api/businesses", requireAuth(db), (req, res) => {
 });
 
 // POST /api/businesses — create a new business (user becomes owner)
-app.post("/api/businesses", requireAuth(db), async (req, res) => {
+app.post("/api/businesses", requireAuth(db, "settings.write"), async (req, res) => {
   try {
     const { name } = req.body;
 
@@ -3489,6 +3489,10 @@ app.get("*", (req, res) => {
   }
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`ShimmerStock running on http://0.0.0.0:${PORT}`);
-});
+if (!process.env.SHIMMERSTOCK_TEST) {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`ShimmerStock running on http://0.0.0.0:${PORT}`);
+  });
+}
+
+export { app, db };
