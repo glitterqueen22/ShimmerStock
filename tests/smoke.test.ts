@@ -1,4 +1,13 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, beforeAll } from "bun:test";
+
+// The crypto-utils module eagerly validates ENCRYPTION_KEY at import time
+// and calls process.exit(1) if absent. Set it before any imports that transitively
+// load crypto-utils.
+beforeAll(() => {
+  if (!process.env.ENCRYPTION_KEY) {
+    process.env.ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+  }
+});
 
 describe("ShimmerStock smoke tests", () => {
   it("bun test runner works", () => {
@@ -12,7 +21,13 @@ describe("ShimmerStock smoke tests", () => {
 
   it("can import and verify crypto-utils exports", async () => {
     const mod = await import("../server/crypto-utils.js");
-    // crypto-utils should export encrypt/decrypt or similar
     expect(mod).toBeDefined();
+    expect(typeof mod.encryptToken).toBe("function");
+    expect(typeof mod.decryptToken).toBe("function");
+  });
+
+  it("ENCRYPTION_KEY is set", () => {
+    expect(process.env.ENCRYPTION_KEY).toBeDefined();
+    expect(process.env.ENCRYPTION_KEY!.length).toBe(64);
   });
 });

@@ -104,8 +104,8 @@ function generateSecurePassword() {
   return crypto.randomBytes(16).toString("base64url");
 }
 
-export function initDb() {
-  const db = new Database(DB_PATH);
+export function initDb(dbPath) {
+  const db = new Database(dbPath || DB_PATH);
 
   db.run("PRAGMA journal_mode=WAL");
   db.run("PRAGMA foreign_keys=ON");
