@@ -1,0 +1,49 @@
+node_modules
+dist
+dist-ssr
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build output
+.cache
+.output
+.nitro
+.tanstack
+/.vercel/
+
+# Runtime
+/.run/
+
+# Generated routes
+src/routeTree.gen.ts
+
+# Logs
+*.log
+logs/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backup files
+*.bak
+*.bak2
+
+# Temp/scratch files
+*.tmp
+tmp/

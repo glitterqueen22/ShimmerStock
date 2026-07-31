@@ -1,0 +1,31 @@
+/console.log("    2 unboxing rules seeded");/
+a
+	// ── Packing Recipes (Fulfillment 1.2) ──────────────────────────
+	const recipeCount = db.query("SELECT COUNT(*) as c FROM packing_recipes WHERE business_id = ?").get(BIZ).c;
+	if (recipeCount === 0) {
+		db.run(
+			"INSERT INTO packing_recipes (business_id, name, product_id, order_type, box_size, packing_materials, inserts, labels, special_instructions, priority, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			[BIZ, 'Standard Retail', null, 'retail', '10x8x4',
+				JSON.stringify(['bubble wrap', 'tissue paper']),
+				JSON.stringify([{type: 'thank_you_card', details: 'Thank you for supporting our small business! 💖', quantity: 1}, {type: 'sticker', details: 'Brand logo sticker', quantity: 1}]),
+				null, null, 1, 1]
+		);
+		db.run(
+			"INSERT INTO packing_recipes (business_id, name, product_id, order_type, box_size, packing_materials, inserts, labels, special_instructions, priority, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			[BIZ, 'Wholesale Bulk', null, 'wholesale', '12x10x6',
+				JSON.stringify(['kraft paper', 'air pillows']),
+				JSON.stringify([{type: 'catalog', details: 'Current product catalog', quantity: 1}]),
+				null, 'Stack boxes on pallets for wholesale shipments', 1, 1]
+		);
+		db.run(
+			"INSERT INTO packing_recipes (business_id, name, product_id, order_type, box_size, packing_materials, inserts, labels, special_instructions, priority, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			[BIZ, 'Sample Kit', null, 'sample', '6x4x3',
+				JSON.stringify(['tissue paper']),
+				JSON.stringify([{type: 'thank_you_card', details: 'Hope you love your samples!', quantity: 1}, {type: 'coupon', details: '10% off your first full-size order', quantity: 1}]),
+				null, null, 1, 1]
+		);
+		console.log("    3 packing recipes seeded");
+	}
+.
+w
+q
