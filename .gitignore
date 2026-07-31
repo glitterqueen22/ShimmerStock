@@ -43,6 +43,7 @@ logs/
 # Backup files
 *.bak
 *.bak2
+backups/
 
 # Temp/scratch files
 *.tmp
