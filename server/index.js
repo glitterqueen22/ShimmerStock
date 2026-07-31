@@ -88,20 +88,20 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // Create session (8 hour lifetime)
-    const token = generateToken();
-    const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
-
-    store.createSession(db, { userId: user.id, token, expiresAt });
-
-    // Check if user needs to change password (password_changed_at is NULL)
-    const mustChangePassword = user.password_changed_at === null;
-
-    // Get all businesses for this user
+    // Get all businesses for this user (P0.3: needed before session creation)
     const businesses = store.getUserBusinesses(db, user.id);
 
     // Get active business
     const activeBiz = businesses.find(b => b.is_active) || businesses[0];
+
+    // Create session (8 hour lifetime) — bound to business_id for multi-tenancy (P0.3)
+    const token = generateToken();
+    const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+    const loginBusinessId = activeBiz ? activeBiz.business_id : user.business_id;
+    store.createSession(db, { userId: user.id, token, expiresAt, businessId: loginBusinessId });
+
+    // Check if user needs to change password (password_changed_at is NULL)
+    const mustChangePassword = user.password_changed_at === null;
 
     // Audit: successful login
     auditLog(db, {
@@ -444,7 +444,7 @@ app.post("/api/auth/register", async (req, res) => {
       // Create session
       const token = generateToken();
       const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
-      store.createSession(db, { userId, token, expiresAt });
+      store.createSession(db, { userId, token, expiresAt, businessId: business.id });
 
       auditLog(db, {
         businessId: business.id,

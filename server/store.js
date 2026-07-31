@@ -62,10 +62,10 @@ export function transaction(db, callback) {
 // ═══════════════════════════════════════════════════════════════════════
 
 /** Insert a new session and return lastInsertRowid. */
-export function createSession(db, { userId, token, expiresAt }) {
+export function createSession(db, { userId, token, expiresAt, businessId }) {
   const result = db.run(
-    "INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)",
-    [userId, token, expiresAt]
+    "INSERT INTO sessions (user_id, token, expires_at, business_id) VALUES (?, ?, ?, ?)",
+    [userId, token, expiresAt, businessId ?? null]
   );
   return result.lastInsertRowid;
 }
@@ -74,9 +74,10 @@ export function createSession(db, { userId, token, expiresAt }) {
 export function getSessionByToken(db, token) {
   return db
     .query(
-      `SELECT s.id, s.user_id, s.token, s.expires_at,
+      `SELECT s.id, s.user_id, s.token, s.expires_at, s.business_id,
               u.username, u.display_name, u.role,
-              ub.business_id, ub.role as business_role
+              COALESCE(s.business_id, ub.business_id) as effective_business_id,
+              ub.role as business_role
        FROM sessions s
        JOIN users u ON s.user_id = u.id
        LEFT JOIN user_businesses ub ON u.id = ub.user_id AND ub.is_active = 1

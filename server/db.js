@@ -206,11 +206,20 @@ export function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       token TEXT UNIQUE NOT NULL,
+      business_id INTEGER,
       created_at TEXT DEFAULT (datetime('now')),
       expires_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (business_id) REFERENCES businesses(id)
     )
   `);
+
+  // P0.3: Migration — add business_id to sessions for multi-tenancy
+  const sessCols = db.query("PRAGMA table_info(sessions)").all();
+  if (!sessCols.some(c => c.name === "business_id")) {
+    db.run("ALTER TABLE sessions ADD COLUMN business_id INTEGER REFERENCES businesses(id)");
+    console.log("P0.3: Added business_id column to sessions (multi-tenancy)");
+  }
 
   // ── Password reset tokens ────────────────────────────────────────
 
