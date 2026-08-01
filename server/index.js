@@ -14,6 +14,10 @@ import {
   generateResetToken,
   requireAuth,
   refreshSession,
+  loginRateLimiter,
+  recordLoginFailure,
+  recordLoginSuccess,
+  forgotPasswordRateLimiter,
 } from "./auth.js";
 import { auditLog, getDeviceInfo } from "./audit.js";
 import { emit, getProductionSummary, getCalculationSummary } from "./events.js";
@@ -73,7 +77,7 @@ initRegistry();
 // ── Auth endpoints ──────────────────────────────────────────────────
 
 // POST /api/auth/login
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", loginRateLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -84,13 +88,17 @@ app.post("/api/auth/login", async (req, res) => {
     const user = store.getUserByUsernameWithBusiness(db, username.trim());
 
     if (!user) {
+      recordLoginFailure(req);
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const valid = await verifyPassword(password, user.password_hash);
     if (!valid) {
+      recordLoginFailure(req);
       return res.status(401).json({ error: "Invalid credentials" });
     }
+
+    recordLoginSuccess(req);
 
     // Get all businesses for this user (P0.3: needed before session creation)
     const businesses = store.getUserBusinesses(db, user.id);
@@ -284,7 +292,7 @@ app.post("/api/auth/change-password", requireAuth(db), async (req, res) => {
 });
 
 // POST /api/auth/forgot-password — public
-app.post("/api/auth/forgot-password", async (req, res) => {
+app.post("/api/auth/forgot-password", forgotPasswordRateLimiter, async (req, res) => {
   try {
     const { username } = req.body;
 
