@@ -113,3 +113,17 @@ describe("POST /api/auth/logout", () => {
     expect(meRes2.status).toBe(401);
   });
 });
+
+describe("POST /api/auth/forgot-password", () => {
+  it("does not return resetToken in the response", async () => {
+    const res = await fetch(`${appUrl}/api/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "owner_a" }),
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.message).toBe("If that account exists, a reset link has been sent.");
+    expect(data.resetToken).toBeUndefined();
+  });
+});
