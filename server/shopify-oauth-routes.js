@@ -20,9 +20,6 @@ import { requireAuth } from "./auth.js";
 import { encryptToken, decryptToken } from "./crypto-utils.js";
 import { getProvider, invalidateProviderCache } from "./providers/registry.js";
 
-const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID || "";
-const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET || "";
-const SHIMMERSTOCK_URL = process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app";
 
 const SHOPIFY_SCOPES = [
   "read_orders",
@@ -84,8 +81,8 @@ async function exchangeCodeForToken(shopDomain, code) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      client_id: SHOPIFY_CLIENT_ID,
-      client_secret: SHOPIFY_CLIENT_SECRET,
+      client_id: process.env.SHOPIFY_CLIENT_ID || "",
+      client_secret: process.env.SHOPIFY_CLIENT_SECRET || "",
       code,
     }),
   });
@@ -125,12 +122,12 @@ async function fetchShopInfo(shopDomain, accessToken) {
  */
 async function registerWebhooks(shopDomain, accessToken) {
   const webhookTopics = [
-    { topic: "orders/create", address: `${SHIMMERSTOCK_URL}/api/shopify/webhooks/orders-create` },
-    { topic: "orders/updated", address: `${SHIMMERSTOCK_URL}/api/shopify/webhooks/orders-updated` },
-    { topic: "orders/cancelled", address: `${SHIMMERSTOCK_URL}/api/shopify/webhooks/orders-cancelled` },
-    { topic: "products/update", address: `${SHIMMERSTOCK_URL}/api/shopify/webhooks/products-update` },
-    { topic: "inventory_levels/update", address: `${SHIMMERSTOCK_URL}/api/shopify/webhooks/inventory-update` },
-    { topic: "app/uninstalled", address: `${SHIMMERSTOCK_URL}/api/shopify/webhooks/app-uninstalled` },
+    { topic: "orders/create", address: `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/webhooks/orders-create` },
+    { topic: "orders/updated", address: `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/webhooks/orders-updated` },
+    { topic: "orders/cancelled", address: `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/webhooks/orders-cancelled` },
+    { topic: "products/update", address: `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/webhooks/products-update` },
+    { topic: "inventory_levels/update", address: `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/webhooks/inventory-update` },
+    { topic: "app/uninstalled", address: `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/webhooks/app-uninstalled` },
   ];
 
   const webhookIds = [];
@@ -186,7 +183,7 @@ export function mountShopifyOauthRoutes(app, db) {
       }
       // Token expired or invalid — redirect to login
       const shop = req.query.shop || "";
-      const loginUrl = `${SHIMMERSTOCK_URL}/login?redirect=/commerce${shop ? `&shop=${encodeURIComponent(shop)}` : ""}`;
+      const loginUrl = `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/login?redirect=/commerce${shop ? `&shop=${encodeURIComponent(shop)}` : ""}`;
       return res.redirect(loginUrl);
     }
     requireAuth(db, "shopify.read")(req, res, next);
@@ -199,7 +196,7 @@ export function mountShopifyOauthRoutes(app, db) {
         return res.status(400).json({ error: "Missing 'shop' query parameter (e.g. ?shop=mystore.myshopify.com)" });
       }
 
-      if (!SHOPIFY_CLIENT_ID) {
+      if (!(process.env.SHOPIFY_CLIENT_ID || "")) {
         return res.status(500).json({ error: "Shopify OAuth is not configured — set SHOPIFY_CLIENT_ID" });
       }
 
@@ -209,9 +206,9 @@ export function mountShopifyOauthRoutes(app, db) {
 
       // Build OAuth URL
       const authUrl = new URL(`https://${shop}/admin/oauth/authorize`);
-      authUrl.searchParams.set("client_id", SHOPIFY_CLIENT_ID);
+      authUrl.searchParams.set("client_id", process.env.SHOPIFY_CLIENT_ID || "");
       authUrl.searchParams.set("scope", SHOPIFY_SCOPES);
-      authUrl.searchParams.set("redirect_uri", `${SHIMMERSTOCK_URL}/api/shopify/auth/callback`);
+      authUrl.searchParams.set("redirect_uri", `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/auth/callback`);
       authUrl.searchParams.set("state", state);
 
       console.log(`[shopify-oauth] Redirecting business ${businessId} to Shopify OAuth (shop: ${shop})`);
@@ -235,7 +232,7 @@ export function mountShopifyOauthRoutes(app, db) {
       }
 
       // Validate HMAC signature
-      if (!validateHmac(req.query, SHOPIFY_CLIENT_SECRET)) {
+      if (!validateHmac(req.query, process.env.SHOPIFY_CLIENT_SECRET || "")) {
         console.warn("[shopify-oauth] HMAC validation failed");
         return res.status(403).json({ error: "Invalid HMAC signature — request may be forged" });
       }
@@ -346,7 +343,7 @@ export function mountShopifyOauthRoutes(app, db) {
         console.log(`[shopify-oauth] Shopify connected for business ${businessId}: ${shopName || shop}`);
 
         // Redirect back to the app with success
-        const redirectUrl = `${SHIMMERSTOCK_URL}/commerce?shopify_connected=true`;
+        const redirectUrl = `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/commerce?shopify_connected=true`;
         res.redirect(redirectUrl);
       } else {
         // Verification failed — save token but mark as failed
@@ -370,13 +367,13 @@ export function mountShopifyOauthRoutes(app, db) {
         console.error(`[shopify-oauth] Shopify connection FAILED for business ${businessId}: ${verifyError}`);
 
         // Redirect with error — use a friendly code, not raw error text
-        const errorUrl = `${SHIMMERSTOCK_URL}/commerce?shopify_error=validation_failed`;
+        const errorUrl = `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/commerce?shopify_error=validation_failed`;
         res.redirect(errorUrl);
       }
     } catch (err) {
       console.error("GET /api/shopify/auth/callback error:", err);
       // Redirect with friendly error code — never expose raw error text to the user
-      const errorUrl = `${SHIMMERSTOCK_URL}/commerce?shopify_error=connection_failed`;
+      const errorUrl = `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/commerce?shopify_error=connection_failed`;
       res.redirect(errorUrl);
     }
   });

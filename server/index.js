@@ -53,11 +53,15 @@ import { mountShopifyWebhookRoutes } from "./shopify-webhook-routes.js";
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
-  app.use(cors());
 
 // Initialize database
 const db = initDb(process.env.SHIMMERSTOCK_DB_PATH);
+
+// Mount webhooks FIRST so they can read raw body
+mountShopifyWebhookRoutes(app, db);
+
+app.use(express.json());
+app.use(cors());
 
 // Initialize provider registry (CommerceProvider abstraction)
 initRegistry();
@@ -3408,7 +3412,6 @@ mountStudioRoutes(app, db);
   mountMovementRoutes(app, db, requireAuth);
   // ── Shopify OAuth (multi-business self-serve) ────────────────
   mountShopifyOauthRoutes(app, db);
-  mountShopifyWebhookRoutes(app, db);
 
 // ── Dream Grant application endpoint ────────────────────────────────
 
