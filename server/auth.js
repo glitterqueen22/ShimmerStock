@@ -150,3 +150,81 @@ function parseCookies(cookieHeader) {
   });
   return cookies;
 }
+// ── Rate Limiting ──────────────────────────────────────────────────────
+
+const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_LOGIN_FAILURES = 5;
+const MAX_FORGOT_ATTEMPTS = 3;
+
+const loginAttempts = new Map();
+const forgotAttempts = new Map();
+
+function cleanupMap(map) {
+  const now = Date.now();
+  if (map.size > 5000) {
+    for (const [k, v] of map.entries()) {
+      if (now > v.resetTime) {
+        map.delete(k);
+      }
+    }
+  }
+}
+
+export function loginRateLimiter(req, res, next) {
+  cleanupMap(loginAttempts);
+  const username = req.body?.username ? req.body.username.trim().toLowerCase() : '';
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const key = `${ip}:${username}`;
+  const now = Date.now();
+
+  let entry = loginAttempts.get(key);
+  if (!entry || now > entry.resetTime) {
+    entry = { count: 0, resetTime: now + WINDOW_MS };
+    loginAttempts.set(key, entry);
+  }
+
+  if (entry.count >= MAX_LOGIN_FAILURES) {
+    const remaining = Math.ceil((entry.resetTime - now) / 1000);
+    return res.status(429).json({ error: `Too many failed login attempts, please try again in ${remaining} seconds.` });
+  }
+
+  req.rateLimitKey = key;
+  next();
+}
+
+export function recordLoginFailure(req) {
+  if (req.rateLimitKey) {
+    const entry = loginAttempts.get(req.rateLimitKey);
+    if (entry) {
+      entry.count++;
+    }
+  }
+}
+
+export function recordLoginSuccess(req) {
+  if (req.rateLimitKey) {
+    loginAttempts.delete(req.rateLimitKey);
+  }
+}
+
+export function forgotPasswordRateLimiter(req, res, next) {
+  cleanupMap(forgotAttempts);
+  const username = req.body?.username ? req.body.username.trim().toLowerCase() : '';
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const key = `${ip}:${username}`;
+  const now = Date.now();
+
+  let entry = forgotAttempts.get(key);
+  if (!entry || now > entry.resetTime) {
+    entry = { count: 0, resetTime: now + WINDOW_MS };
+    forgotAttempts.set(key, entry);
+  }
+
+  if (entry.count >= MAX_FORGOT_ATTEMPTS) {
+    const remaining = Math.ceil((entry.resetTime - now) / 1000);
+    return res.status(429).json({ error: `Too many password reset requests. Please try again in ${remaining} seconds.` });
+  }
+
+  entry.count++;
+  next();
+}
