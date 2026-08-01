@@ -309,15 +309,12 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     // TODO: send via email when email service is set up
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log(`  📧 Password reset for: ${username.trim()} (user #${user.id})`);
-    console.log(`     Reset token: ${resetToken}`);
     console.log(`     Expires at: ${expiresAt}`);
     console.log("  TODO: send via email when email service is set up");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     res.json({
-      message: "If that account exists, a reset link has been sent.",
-      // TODO: remove token from response once email is set up
-      resetToken,
+      message: "If that account exists, a reset link has been sent."
     });
   } catch (err) {
     console.error("POST /api/auth/forgot-password error:", err);
