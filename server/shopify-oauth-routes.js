@@ -25,46 +25,38 @@
  */
 
 import crypto from "crypto";
+import rateLimit from "express-rate-limit";
 import { requireAuth } from "./auth.js";
 import { encryptToken } from "./crypto-utils.js";
 import { getProvider, invalidateProviderCache } from "./providers/registry.js";
 
-// ── Simple in-memory rate limiter ──────────────────────────────────────────
+// ── Rate limiters for OAuth endpoints ──────────────────────────────────────
 
-/**
- * Minimal sliding-window rate limiter (no external dependencies).
- * Keyed by IP address. Limits OAuth initiation and callback endpoints
- * to prevent enumeration, state flooding, and callback replay storms.
- *
- * Limits:
- *   - OAuth initiation:  10 requests per IP per 5 minutes
- *   - OAuth callback:    20 requests per IP per 5 minutes
- */
-const _rateLimitWindows = new Map(); // key → [timestamps...]
-
-function isRateLimited(key, maxRequests, windowMs) {
-  const now = Date.now();
-  const cutoff = now - windowMs;
-  let timestamps = _rateLimitWindows.get(key) || [];
-  // Remove expired entries
-  timestamps = timestamps.filter((t) => t > cutoff);
-  if (timestamps.length >= maxRequests) {
-    _rateLimitWindows.set(key, timestamps);
-    return true;
-  }
-  timestamps.push(now);
-  _rateLimitWindows.set(key, timestamps);
-  return false;
-}
-
-function getClientIp(req) {
-  return (
+/** Rate limit for OAuth initiation: 10 requests per IP per 5 minutes. */
+const oauthInitLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many OAuth requests — please wait and try again" },
+  keyGenerator: (req) =>
     req.ip ||
     req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-    req.socket?.remoteAddress ||
-    "unknown"
-  );
-}
+    "unknown",
+});
+
+/** Rate limit for OAuth callback: 20 requests per IP per 5 minutes. */
+const oauthCallbackLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many OAuth callback requests — please wait and try again" },
+  keyGenerator: (req) =>
+    req.ip ||
+    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+    "unknown",
+});
 
 
 // ── P0 OAuth scope policy ────────────────────────────────────────────────────
@@ -319,13 +311,7 @@ export function mountShopifyOauthRoutes(app, db) {
 
   // Token-from-query fallback for browser redirects (window.location.href can't set headers).
   // This path also looks up session details so state can be properly bound.
-  app.get("/api/shopify/auth", (req, res, next) => {
-    // Rate limit OAuth initiation — 10 requests per IP per 5 minutes
-    const ip = getClientIp(req);
-    if (isRateLimited(`auth-init:${ip}`, 10, 5 * 60 * 1000)) {
-      return res.status(429).json({ error: "Too many OAuth requests — please wait and try again" });
-    }
-
+  app.get("/api/shopify/auth", oauthInitLimiter, (req, res, next) => {
     const token = req.query.token;
     if (token) {
       const session = db.query(`
@@ -387,14 +373,8 @@ export function mountShopifyOauthRoutes(app, db) {
 
   // ── OAuth Callback ────────────────────────────────────────────────────
 
-  app.get("/api/shopify/auth/callback", async (req, res) => {
+  app.get("/api/shopify/auth/callback", oauthCallbackLimiter, async (req, res) => {
     try {
-      // Rate limit OAuth callback — 20 requests per IP per 5 minutes
-      const ip = getClientIp(req);
-      if (isRateLimited(`auth-callback:${ip}`, 20, 5 * 60 * 1000)) {
-        return res.status(429).json({ error: "Too many OAuth callback requests — please wait and try again" });
-      }
-
       const { code, hmac, shop, state } = req.query;
 
       if (!code || !hmac || !shop || !state) {
