@@ -25,7 +25,7 @@
  */
 
 import crypto from "crypto";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { requireAuth } from "./auth.js";
 import { encryptToken } from "./crypto-utils.js";
 import { getProvider, invalidateProviderCache } from "./providers/registry.js";
@@ -39,10 +39,7 @@ const oauthInitLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many OAuth requests — please wait and try again" },
-  keyGenerator: (req) =>
-    req.ip ||
-    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-    "unknown",
+  keyGenerator: (req) => ipKeyGenerator(req),
 });
 
 /** Rate limit for OAuth callback: 20 requests per IP per 5 minutes. */
@@ -52,10 +49,7 @@ const oauthCallbackLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many OAuth callback requests — please wait and try again" },
-  keyGenerator: (req) =>
-    req.ip ||
-    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-    "unknown",
+  keyGenerator: (req) => ipKeyGenerator(req),
 });
 
 
