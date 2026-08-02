@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, type ReactNode, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, type ReactNode, type KeyboardEvent } from 'react';
 import { MOTION } from '../../design/motion';
 
 export interface DropdownItem {

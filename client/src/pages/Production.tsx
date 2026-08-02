@@ -788,19 +788,19 @@ export default function Production() {
       </Modal>
 
       {/* ── Confirm Modals ────────────────────────────────────────────── */}
-      <ConfirmModal open={!!confirmDeleteBom} onClose={() => setConfirmDeleteBom(null)} onConfirm={() => confirmDeleteBom && deleteBom(confirmDeleteBom.id)}
+      <ConfirmModal open={!!confirmDeleteBom} onClose={() => setConfirmDeleteBom(null)} onConfirm={() => { if (confirmDeleteBom) { return deleteBom(confirmDeleteBom.id); } }}
         title="Delete BOM" message="Delete this BOM? This cannot be undone." confirmLabel="Delete" />
 
       <ConfirmModal open={!!confirmReserveBatch} onClose={() => setConfirmReserveBatch(null)}
-        onConfirm={() => confirmReserveBatch && reserveBatch(confirmReserveBatch)}
+        onConfirm={() => { if (confirmReserveBatch) { return reserveBatch(confirmReserveBatch); } }}
         title="Reserve Inventory" message="Check availability and reserve materials for this batch? You can still cancel reservations if needed." confirmLabel="Reserve" confirmVariant="primary" />
 
       <ConfirmModal open={!!confirmExecuteBatch} onClose={() => setConfirmExecuteBatch(null)}
-        onConfirm={() => confirmExecuteBatch && executeBatch(confirmExecuteBatch)}
+        onConfirm={() => { if (confirmExecuteBatch) { return executeBatch(confirmExecuteBatch); } }}
         title="Execute Batch" message="Execute this batch? This will consume raw materials and produce finished goods. Make sure inventory is reserved first!" confirmLabel="Execute" confirmVariant="primary" />
 
       <ConfirmModal open={!!confirmUndoBatch} onClose={() => setConfirmUndoBatch(null)}
-        onConfirm={() => confirmUndoBatch && undoBatch(confirmUndoBatch.id)}
+        onConfirm={() => { if (confirmUndoBatch) { return undoBatch(confirmUndoBatch.id); } }}
         title="Undo Batch" message={`Undo batch "${confirmUndoBatch?.bom_name}"? ⚠️ This will REVERSE all inventory changes — finished goods will be removed from stock and raw materials will be restored.`}
         confirmLabel="Undo & Reverse" />
     </div>

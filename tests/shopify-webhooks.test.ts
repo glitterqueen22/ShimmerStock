@@ -45,7 +45,7 @@ describe("Shopify Webhooks", () => {
     });
 
     expect(res.status).toBe(403);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.error).toBe("Invalid HMAC signature");
   });
 
@@ -67,7 +67,7 @@ describe("Shopify Webhooks", () => {
     });
 
     expect(res.status).toBe(403);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.error).toBe("Invalid HMAC signature");
   });
 
@@ -87,7 +87,7 @@ describe("Shopify Webhooks", () => {
     });
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.success).toBe(true);
 
     // Verify it was logged in shopify_webhook_deliveries

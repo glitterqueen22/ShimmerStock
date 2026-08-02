@@ -124,7 +124,7 @@ export default function Scan() {
     return () => {
       if (scannerRef.current) {
         scannerRef.current.stop().catch(() => {});
-        scannerRef.current.clear().catch(() => {});
+        scannerRef.current.clear();
       }
     };
   }, []);

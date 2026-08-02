@@ -68,7 +68,7 @@ interface Props {
 // ── Component ──────────────────────────────────────────────────────
 
 export default function OperationsCenter({ orderId, orderNumber, customerName, open, onClose, onSuccess }: Props) {
-  const toast = useToast();
+  const { toast } = useToast();
   const [opsData, setOpsData] = useState<OperationsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,9 +88,7 @@ export default function OperationsCenter({ orderId, orderNumber, customerName, o
   const [subResults, setSubResults] = useState<ProductResult[]>([]);
   const [subSearching, setSubSearching] = useState(false);
   const [showRefundForm, setShowRefundForm] = useState(false);
-  const [refundAmount, setRefundAmount] = useState('');
   const [showCreditForm, setShowCreditForm] = useState(false);
-  const [creditAmount, setCreditAmount] = useState('');
 
   // Order items
   const [items, setItems] = useState<OrderItem[]>([]);
@@ -118,14 +116,14 @@ export default function OperationsCenter({ orderId, orderNumber, customerName, o
 
   // ── Novi suggestion ──────────────────────────────────────────────
 
-  const getNoviMessage = (): { message: string; expression: 'happy' | 'curious' | 'concerned' | 'excited' } => {
+  const getNoviMessage = (): { message: string; expression: 'happy' | 'curious' | 'concerned' | 'celebrating' } => {
     if (!opsData) return { message: "💜 Let me look at this order...", expression: 'curious' };
     if (opsData.orderStatus === 'held')
       return { message: `💜 This order is on hold. Ready to release it?`, expression: 'concerned' };
     if (opsData.hasBackorderedItems)
       return { message: "💜 One or more items are backordered. Want to split and ship the rest?", expression: 'curious' };
     if (opsData.orderStatus === 'complete' || opsData.orderStatus === 'shipped')
-      return { message: "💜 This order is complete! Nothing to do here. 🎉", expression: 'excited' };
+      return { message: "💜 This order is complete! Nothing to do here. 🎉", expression: 'celebrating' };
     if (opsData.orderStatus === 'cancelled')
       return { message: "💜 This order has been cancelled.", expression: 'concerned' };
     return { message: "💜 Here's what you can do with this order...", expression: 'happy' };

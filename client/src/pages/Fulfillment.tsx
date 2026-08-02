@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Tabs, Button, Badge, EmptyState, ErrorBanner, PageHeader, useToast, Modal } from '../components/ui';
-import { useAuth } from '../contexts/AuthContext';
 import Novi from '../components/Novi';
 import PrintModal, { type PrintData } from './PrintableLabel';
 import SplitShipmentWizard from '../components/SplitShipmentWizard';
@@ -492,8 +491,7 @@ function TemplatePreview({ type, config }: { type: string; config: TemplateConfi
 }
 
 export default function Fulfillment() {
-  const { user } = useAuth();
-  const toast = useToast();
+  const { toast } = useToast();
   const [tab, setTab] = useState('pending');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -520,8 +518,8 @@ export default function Fulfillment() {
 
   // Split shipment wizard
   const [splitWizardOpen, setSplitWizardOpen] = useState(false);
-  const [splitOrderId, setSplitOrderId] = useState<number | null>(null);
-  const [splitOrderNumber, setSplitOrderNumber] = useState<number>(0);
+  const [splitOrderId] = useState<number | null>(null);
+  const [splitOrderNumber] = useState<number>(0);
   const [opsOrderId, setOpsOrderId] = useState<number | null>(null);
   const [opsOrderNumber, setOpsOrderNumber] = useState<number>(0);
   const [opsCustomerName, setOpsCustomerName] = useState<string>("");
@@ -534,7 +532,6 @@ export default function Fulfillment() {
 
   // ── Documents Tab State ─────────────────────────────────────────
   const [templates, setTemplates] = useState<FulfillmentTemplate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<FulfillmentTemplate | null>(null);
   const [templateTypeFilter, setTemplateTypeFilter] = useState<string>('');
   const [editingTemplate, setEditingTemplate] = useState<Partial<FulfillmentTemplate> & { config: TemplateConfig }>({
     type: 'packing_slip',
@@ -558,7 +555,6 @@ export default function Fulfillment() {
     priority: 0,
   });
   const [savingUnboxingRule, setSavingUnboxingRule] = useState(false);
-  const [suggestionOrderId, setSuggestionOrderId] = useState<number | null>(null);
 
   // ── Packing Recipes (Fulfillment 1.2) ────────────────────────────
   const [recipes, setRecipes] = useState<PackingRecipe[]>([]);
@@ -688,12 +684,12 @@ export default function Fulfillment() {
         }),
       });
       if (!res.ok) throw new Error('Failed to ship');
-      toast.success?.(`Order #${shipModal.order.order_number} shipped via ${shipForm.carrier}!`);
+      toast(`Order #${shipModal.order.order_number} shipped via ${shipForm.carrier}!`, "success");
       setShipModal(null);
       setShipForm({ carrier: 'UPS', trackingNumber: '', packageType: '', weightOz: '', cost: '' });
       fetchAll();
     } catch (err: any) {
-      toast.error?.(err.message || 'Failed to create shipment');
+      toast(err.message || 'Failed to create shipment', "error");
     } finally {
       setShipping(false);
     }
@@ -709,11 +705,11 @@ export default function Fulfillment() {
         body: JSON.stringify({ orderIds: Array.from(selectedOrders), carrier: bulkCarrier }),
       });
       if (!res.ok) throw new Error('Failed to bulk ship');
-      toast.success?.(`${selectedOrders.size} orders shipped via ${bulkCarrier}!`);
+      toast(`${selectedOrders.size} orders shipped via ${bulkCarrier}!`, "success");
       setSelectedOrders(new Set());
       fetchAll();
     } catch (err: any) {
-      toast.error?.(err.message || 'Failed to bulk ship');
+      toast(err.message || 'Failed to bulk ship', "error");
     } finally {
       setShipping(false);
     }
@@ -728,7 +724,7 @@ export default function Fulfillment() {
       const data = await res.json();
       setPrintData(data);
     } catch (err: any) {
-      toast.error?.(err.message || 'Failed to load print data');
+      toast(err.message || 'Failed to load print data', "error");
     } finally {
       setPrintLoading(false);
     }
@@ -749,7 +745,7 @@ export default function Fulfillment() {
         }),
       });
       if (res.ok) {
-        toast.success?.("Pack verification saved!");
+        toast("Pack verification saved!", "success");
         setCheckedItems(new Set());
         setPackNotes('');
         setPackPhoto(null);
@@ -757,10 +753,10 @@ export default function Fulfillment() {
         if (selectedOrderId) loadPackaging(selectedOrderId);
       } else {
         const data = await res.json().catch(() => ({}));
-        toast.error?.(data.error || 'Verification failed');
+        toast(data.error || 'Verification failed', "error");
       }
     } catch (err: any) {
-      toast.error?.(err.message || 'Network error');
+      toast(err.message || 'Network error', "error");
     } finally {
       setVerifying(false);
     }
@@ -836,11 +832,11 @@ export default function Fulfillment() {
         });
       }
       if (!res.ok) throw new Error('Failed to save template');
-      toast.success?.(editingTemplate.id ? 'Template updated!' : 'Template created!');
+      toast(editingTemplate.id ? 'Template updated!' : 'Template created!', "success");
       setShowTemplateEditor(false);
       fetchTemplates();
     } catch (err: any) {
-      toast.error?.(err.message || 'Failed to save');
+      toast(err.message || 'Failed to save', "error");
     } finally {
       setSavingTemplate(false);
     }
@@ -850,20 +846,20 @@ export default function Fulfillment() {
     if (!confirm('Delete this template?')) return;
     try {
       await api(`/api/fulfillment/templates/${id}`, { method: 'DELETE' });
-      toast.success?.('Template deleted');
+      toast('Template deleted', "success");
       fetchTemplates();
     } catch (err: any) {
-      toast.error?.(err.message || 'Failed to delete');
+      toast(err.message || 'Failed to delete', "error");
     }
   };
 
   const handleDuplicateTemplate = async (id: number) => {
     try {
       await api(`/api/fulfillment/templates/${id}/duplicate`, { method: 'POST' });
-      toast.success?.('Template duplicated');
+      toast('Template duplicated', "success");
       fetchTemplates();
     } catch (err: any) {
-      toast.error?.(err.message || 'Failed to duplicate');
+      toast(err.message || 'Failed to duplicate', "error");
     }
   };
 
@@ -919,11 +915,11 @@ export default function Fulfillment() {
         });
       }
       if (!res.ok) throw new Error('Failed to save rule');
-      toast.success?.(editingUnboxingRule.id ? 'Rule updated!' : 'Rule created!');
+      toast(editingUnboxingRule.id ? 'Rule updated!' : 'Rule created!', "success");
       setShowUnboxingForm(false);
       fetchUnboxingRules();
     } catch (err: any) {
-      toast.error?.(err.message || 'Failed to save rule');
+      toast(err.message || 'Failed to save rule', "error");
     } finally {
       setSavingUnboxingRule(false);
     }
@@ -933,15 +929,14 @@ export default function Fulfillment() {
     if (!confirm('Delete this unboxing rule?')) return;
     try {
       await api(`/api/fulfillment/unboxing-rules/${id}`, { method: 'DELETE' });
-      toast.success?.('Rule deleted');
+      toast('Rule deleted', "success");
       fetchUnboxingRules();
     } catch (err: any) {
-      toast.error?.(err.message || 'Failed to delete');
+      toast(err.message || 'Failed to delete', "error");
     }
   };
 
   const fetchUnboxingSuggestions = async (orderId: number) => {
-    setSuggestionOrderId(orderId);
     try {
       const res = await api(`/api/fulfillment/unboxing-suggestions/${orderId}`);
       if (res.ok) setUnboxingSuggestions(await res.json());
@@ -1012,11 +1007,11 @@ export default function Fulfillment() {
         });
       }
       if (!res.ok) throw new Error('Failed to save recipe');
-      toast.success?.(editingRecipe.id ? 'Recipe updated!' : 'Recipe created!');
+      toast(editingRecipe.id ? 'Recipe updated!' : 'Recipe created!', "success");
       setShowRecipeForm(false);
       fetchRecipes();
     } catch (err: any) {
-      toast.error?.(err.message || 'Failed to save recipe');
+      toast(err.message || 'Failed to save recipe', "error");
     } finally {
       setSavingRecipe(false);
     }
@@ -1026,10 +1021,10 @@ export default function Fulfillment() {
     if (!confirm('Delete this packing recipe?')) return;
     try {
       await api(`/api/fulfillment/packing-recipes/${id}`, { method: 'DELETE' });
-      toast.success?.('Recipe deleted');
+      toast('Recipe deleted', "success");
       fetchRecipes();
     } catch (err: any) {
-      toast.error?.(err.message || 'Failed to delete');
+      toast(err.message || 'Failed to delete', "error");
     }
   };
 
@@ -1041,7 +1036,7 @@ export default function Fulfillment() {
       });
       fetchRecipes();
     } catch (err: any) {
-      toast.error?.(err.message || 'Failed to toggle');
+      toast(err.message || 'Failed to toggle', "error");
     }
   };
 
@@ -1489,7 +1484,7 @@ export default function Fulfillment() {
 
           {/* Template Editor Modal */}
           {showTemplateEditor && (
-            <Modal onClose={() => setShowTemplateEditor(false)} title={editingTemplate.id ? `Edit: ${editingTemplate.name}` : 'New Template'} size="lg">
+            <Modal open={true} onClose={() => setShowTemplateEditor(false)} title={editingTemplate.id ? `Edit: ${editingTemplate.name ?? ""}` : 'New Template'} size="lg">
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 max-h-[70vh]">
                 {/* Form */}
                 <div className="lg:col-span-3 space-y-4 overflow-y-auto pr-2">
@@ -1625,7 +1620,7 @@ export default function Fulfillment() {
                   {/* Save button */}
                   <div className="flex justify-end gap-3 pt-2">
                     <Button variant="ghost" onClick={() => setShowTemplateEditor(false)}>Cancel</Button>
-                    <Button onClick={handleSaveTemplate} disabled={savingTemplate || !editingTemplate.name.trim()}>
+                    <Button onClick={handleSaveTemplate} disabled={savingTemplate || !(editingTemplate.name ?? "").trim()}>
                       {savingTemplate ? 'Saving…' : editingTemplate.id ? 'Update Template' : 'Create Template'}
                     </Button>
                   </div>
@@ -1710,12 +1705,12 @@ export default function Fulfillment() {
 
           {/* Unboxing Rule Editor Modal */}
           {showUnboxingForm && (
-            <Modal onClose={() => setShowUnboxingForm(false)} title={editingUnboxingRule.id ? 'Edit Unboxing Rule' : 'New Unboxing Rule'}>
+            <Modal open={true} onClose={() => setShowUnboxingForm(false)} title={editingUnboxingRule.id ? 'Edit Unboxing Rule' : 'New Unboxing Rule'}>
               <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                 <div>
                   <label className="block text-xs font-semibold text-neutral-600 mb-1">Rule Name *</label>
                   <input className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm" placeholder="e.g. Big Order Thank You"
-                    value={editingUnboxingRule.name}
+                    value={editingUnboxingRule.name ?? ""}
                     onChange={e => setEditingUnboxingRule(prev => ({ ...prev, name: e.target.value }))} />
                 </div>
 
@@ -1734,16 +1729,16 @@ export default function Fulfillment() {
                       <div className="flex items-center gap-1">
                         <span className="text-sm">$</span>
                         <input className="flex-1 border border-neutral-300 rounded-lg px-3 py-2 text-sm" type="number" placeholder="100"
-                          value={editingUnboxingRule.condition_value}
+                          value={editingUnboxingRule.condition_value ?? ""}
                           onChange={e => setEditingUnboxingRule(prev => ({ ...prev, condition_value: e.target.value }))} />
                       </div>
                     ) : editingUnboxingRule.condition_type === 'product_type' ? (
                       <input className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm" placeholder="e.g. fragrance"
-                        value={editingUnboxingRule.condition_value}
+                        value={editingUnboxingRule.condition_value ?? ""}
                         onChange={e => setEditingUnboxingRule(prev => ({ ...prev, condition_value: e.target.value }))} />
                     ) : editingUnboxingRule.condition_type === 'customer_type' ? (
                       <select className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm"
-                        value={editingUnboxingRule.condition_value}
+                        value={editingUnboxingRule.condition_value ?? ""}
                         onChange={e => setEditingUnboxingRule(prev => ({ ...prev, condition_value: e.target.value }))}>
                         <option value="">Select...</option>
                         <option value="first_time">First-time Customer</option>
@@ -1752,11 +1747,11 @@ export default function Fulfillment() {
                       </select>
                     ) : editingUnboxingRule.condition_type === 'seasonal' ? (
                       <input className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm" placeholder="11-1-12-31 (Nov-Dec)"
-                        value={editingUnboxingRule.condition_value}
+                        value={editingUnboxingRule.condition_value ?? ""}
                         onChange={e => setEditingUnboxingRule(prev => ({ ...prev, condition_value: e.target.value }))} />
                     ) : (
                       <input className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm" placeholder="Custom condition"
-                        value={editingUnboxingRule.condition_value}
+                        value={editingUnboxingRule.condition_value ?? ""}
                         onChange={e => setEditingUnboxingRule(prev => ({ ...prev, condition_value: e.target.value }))} />
                     )}
                   </div>
@@ -1839,7 +1834,7 @@ export default function Fulfillment() {
 
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="ghost" onClick={() => setShowUnboxingForm(false)}>Cancel</Button>
-                  <Button onClick={handleSaveUnboxingRule} disabled={savingUnboxingRule || !editingUnboxingRule.name.trim() || !editingUnboxingRule.condition_value.trim()}>
+                  <Button onClick={handleSaveUnboxingRule} disabled={savingUnboxingRule || !(editingUnboxingRule.name ?? "").trim() || !(editingUnboxingRule.condition_value ?? "").trim()}>
                     {savingUnboxingRule ? 'Saving…' : editingUnboxingRule.id ? 'Update Rule' : 'Create Rule'}
                   </Button>
                 </div>
@@ -1942,13 +1937,13 @@ export default function Fulfillment() {
 
           {/* Recipe Editor Modal */}
           {showRecipeForm && (
-            <Modal onClose={() => setShowRecipeForm(false)} title={editingRecipe.id ? `Edit: ${editingRecipe.name}` : 'New Packing Recipe'}>
+            <Modal open={true} onClose={() => setShowRecipeForm(false)} title={editingRecipe.id ? `Edit: ${editingRecipe.name ?? ""}` : 'New Packing Recipe'}>
               <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-neutral-600 mb-1">Recipe Name *</label>
                     <input className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm" placeholder="e.g. Standard Retail"
-                      value={editingRecipe.name}
+                      value={editingRecipe.name ?? ""}
                       onChange={e => setEditingRecipe(prev => ({ ...prev, name: e.target.value }))} />
                   </div>
                   <div>
@@ -2104,7 +2099,7 @@ export default function Fulfillment() {
 
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="ghost" onClick={() => setShowRecipeForm(false)}>Cancel</Button>
-                  <Button onClick={handleSaveRecipe} disabled={savingRecipe || !editingRecipe.name.trim()}>
+                  <Button onClick={handleSaveRecipe} disabled={savingRecipe || !(editingRecipe.name ?? "").trim()}>
                     {savingRecipe ? 'Saving...' : editingRecipe.id ? 'Update Recipe' : 'Create Recipe'}
                   </Button>
                 </div>
@@ -2169,7 +2164,7 @@ export default function Fulfillment() {
 
       {/* Ship Modal */}
       {shipModal && (
-        <Modal onClose={() => setShipModal(null)} title={`Ship Order #${shipModal.order.order_number}`}>
+        <Modal open={true} onClose={() => setShipModal(null)} title={`Ship Order #${shipModal.order.order_number}`}>
           <div className="space-y-4">
             <div><p className="text-sm text-neutral-600 mb-3"><span className="font-medium">{shipModal.order.customer_name}</span>{shipModal.order.shipping_address && <span className="block text-xs text-neutral-400 mt-0.5">{shipModal.order.shipping_address}</span>}</p></div>
             <div><label className="block text-xs font-semibold text-neutral-600 mb-1">Carrier *</label><select className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm" value={shipForm.carrier} onChange={e => setShipForm({ ...shipForm, carrier: e.target.value })}><option>UPS</option><option>USPS</option><option>FedEx</option><option>DHL</option></select></div>

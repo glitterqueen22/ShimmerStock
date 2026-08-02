@@ -20,7 +20,6 @@ import ProductHQ from "./pages/ProductHQ";
 import Opportunities from "./pages/Opportunities";
 import Warehouse from "./pages/Warehouse";
 import CustomerHub from "./pages/CustomerHub";
-import Affiliates from "./pages/Affiliates";
 import Partner from "./pages/Partner";
 import Settings from "./pages/Settings";
 import Studio from "./pages/Studio";

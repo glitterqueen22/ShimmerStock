@@ -290,7 +290,7 @@ export default function ShopifyConnect({
   const handleSetMode = async (mode: "readonly" | "full") => {
     setModeSwitching(true);
     try {
-      const data = await apiPost("/api/shopify/sync-mode", { mode });
+      await apiPost("/api/shopify/sync-mode", { mode });
       toast(mode === "full" ? "Full Sync enabled — ShimmerStock can now write to Shopify" : "Safe Mode enabled — read-only", "success");
       if (mode === "full") dismissSafeMode();
       fetchStatus();

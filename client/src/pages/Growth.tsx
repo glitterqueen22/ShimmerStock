@@ -104,7 +104,7 @@ function money(val: number | null): string {
 
 // ── Simple Bar Chart (CSS) ──────────────────────────────────────────
 
-function MiniBarChart({ data, maxValue, label }: { data: { label: string; value: number }[]; maxValue?: number; label?: string }) {
+export function MiniBarChart({ data, maxValue, label }: { data: { label: string; value: number }[]; maxValue?: number; label?: string }) {
   const max = maxValue ?? Math.max(...data.map(d => d.value), 1);
   return (
     <div className="space-y-1">

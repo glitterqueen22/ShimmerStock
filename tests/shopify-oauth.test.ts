@@ -83,7 +83,7 @@ describe("Shopify OAuth Flow", () => {
     const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
 
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.error).toContain("Missing required parameters");
   });
 
@@ -99,7 +99,7 @@ describe("Shopify OAuth Flow", () => {
     const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
 
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.error).toContain("Unknown or replayed state");
   });
 
@@ -121,7 +121,7 @@ describe("Shopify OAuth Flow", () => {
     const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
 
     expect(res.status).toBe(403);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.error).toContain("Invalid HMAC signature");
   });
 
@@ -136,7 +136,7 @@ describe("Shopify OAuth Flow", () => {
     const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
 
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.error).toContain("Invalid shop domain");
   });
 
@@ -160,7 +160,7 @@ describe("Shopify OAuth Flow", () => {
     const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
 
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.error).toContain("Shop mismatch");
   });
 
@@ -187,7 +187,7 @@ describe("Shopify OAuth Flow", () => {
     const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
 
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.error).toContain("already consumed");
   });
 
@@ -212,7 +212,7 @@ describe("Shopify OAuth Flow", () => {
     const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
 
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.error).toContain("expired");
   });
 
@@ -245,7 +245,7 @@ describe("Shopify OAuth Flow", () => {
     try {
       const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
       expect(res.status).toBe(403);
-      const data = await res.json();
+      const data = await res.json() as any;
       expect(data.error).toContain("write");
     } finally {
       global.fetch = originalFetch;
@@ -280,7 +280,7 @@ describe("Shopify OAuth Flow", () => {
     try {
       const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
       expect(res.status).toBe(403);
-      const data = await res.json();
+      const data = await res.json() as any;
       expect(data.error).toContain("missing required scopes");
     } finally {
       global.fetch = originalFetch;
@@ -381,4 +381,157 @@ describe("Shopify OAuth Flow", () => {
       global.fetch = originalFetch;
     }
   });
+
+  // -- OAuth State Binding Tests --
+
+  it("rejects callback when initiating session has been invalidated (session mismatch)", async () => {
+    // Insert a state record directly with a non-existent session_id.
+    // This avoids expiring the shared test session used by subsequent tests.
+    const fakeState = crypto.randomBytes(32).toString("hex");
+    const fakeStateHash = crypto.createHash("sha256").update(fakeState).digest("hex");
+    db.run(
+      `INSERT INTO shopify_oauth_state (state_hash, user_id, business_id, session_id, expected_shop, expires_at)
+       VALUES (?, 1, 1, -9999, 'session-test.myshopify.com', datetime('now', '+10 minutes'))`,
+      [fakeStateHash]
+    );
+
+    const query = { code: "test_code", shop: "session-test.myshopify.com", state: fakeState };
+    const hmac = generateCallbackHmac(query as Record<string, string>, "test_client_secret");
+    const qs = new URLSearchParams({ ...query, hmac }).toString();
+
+    const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
+    expect(res.status).toBe(400);
+    const data = await res.json() as any;
+    expect(data.error).toContain("Session mismatch");
+  });
+
+  it("rejects callback when user is no longer associated with the business (business mismatch)", async () => {
+    // Fresh login to avoid affecting the shared session used in beforeAll.
+    const freshToken = await loginAs(appUrl, "owner_a", "test1234");
+    const authRes = await fetch(`${appUrl}/api/shopify/auth?shop=biz-mismatch.myshopify.com`, {
+      redirect: "manual",
+      headers: { Authorization: `Bearer ${freshToken}` },
+    });
+    const authUrl = new URL(authRes.headers.get("location")!);
+    const state = authUrl.searchParams.get("state")!;
+
+    const stateHash = crypto.createHash("sha256").update(state).digest("hex");
+    const stateRecord = db.query("SELECT * FROM shopify_oauth_state WHERE state_hash = ?").get(stateHash);
+    expect(stateRecord).toBeTruthy();
+
+    // Deactivate the user's business association
+    db.run(
+      "UPDATE user_businesses SET is_active = 0 WHERE user_id = ? AND business_id = ?",
+      [stateRecord.user_id, stateRecord.business_id]
+    );
+
+    const query = { code: "test_code", shop: "biz-mismatch.myshopify.com", state };
+    const hmac = generateCallbackHmac(query as Record<string, string>, "test_client_secret");
+    const qs = new URLSearchParams({ ...query, hmac }).toString();
+
+    const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
+    expect(res.status).toBe(400);
+    const data = await res.json() as any;
+    expect(data.error).toContain("Business mismatch");
+
+    // Restore for subsequent tests
+    db.run(
+      "UPDATE user_businesses SET is_active = 1 WHERE user_id = ? AND business_id = ?",
+      [stateRecord.user_id, stateRecord.business_id]
+    );
+  });
+
+  it("rejects callback when session user does not match state user (user mismatch)", async () => {
+    // Fresh login to isolate from other tests.
+    const freshToken = await loginAs(appUrl, "owner_a", "test1234");
+    const authRes = await fetch(`${appUrl}/api/shopify/auth?shop=user-mismatch.myshopify.com`, {
+      redirect: "manual",
+      headers: { Authorization: `Bearer ${freshToken}` },
+    });
+    const authUrl = new URL(authRes.headers.get("location")!);
+    const state = authUrl.searchParams.get("state")!;
+
+    const stateHash = crypto.createHash("sha256").update(state).digest("hex");
+    const stateRecord = db.query("SELECT * FROM shopify_oauth_state WHERE state_hash = ?").get(stateHash);
+    expect(stateRecord).toBeTruthy();
+
+    // Tamper the state record's user_id to simulate a different user initiating the flow
+    db.run("UPDATE shopify_oauth_state SET user_id = 9999 WHERE state_hash = ?", [stateHash]);
+
+    const query = { code: "test_code", shop: "user-mismatch.myshopify.com", state };
+    const hmac = generateCallbackHmac(query as Record<string, string>, "test_client_secret");
+    const qs = new URLSearchParams({ ...query, hmac }).toString();
+
+    const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
+    expect(res.status).toBe(400);
+    const data = await res.json() as any;
+    expect(data.error).toMatch(/mismatch/i);
+  });
+
+  it("rejects concurrent duplicate callback attempts (atomic one-time consumption)", async () => {
+    const authRes = await fetch(`${appUrl}/api/shopify/auth?shop=atomic-test.myshopify.com`, {
+      redirect: "manual",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const authUrl = new URL(authRes.headers.get("location")!);
+    const state = authUrl.searchParams.get("state")!;
+
+    const query = { code: "test_code", shop: "atomic-test.myshopify.com", state };
+    const hmac = generateCallbackHmac(query as Record<string, string>, "test_client_secret");
+    const qs = new URLSearchParams({ ...query, hmac }).toString();
+
+    const originalFetch = global.fetch;
+    (global as any).fetch = mock(async (input: any, init?: any) => {
+      const urlStr = input.toString();
+      if (urlStr.includes("/admin/oauth/access_token")) {
+        return new Response(JSON.stringify({
+          access_token: "shpat_test_atomic",
+          scope: "read_orders,read_products,read_inventory,read_locations",
+        }));
+      }
+      if (urlStr.includes("/shop.json")) {
+        return new Response(JSON.stringify({
+          shop: { myshopify_domain: "atomic-test.myshopify.com", email: "a@b.com", name: "Test" },
+        }));
+      }
+      return originalFetch(input, init);
+    });
+
+    try {
+      const [res1, res2] = await Promise.all([
+        fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" }),
+        fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" }),
+      ]);
+
+      const statuses = [res1.status, res2.status].sort();
+      const successCount = statuses.filter((s) => s === 200 || s === 302).length;
+      const rejectCount = statuses.filter((s) => s === 400 || s === 403).length;
+
+      expect(successCount).toBeLessThanOrEqual(1);
+      expect(rejectCount).toBeGreaterThanOrEqual(1);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  // -- Generic credential-insertion containment --
+
+  it("generic provider route does not accept raw Shopify access credentials", async () => {
+    // Verify that generic provider/configuration routes cannot insert raw credentials.
+    const res = await fetch(`${appUrl}/api/providers/shopify/credentials`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        shopDomain: "evil.myshopify.com",
+        accessToken: "shpat_raw_direct_token",
+        scopes: "read_orders,write_orders",
+      }),
+    });
+    // Route must not exist or must reject the raw credential insertion
+    expect([404, 400, 401, 403, 405]).toContain(res.status);
+  });
+
 });

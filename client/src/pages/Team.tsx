@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../contexts/AuthContext";
 import Novi from "../components/Novi";
 import { PageHeader, Button, Tabs, EmptyState, ErrorBanner, useToast } from "../components/ui";
 
@@ -139,8 +138,7 @@ function formatDateTime(d: string): string {
 // ── Main Component ──
 
 export default function Team() {
-  const { user } = useAuth();
-  const toast = useToast();
+  const { toast } = useToast();
   const [tab, setTab] = useState("members");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +147,6 @@ export default function Team() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [roles, setRoles] = useState<TeamRole[]>([]);
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
-  const [allResources, setAllResources] = useState<string[]>([]);
   const [teamStats, setTeamStats] = useState<{ totalMembers: number; activeRoles: number }>({ totalMembers: 0, activeRoles: 0 });
 
   // Form states
@@ -201,17 +198,17 @@ export default function Team() {
         body: JSON.stringify({ email: inviteEmail, name: inviteName, roleId: inviteRoleId }),
       });
       if (res.ok) {
-        toast?.show("Invitation sent!", "success");
+        toast("Invitation sent!", "success");
         setInviteEmail("");
         setInviteName("");
         setInviteRoleId(null);
         loadData();
       } else {
         const data = await res.json();
-        toast?.show(data.error || "Failed to invite", "error");
+        toast(data.error || "Failed to invite", "error");
       }
     } catch (err: any) {
-      toast?.show(err.message, "error");
+      toast(err.message, "error");
     } finally {
       setSubmitting(false);
     }
@@ -226,14 +223,14 @@ export default function Team() {
         body: JSON.stringify(fields),
       });
       if (res.ok) {
-        toast?.show("Member updated", "success");
+        toast("Member updated", "success");
         loadData();
       } else {
         const data = await res.json();
-        toast?.show(data.error || "Failed to update", "error");
+        toast(data.error || "Failed to update", "error");
       }
     } catch (err: any) {
-      toast?.show(err.message, "error");
+      toast(err.message, "error");
     }
   }
 
@@ -242,14 +239,14 @@ export default function Team() {
     try {
       const res = await apiFetch(`/api/team/members/${memberId}`, { method: "DELETE" });
       if (res.ok) {
-        toast?.show("Member removed", "success");
+        toast("Member removed", "success");
         loadData();
       } else {
         const data = await res.json();
-        toast?.show(data.error || "Failed to remove", "error");
+        toast(data.error || "Failed to remove", "error");
       }
     } catch (err: any) {
-      toast?.show(err.message, "error");
+      toast(err.message, "error");
     }
   }
 
@@ -268,9 +265,6 @@ export default function Team() {
 
   async function saveRolePermissions() {
     if (!editingRoleId) return;
-    const permissions = Object.entries(editingPerms)
-      .filter(([, granted]) => granted)
-      .map(([resource]) => ({ resource, granted: true }));
     // Also include explicitly false ones for resources with checkboxes
     const allPerms = Object.keys(editingPerms).map((resource) => ({
       resource,
@@ -283,15 +277,15 @@ export default function Team() {
         body: JSON.stringify({ permissions: allPerms }),
       });
       if (res.ok) {
-        toast?.show("Permissions saved", "success");
+        toast("Permissions saved", "success");
         setEditingRoleId(null);
         loadData();
       } else {
         const data = await res.json();
-        toast?.show(data.error || "Failed to save", "error");
+        toast(data.error || "Failed to save", "error");
       }
     } catch (err: any) {
-      toast?.show(err.message, "error");
+      toast(err.message, "error");
     }
   }
 
@@ -317,15 +311,15 @@ export default function Team() {
         body: JSON.stringify({ name: newRoleName.trim(), permissions: [] }),
       });
       if (res.ok) {
-        toast?.show("Role created", "success");
+        toast("Role created", "success");
         setNewRoleName("");
         loadData();
       } else {
         const data = await res.json();
-        toast?.show(data.error || "Failed to create", "error");
+        toast(data.error || "Failed to create", "error");
       }
     } catch (err: any) {
-      toast?.show(err.message, "error");
+      toast(err.message, "error");
     }
   }
 
@@ -335,14 +329,14 @@ export default function Team() {
     try {
       const res = await apiFetch(`/api/team/roles/${roleId}`, { method: "DELETE" });
       if (res.ok) {
-        toast?.show("Role deleted", "success");
+        toast("Role deleted", "success");
         loadData();
       } else {
         const data = await res.json();
-        toast?.show(data.error || "Failed to delete", "error");
+        toast(data.error || "Failed to delete", "error");
       }
     } catch (err: any) {
-      toast?.show(err.message, "error");
+      toast(err.message, "error");
     }
   }
 

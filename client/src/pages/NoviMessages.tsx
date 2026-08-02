@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { apiGet } from "../lib/api";
 import NoviMessageCenter from "../components/NoviMessageCenter";
 
@@ -15,7 +14,6 @@ interface SummaryResponse {
 // ── Page ────────────────────────────────────────────────────────────
 
 export default function NoviMessages() {
-  const navigate = useNavigate();
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<{ totalMessages: number; results: any[] } | null>(null);

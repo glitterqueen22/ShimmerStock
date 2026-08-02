@@ -1,18 +1,13 @@
-import React from 'react';
 import Button from './Button';
 
-// ── ErrorBanner Props ────────────────────────────────────────────
 export interface ErrorBannerProps {
-  /** Error message to display */
   message: string;
-  /** Optional retry callback — renders a retry button if provided */
   onRetry?: () => void;
-  /** Additional CSS classes */
+  onDismiss?: () => void;
   className?: string;
 }
 
-// ── ErrorBanner Component ────────────────────────────────────────
-export function ErrorBanner({ message, onRetry, className = '' }: ErrorBannerProps) {
+export function ErrorBanner({ message, onRetry, onDismiss, className = '' }: ErrorBannerProps) {
   return (
     <div
       className={`flex items-center gap-3 px-4 py-3 rounded-2xl border bg-red-50 border-red-200 text-red-700 ${className}`}
@@ -25,6 +20,11 @@ export function ErrorBanner({ message, onRetry, className = '' }: ErrorBannerPro
       {onRetry && (
         <Button variant="danger" size="sm" onClick={onRetry}>
           Retry
+        </Button>
+      )}
+      {onDismiss && (
+        <Button variant="ghost" size="sm" onClick={onDismiss}>
+          Dismiss
         </Button>
       )}
     </div>

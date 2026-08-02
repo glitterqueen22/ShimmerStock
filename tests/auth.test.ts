@@ -25,7 +25,7 @@ describe("POST /api/auth/login", () => {
       body: JSON.stringify({ username: "owner_a", password: "test1234" }),
     });
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.token).toBeDefined();
     expect(typeof data.token).toBe("string");
     expect(data.token.length).toBeGreaterThan(10);
@@ -42,7 +42,7 @@ describe("POST /api/auth/login", () => {
       body: JSON.stringify({ username: "owner_a", password: "wrongpassword" }),
     });
     expect(res.status).toBe(401);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.error).toMatch(/invalid/i);
   });
 
@@ -53,7 +53,7 @@ describe("POST /api/auth/login", () => {
       body: JSON.stringify({ username: "nonexistent_user", password: "anything" }),
     });
     expect(res.status).toBe(401);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.error).toMatch(/invalid/i);
   });
 
@@ -64,7 +64,7 @@ describe("POST /api/auth/login", () => {
       body: JSON.stringify({ username: "owner_a", password: "test1234" }),
     });
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = await res.json() as any;
     const bodyStr = JSON.stringify(data);
     expect(bodyStr).not.toContain("password_hash");
     expect(bodyStr).not.toContain("$2b$");
@@ -81,7 +81,7 @@ describe("POST /api/auth/login", () => {
       body: JSON.stringify({ username: "owner_a", password: "test1234" }),
     });
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.user.businesses).toBeDefined();
     expect(Array.isArray(data.user.businesses)).toBe(true);
     expect(data.user.businesses.length).toBeGreaterThanOrEqual(1);
@@ -122,7 +122,7 @@ describe("POST /api/auth/forgot-password", () => {
       body: JSON.stringify({ username: "owner_a" }),
     });
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.message).toBe("If that account exists, a reset link has been sent.");
     expect(data.resetToken).toBeUndefined();
   });

@@ -192,19 +192,6 @@ const COMMISSION_TYPES = [
 ];
 
 // ── Status badges ───────────────────────────────────────────────────
-function statusColor(status: string) {
-  switch (status) {
-    case 'confirmed': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    case 'pending': return 'bg-amber-50 text-amber-700 border-amber-200';
-    case 'paid': return 'bg-blue-50 text-blue-700 border-blue-200';
-    case 'cancelled': return 'bg-red-50 text-red-700 border-red-200';
-    case 'active': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    case 'completed': return 'bg-blue-50 text-blue-700 border-blue-200';
-    case 'dismissed': return 'bg-gray-50 text-gray-500 border-gray-200';
-    default: return 'bg-gray-50 text-gray-700 border-gray-200';
-  }
-}
-
 function txnColor(type: string) {
   switch (type) {
     case 'earned': return 'text-emerald-600';
@@ -229,7 +216,7 @@ function txnIcon(type: string) {
 export default function Affiliates() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   // Dashboard
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -252,7 +239,6 @@ export default function Affiliates() {
   // Coupons
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [couponAmount, setCouponAmount] = useState('25');
-  const [showCouponModal, setShowCouponModal] = useState(false);
   const [generatedCoupon, setGeneratedCoupon] = useState<Coupon | null>(null);
 
   // Goals
@@ -695,7 +681,7 @@ export default function Affiliates() {
                       </td>
                       <td className="px-4 py-3 text-right">${(aff.total_revenue_generated || 0).toFixed(2)}</td>
                       <td className="px-4 py-3">
-                        <Badge variant={aff.is_active ? 'success' : 'neutral'}>{aff.is_active ? 'Active' : 'Inactive'}</Badge>
+                        <Badge status={aff.is_active ? 'success' : 'neutral'}>{aff.is_active ? 'Active' : 'Inactive'}</Badge>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
@@ -768,7 +754,7 @@ export default function Affiliates() {
                             <td className="px-4 py-3"><p className="font-medium">{p.affiliate_name}</p></td>
                             <td className="px-4 py-3 text-right font-medium">${p.amount.toFixed(2)}</td>
                             <td className="px-4 py-3 text-xs capitalize">{p.method.replace('_', ' ')}</td>
-                            <td className="px-4 py-3"><Badge variant={p.status === 'paid' ? 'success' : 'warning'}>{p.status}</Badge></td>
+                            <td className="px-4 py-3"><Badge status={p.status === 'paid' ? 'success' : 'warning'}>{p.status}</Badge></td>
                             <td className="px-4 py-3 text-xs text-neutral-400">{new Date(p.created_at).toLocaleDateString()}</td>
                           </tr>
                         ))}
@@ -919,7 +905,7 @@ export default function Affiliates() {
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <Badge variant={flag.status === 'pending' ? 'warning' : flag.status === 'dismissed' ? 'neutral' : 'success'}>
+                        <Badge status={flag.status === 'pending' ? 'warning' : flag.status === 'dismissed' ? 'neutral' : 'success'}>
                           {flag.status}
                         </Badge>
                         <span className="text-xs font-medium text-neutral-500 uppercase">{flag.flag_type.replace('_', ' ')}</span>
@@ -958,7 +944,7 @@ export default function Affiliates() {
                 <h2 className="text-lg font-bold text-neutral-800">{detailAffiliate.name}</h2>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="font-mono text-xs bg-rose-50 text-rose-700 px-2 py-0.5 rounded-full">{detailAffiliate.discount_code}</span>
-                  <Badge variant={detailAffiliate.is_active ? 'success' : 'neutral'}>{detailAffiliate.is_active ? 'Active' : 'Inactive'}</Badge>
+                  <Badge status={detailAffiliate.is_active ? 'success' : 'neutral'}>{detailAffiliate.is_active ? 'Active' : 'Inactive'}</Badge>
                   {detailAffiliate.email && <span className="text-xs text-neutral-400">{detailAffiliate.email}</span>}
                 </div>
               </div>
@@ -990,7 +976,7 @@ export default function Affiliates() {
                 <div className="grid grid-cols-2 gap-3">
                   <div><span className="text-neutral-400">Discount:</span> <strong>{detailAffiliate.discount_type === 'percentage' ? `${detailAffiliate.discount_value}%` : `$${detailAffiliate.discount_value}`}</strong></div>
                   <div><span className="text-neutral-400">Commission:</span> <strong>{detailAffiliate.commission_rate}%</strong></div>
-                  <div><span className="text-neutral-400">Active:</span> <Badge variant={detailAffiliate.is_active ? 'success' : 'neutral'}>{detailAffiliate.is_active ? 'Yes' : 'No'}</Badge></div>
+                  <div><span className="text-neutral-400">Active:</span> <Badge status={detailAffiliate.is_active ? 'success' : 'neutral'}>{detailAffiliate.is_active ? 'Yes' : 'No'}</Badge></div>
                   <div><span className="text-neutral-400">Joined:</span> <strong>{new Date(detailAffiliate.created_at).toLocaleDateString()}</strong></div>
                 </div>
                 {detailAffiliate.notes && (
@@ -1130,7 +1116,7 @@ export default function Affiliates() {
                             <code className="text-xs font-mono text-neutral-700">{c.code}</code>
                             <span className="text-xs text-neutral-400 ml-2">${(c.amount_cents / 100).toFixed(2)}</span>
                           </div>
-                          <Badge variant={c.status === 'active' ? 'success' : 'neutral'}>{c.status}</Badge>
+                          <Badge status={c.status === 'active' ? 'success' : 'neutral'}>{c.status}</Badge>
                         </div>
                       ))}
                     </div>
@@ -1157,7 +1143,7 @@ export default function Affiliates() {
                             <p className="font-medium text-sm text-neutral-800">{g.title}</p>
                             {g.reward && <p className="text-xs text-neutral-400">Reward: {g.reward}</p>}
                           </div>
-                          <Badge variant={g.status === 'completed' ? 'success' : g.status === 'active' ? 'warning' : 'neutral'}>
+                          <Badge status={g.status === 'completed' ? 'success' : g.status === 'active' ? 'warning' : 'neutral'}>
                             {g.status}
                           </Badge>
                         </div>

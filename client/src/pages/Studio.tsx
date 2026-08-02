@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../contexts/AuthContext";
 import Novi from "../components/Novi";
 import { PageHeader, Button, Skeleton, EmptyState, ErrorBanner, useToast } from "../components/ui";
 
@@ -70,7 +69,6 @@ function apiHeaders() {
 }
 
 export default function Studio() {
-  const { user } = useAuth();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState("generate");
@@ -94,7 +92,6 @@ export default function Studio() {
 
   // Brand settings
   const [brandSettings, setBrandSettings] = useState<BrandSettings | null>(null);
-  const [brandTab, setBrandTab] = useState(false);
   const [brandColors, setBrandColors] = useState(["#f43f5e", "#fda4af", "#fff1f2"]);
   const [brandLogoUrl, setBrandLogoUrl] = useState("");
   const [brandFont, setBrandFont] = useState("Inter");
@@ -181,9 +178,9 @@ export default function Studio() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generation failed");
       setGeneratedHtml(data.html);
-      toast({ message: "Asset generated!", type: "success" });
+      toast("Asset generated!", "success");
     } catch (err: any) {
-      toast({ message: err.message, type: "error" });
+      toast(err.message, "error");
     }
     setGenerating(false);
   }
@@ -212,10 +209,10 @@ export default function Studio() {
         const data = await res.json();
         throw new Error(data.error || "Failed to save");
       }
-      toast({ message: "Asset saved!", type: "success" });
+      toast("Asset saved!", "success");
       loadAssets();
     } catch (err: any) {
-      toast({ message: err.message, type: "error" });
+      toast(err.message, "error");
     }
   }
 
@@ -228,9 +225,9 @@ export default function Studio() {
       });
       if (!res.ok) throw new Error("Failed to delete");
       setAssets((prev) => prev.filter((a) => a.id !== id));
-      toast({ message: "Asset deleted", type: "success" });
+      toast("Asset deleted", "success");
     } catch (err: any) {
-      toast({ message: err.message, type: "error" });
+      toast(err.message, "error");
     }
   }
 
@@ -256,9 +253,9 @@ export default function Studio() {
       setTemplates((prev) => [created, ...prev]);
       setNewTemplateName("");
       setShowNewTemplate(false);
-      toast({ message: "Template created!", type: "success" });
+      toast("Template created!", "success");
     } catch (err: any) {
-      toast({ message: err.message, type: "error" });
+      toast(err.message, "error");
     }
     setSavingTemplate(false);
   }
@@ -278,9 +275,9 @@ export default function Studio() {
       });
       if (!res.ok) throw new Error("Failed to save");
       setBrandSettings({ brandColors, brandLogoUrl: brandLogoUrl || null, brandFont });
-      toast({ message: "Brand settings saved!", type: "success" });
+      toast("Brand settings saved!", "success");
     } catch (err: any) {
-      toast({ message: err.message, type: "error" });
+      toast(err.message, "error");
     }
     setSavingBrand(false);
   }
@@ -313,13 +310,11 @@ export default function Studio() {
 
   // Choose preview width based on type
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
-  const previewType = selectedTemplate?.type || "social_post";
-
   return (
     <div className="max-w-6xl mx-auto">
       {/* Page Header with Novi */}
       <div className="flex items-center gap-4 mb-6">
-        <Novi expression="happy" size="sm" accessory="paintbrush" />
+        <Novi expression="happy" size="sm" accessory="marketing" />
         <div>
           <h1 className="text-2xl font-bold text-neutral-800 flex items-center gap-2">
             <span className="text-3xl">🎨</span> Studio

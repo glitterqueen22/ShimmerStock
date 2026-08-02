@@ -1,29 +1,37 @@
-import React from 'react';
-
 // ── Tabs Props ───────────────────────────────────────────────────
 export interface Tab {
-  id: string;
+  id?: string;
+  key?: string;
   label: string;
   count?: number;
+  badge?: number | null;
 }
 
 export interface TabsProps {
   tabs: Tab[];
-  active: string;
-  onChange: (id: string) => void;
+  active?: string;
+  activeId?: string;
+  activeTab?: string;
+  onChange?: (id: string) => void;
+  onTabChange?: (id: string) => void;
   className?: string;
 }
 
-// ── Tabs Component ───────────────────────────────────────────────
-export function Tabs({ tabs, active, onChange, className = '' }: TabsProps) {
+export function Tabs({ tabs, active, activeId, activeTab, onChange, onTabChange, className = '' }: TabsProps) {
+  const currentActive = active ?? activeId ?? activeTab ?? (tabs[0]?.id ?? tabs[0]?.key ?? '');
+  const handleChange = onChange ?? onTabChange ?? (() => {});
+
   return (
     <div className={`bg-rose-50 p-1 rounded-xl inline-flex gap-0.5 ${className}`}>
-      {tabs.map((tab) => {
-        const isActive = tab.id === active;
+      {tabs.map((tab, index) => {
+        const tabId = tab.id ?? tab.key ?? `tab-${index}`;
+        const count = tab.count ?? (typeof tab.badge === 'number' ? tab.badge : undefined);
+        const isActive = tabId === currentActive;
+
         return (
           <button
-            key={tab.id}
-            onClick={() => onChange(tab.id)}
+            key={tabId}
+            onClick={() => handleChange(tabId)}
             className={`
               relative px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200
               focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500
@@ -36,7 +44,7 @@ export function Tabs({ tabs, active, onChange, className = '' }: TabsProps) {
             `.trim()}
           >
             {tab.label}
-            {tab.count !== undefined && (
+            {count !== undefined && (
               <span
                 className={`
                   ml-1.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5
@@ -44,7 +52,7 @@ export function Tabs({ tabs, active, onChange, className = '' }: TabsProps) {
                   ${isActive ? 'bg-rose-100 text-rose-600' : 'bg-neutral-200 text-neutral-600'}
                 `.trim()}
               >
-                {tab.count}
+                {count}
               </span>
             )}
           </button>

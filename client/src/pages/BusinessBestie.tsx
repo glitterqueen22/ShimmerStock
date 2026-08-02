@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
 import { apiGet, apiPost, apiPut } from "../lib/api";
-import { PageHeader, Button, Badge, Skeleton, EmptyState, ErrorBanner, FilterBar, ProgressBar, useToast } from "../components/ui";
+import { Button, Badge, Skeleton, EmptyState, ErrorBanner, FilterBar, ProgressBar, useToast } from "../components/ui";
 import Novi from "../components/Novi";
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -301,7 +300,6 @@ function CreateGoalModal({ onClose, onCreate }: { onClose: () => void; onCreate:
 // ── Main Page ───────────────────────────────────────────────────────
 
 export default function BusinessBestie() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [data, setData] = useState<BriefData | null>(null);
@@ -321,7 +319,6 @@ export default function BusinessBestie() {
   const [wrapped, setWrapped] = useState<WrappedData | null>(null);
   const [showWrapped, setShowWrapped] = useState(false);
   const [showCreateGoal, setShowCreateGoal] = useState(false);
-  const [goalsLoading, setGoalsLoading] = useState(false);
 
   const fetchBrief = useCallback(async (pers: string) => {
     setLoading(true);
@@ -459,8 +456,6 @@ export default function BusinessBestie() {
   }));
 
   // Check if wrapped has data
-  const hasWrapped = wrapped && wrapped.totalOrders > 0;
-
   return (
     <div className="space-y-6">
       {/* ── Header with greeting + personality selector ──────────── */}

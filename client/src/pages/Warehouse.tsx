@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Tabs, Button, Modal, Badge, EmptyState, ErrorBanner, PageHeader, useToast } from '../components/ui';
-import { useAuth } from '../contexts/AuthContext';
 import { RADIUS } from '../design/tokens';
 import { MOTION } from '../design/motion';
 import Novi from '../components/Novi';
@@ -106,8 +105,7 @@ function api(path: string, init?: RequestInit) {
 
 // ── Component ─────────────────────────────────────────────────────
 export default function Warehouse() {
-  const { user } = useAuth();
-  const toast = useToast();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('bins');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +129,6 @@ export default function Warehouse() {
   const [pickList, setPickList] = useState<PickListItem[]>([]);
   const [shipmentTabs, setShipmentTabs] = useState<any[]>([]);
   const [activeShipmentId, setActiveShipmentId] = useState<number | null>(null);
-  const [pickForm, setPickForm] = useState({ binId: '', productId: '', quantity: '1' });
 
   // Barcode scan
   const [barcodeScanItem, setBarcodeScanItem] = useState<number | null>(null); // order_item_id
@@ -201,10 +198,10 @@ export default function Warehouse() {
       });
       setShowAddBin(false);
       setAddBinForm({ name: '', zone: 'Storage' });
-      toast?.show('Bin created', 'success');
+      toast('Bin created', "success");
       await loadBins();
     } catch (err: any) {
-      toast?.show(err.message, 'error');
+      toast(err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -217,7 +214,7 @@ export default function Warehouse() {
       setBinContents(data.contents || []);
       setShowBinDetail(true);
     } catch (err: any) {
-      toast?.show(err.message, 'error');
+      toast(err.message, "error");
     }
   }
 
@@ -237,13 +234,13 @@ export default function Warehouse() {
           notes: receiveForm.notes || null,
         }),
       });
-      toast?.show('Items received into bin', 'success');
+      toast('Items received into bin', "success");
       setReceiveForm({ binId: '', productId: '', quantity: '1', referenceType: '', referenceId: '', notes: '' });
       await loadBins();
       await loadTransfers();
       await loadProducts();
     } catch (err: any) {
-      toast?.show(err.message, 'error');
+      toast(err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -264,12 +261,12 @@ export default function Warehouse() {
           notes: moveForm.notes || null,
         }),
       });
-      toast?.show('Items moved between bins', 'success');
+      toast('Items moved between bins', "success");
       setMoveForm({ fromBinId: '', toBinId: '', productId: '', quantity: '1', notes: '' });
       await loadBins();
       await loadTransfers();
     } catch (err: any) {
-      toast?.show(err.message, 'error');
+      toast(err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -293,7 +290,7 @@ export default function Warehouse() {
         }
       }
     } catch (err: any) {
-      toast?.show(err.message, 'error');
+      toast(err.message, "error");
     }
   }
 
@@ -310,13 +307,13 @@ export default function Warehouse() {
           quantity: bin.pick_quantity,
         }),
       });
-      toast?.show(`Picked ${bin.pick_quantity}x ${item.product_name}`, 'success');
+      toast(`Picked ${bin.pick_quantity}x ${item.product_name}`, "success");
       // Reload pick list
       await handleLoadPickList(selectedOrder!);
       await loadBins();
       await loadTransfers();
     } catch (err: any) {
-      toast?.show(err.message, 'error');
+      toast(err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -327,13 +324,13 @@ export default function Warehouse() {
     setSaving(true);
     try {
       await api(`/api/warehouse/ship/${selectedOrder.id}`, { method: 'POST' });
-      toast?.show(`Order #${selectedOrder.order_number} shipped!`, 'success');
+      toast(`Order #${selectedOrder.order_number} shipped!`, "success");
       setSelectedOrder(null);
       setPickList([]);
       await loadOrders();
       await loadTransfers();
     } catch (err: any) {
-      toast?.show(err.message, 'error');
+      toast(err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -348,14 +345,14 @@ export default function Warehouse() {
         method: 'POST',
         body: JSON.stringify({ barcode: scanValue.trim() }),
       });
-      toast?.show(`Scanned: ${result.productName || result.sku} (${result.scanned}/${result.total})`, 'success');
+      toast(`Scanned: ${result.productName || result.sku} (${result.scanned}/${result.total})`, "success");
       setScanValue('');
       setBarcodeScanItem(null);
       // Refresh pick list to show updated progress
       await handleLoadPickList(selectedOrder);
       await loadOrders();
     } catch (err: any) {
-      toast?.show(err.message, 'error');
+      toast(err.message, "error");
     } finally {
       setScanning(false);
     }
@@ -375,9 +372,9 @@ export default function Warehouse() {
         }),
       });
       if (result.adjusted) {
-        toast?.show(`Adjusted by ${result.difference > 0 ? '+' : ''}${result.difference}`, 'success');
+        toast(`Adjusted by ${result.difference > 0 ? '+' : ''}${result.difference}`, "success");
       } else {
-        toast?.show('Count matches — no adjustment needed', 'info');
+        toast('Count matches — no adjustment needed', "info");
       }
       setShowCycleCount(false);
       setCycleForm({ binId: '', productId: '', actualQuantity: '' });
@@ -385,7 +382,7 @@ export default function Warehouse() {
       await loadTransfers();
       await loadProducts();
     } catch (err: any) {
-      toast?.show(err.message, 'error');
+      toast(err.message, "error");
     } finally {
       setSaving(false);
     }

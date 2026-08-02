@@ -29,6 +29,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { requireAuth } from "./auth.js";
 import { encryptToken } from "./crypto-utils.js";
 import { getProvider, invalidateProviderCache } from "./providers/registry.js";
+import { gatewayFetch } from "./providers/shopify-gateway.js";
 
 // ── Rate limiters for OAuth endpoints ──────────────────────────────────────
 
@@ -149,21 +150,9 @@ async function exchangeCodeForToken(shopDomain, code) {
  * Never logs the access token.
  */
 async function fetchShopInfo(shopDomain, accessToken) {
-  const url = `https://${shopDomain}/admin/api/${API_VERSION}/shop.json`;
   console.log(`[shopify-oauth] Verifying shop identity: ${shopDomain}`);
-
-  const res = await fetch(url, {
-    headers: {
-      "X-Shopify-Access-Token": accessToken,
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!res.ok) {
-    throw new Error(`Shop info fetch failed (${res.status})`);
-  }
-
-  return res.json();
+  // Route through centralized gateway — GET is always allowed, token never logged.
+  return gatewayFetch("readonly", shopDomain, accessToken, "GET", "/shop.json");
 }
 
 // ── Scope verification ────────────────────────────────────────────────────
@@ -283,6 +272,37 @@ function consumeOAuthState(db, stateToken, callbackShop) {
       ok: false,
       error: `Shop mismatch: expected ${record.expected_shop}, got ${callbackShop}`,
     };
+  }
+
+  // Validate that the initiating session is still valid and still belongs to the
+  // expected user (guards against session invalidation between initiation and callback).
+  if (record.session_id) {
+    const session = db
+      .query(
+        "SELECT user_id FROM sessions WHERE id = ? AND expires_at > datetime('now')"
+      )
+      .get(record.session_id);
+
+    if (!session) {
+      return { ok: false, error: "Session mismatch — initiating session is no longer valid" };
+    }
+
+    if (session.user_id !== record.user_id) {
+      return { ok: false, error: "User mismatch — session user does not match state user" };
+    }
+  }
+
+  // Validate that the business still belongs to the initiating user.
+  if (record.business_id && record.user_id) {
+    const bizLink = db
+      .query(
+        "SELECT 1 FROM user_businesses WHERE user_id = ? AND business_id = ? AND is_active = 1"
+      )
+      .get(record.user_id, record.business_id);
+
+    if (!bizLink) {
+      return { ok: false, error: "Business mismatch — user is no longer associated with this business" };
+    }
   }
 
   // Atomically mark as used — only one call can succeed (UPDATE returns changes=1)

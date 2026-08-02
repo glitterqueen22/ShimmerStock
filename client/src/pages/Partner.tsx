@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { PageHeader, Tabs, Badge, Button, Modal, SearchBar, EmptyState, ProgressBar, Skeleton, ErrorBanner, useToast } from '../components/ui';
+import { PageHeader, Tabs, Badge, Button, Modal, SearchBar, EmptyState, Skeleton, ErrorBanner, useToast } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete, sanitizeError } from '../lib/api';
-import Novi from '../components/Novi';
 import NoviContextualPanel from '../components/novi/NoviContextualPanel';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -243,10 +242,14 @@ export default function Partner() {
   const [commissionConfig, setCommissionConfig] = useState<CommissionConfig | null>(null);
   const [attributions, setAttributions] = useState<AttributionRecord[]>([]);
   const [pendingAttributions, setPendingAttributions] = useState<AttributionRecord[]>([]);
-  const [mySales, setMySales] = useState<any[]>([]);
-  const [referralLinks, setReferralLinks] = useState<ReferralLink[]>([]);
+  const [mySales] = useState<any[]>([]);
+  void mySales;
+  const [referralLinks] = useState<ReferralLink[]>([]);
+  void referralLinks;
   const [showManualAttrModal, setShowManualAttrModal] = useState(false);
-  const [manualAttrForm, setManualAttrForm] = useState({ orderId: '', affiliateId: '', reason: '', commissionCents: '' });
+  void showManualAttrModal;
+  const [manualAttrForm] = useState({ orderId: '', affiliateId: '', reason: '', commissionCents: '' });
+  void manualAttrForm;
   const [attrSaving, setAttrSaving] = useState(false);
 
   // ── Loaders ──────────────────────────────────────────────────────
@@ -361,19 +364,6 @@ export default function Partner() {
     finally { setInviteSaving(false); }
   }
 
-  function openEditProgram(program: PartnerProgram) {
-    setEditingProgram(program);
-    setProgramForm({
-      name: program.name,
-      type: program.type,
-      description: program.description || '',
-      brand_color: program.brand_color,
-      approval_mode: program.approval_mode,
-      default_commission_rate: String(program.default_commission_rate),
-      default_commission_type: program.default_commission_type,
-    });
-    setShowProgramModal(true);
-  }
 
   async function handleSaveProgram() {
     if (!programForm.name.trim()) { toast('Name required', 'error'); return; }

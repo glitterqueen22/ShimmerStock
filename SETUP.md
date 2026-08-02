@@ -74,7 +74,7 @@ bun run seed
 bun run seed:reset
 ```
 
-Default admin login: `admin` / `shimmerstock2024`
+Default admin login: `admin` / `[REDACTED — change immediately]`
 
 ## Development
 

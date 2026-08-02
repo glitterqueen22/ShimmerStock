@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useIndustry } from "../context/IndustryContext";
 import { useAuth } from "../contexts/AuthContext";
-import { PageHeader, Button, Badge, Skeleton, EmptyState, ErrorBanner, useToast } from "../components/ui";
+import { PageHeader, Button, Badge, Skeleton, ErrorBanner, useToast } from "../components/ui";
 
 // ── Types ────────────────────────────────────────────────────────────
 interface IndustryProfile {
@@ -111,9 +111,9 @@ export default function Settings() {
       }
 
       await refresh();
-      toast({ message: "Industry settings updated!", type: "success" });
+      toast("Industry settings updated!", "success");
     } catch (err: any) {
-      toast({ message: err.message || "Failed to save", type: "error" });
+      toast(err.message || "Failed to save", "error");
     } finally {
       setSaving(false);
     }

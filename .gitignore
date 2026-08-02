@@ -48,3 +48,4 @@ backups/
 # Temp/scratch files
 *.tmp
 tmp/
+client-ts-errors.txt

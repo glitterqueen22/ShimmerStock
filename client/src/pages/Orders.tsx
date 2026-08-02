@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet, apiPost, apiFetch } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
-import { PageHeader, Button, Badge, Skeleton, EmptyState, ErrorBanner, ProgressBar, Modal, ConfirmModal, useToast, SearchBar, FilterBar } from "../components/ui";
+import { PageHeader, Button, Badge, Skeleton, EmptyState, ErrorBanner, ProgressBar, Modal, ConfirmModal, useToast } from "../components/ui";
 import Novi from "../components/Novi";
 import OperationsCenter from "../components/OperationsCenter";
 // ── Types ─────────────────────────────────────────────────────────────
@@ -144,6 +144,16 @@ const SOURCE_OPTIONS = [
 
 // ── Page Component ────────────────────────────────────────────────────
 
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function formatCurrency(val: number | null | undefined) {
+  if (val == null) return "—";
+  return `$${val.toFixed(2)}`;
+}
+
 export default function Orders() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -195,8 +205,8 @@ export default function Orders() {
   // Store credit for new orders
   const [availableCredit, setAvailableCredit] = useState<{ totalBalance: number; credits: any[] } | null>(null);
   const [applyCredit, setApplyCredit] = useState(false);
-  const [creditApplied, setCreditApplied] = useState<{ amount: number; code: string } | null>(null);
-  const [checkingCredit, setCheckingCredit] = useState(false);
+  const [, setCreditApplied] = useState<{ amount: number; code: string } | null>(null);
+  const [, setCheckingCredit] = useState(false);
 
   // Edits in detail modal
   const [editCustomer, setEditCustomer] = useState({ name: "", email: "" });
@@ -470,15 +480,6 @@ export default function Orders() {
   const selectOrder = (orderId: number) => { setSelectedOrderId(orderId); setShowCelebration(false); fetchOrderDetail(orderId); };
   const backToList = () => { setSelectedOrderId(null); setOrderDetail(null); setShowCelebration(false); fetchOrders(); };
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-  };
-
-  const formatCurrency = (val: number | null | undefined) => {
-    if (val == null) return "—";
-    return `$${val.toFixed(2)}`;
-  };
 
   function mapStatus(status: string): "success" | "warning" | "danger" | "info" {
     const map: Record<string, "success" | "warning" | "danger" | "info"> = {

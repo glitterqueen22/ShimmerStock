@@ -126,7 +126,7 @@ ENCRYPTION_KEY=... ./scripts/restore.sh backups/shimmerstock-2026-07-31-HHMMSS.d
 - `SELECT count(*) FROM users` → `8`
 - Server starts and serves API: `bun run serve.ts` → listening on port
 - `curl http://localhost:<port>/api/auth/login` responds (even with invalid creds, the endpoint is alive)
-- Login test: `admin / shimmerstock2024` authenticates successfully against restored DB
+- Login test: `admin / [REDACTED — change immediately]` authenticates successfully against restored DB
 
 **Conclusion:** Backup and restore pipeline works correctly. A full database can be backed up, encrypted, transferred, decrypted, decompressed, and restored — and the server boots against the restored database with all data intact.
 

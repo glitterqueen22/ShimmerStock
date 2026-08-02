@@ -93,18 +93,6 @@ function getStatusRowStyle(status: string): string {
   }
 }
 
-function getActionLabel(action: string): string {
-  switch (action) {
-    case "import_order":
-      return "Import Order";
-    case "import_product":
-      return "Import Product";
-    case "push_inventory":
-      return "Push Inventory";
-    default:
-      return action;
-  }
-}
 
 function getActionBadge(action: string) {
   switch (action) {
@@ -144,11 +132,6 @@ function formatTimestamp(ts: string): string {
   }
 }
 
-function shopifyId(entry: SyncEntry): string {
-  if (entry.shopify_order_id) return `Order #${entry.shopify_order_id}`;
-  if (entry.shopify_product_id) return `Product #${entry.shopify_product_id}`;
-  return "—";
-}
 
 function providerBadge(provider: string) {
   const icons: Record<string, string> = {
