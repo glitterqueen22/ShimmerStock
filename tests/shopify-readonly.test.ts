@@ -110,6 +110,24 @@ describe("ShopifyProvider — read-only enforcement", () => {
     );
   });
 
+  it("uses SHOPIFY_SYNC_MODE as the fallback when syncMode is omitted", async () => {
+    await withEnv(
+      { SHOPIFY_SYNC_MODE: "full", SHOPIFY_READ_ONLY: undefined, SHOPIFY_ALLOW_WRITE_MODE: "true" },
+      async () => {
+        const { default: ShopifyProvider } = await import(
+          "../server/providers/shopify.js?ro-env-fallback"
+        );
+        const provider = new ShopifyProvider({
+          shopDomain: "test.myshopify.com",
+          accessToken: "shpat_testtoken",
+        });
+
+        expect(provider.getStatus().mode).toBe("full");
+        expect(provider.getStatus().canWrite).toBe(true);
+      }
+    );
+  });
+
   it("SHOPIFY_READ_ONLY=true overrides syncMode:'full' passed in options", async () => {
     await withEnv(
       { SHOPIFY_READ_ONLY: "true", SHOPIFY_SYNC_MODE: "full", SHOPIFY_ALLOW_WRITE_MODE: "true" },
@@ -296,6 +314,20 @@ describe("ShopifyProvider — strict mode validation", () => {
         expect(provider.getStatus().mode).toBe("readonly");
       }
     );
+  });
+
+  it("rejects non-Admin tokens even for tenant-scoped providers", async () => {
+    const { default: ShopifyProvider } = await import(
+      "../server/providers/shopify.js?strict-invalid-token"
+    );
+    const provider = new ShopifyProvider({
+      shopDomain: "tenant-a.myshopify.com",
+      accessToken: "atkn_not_an_admin_token",
+      syncMode: "readonly",
+    });
+
+    expect(provider.getStatus().configured).toBe(false);
+    expect(provider.getStatus().canWrite).toBe(false);
   });
 });
 
@@ -488,27 +520,36 @@ describe("Shopify OAuth — granted scope verification", () => {
 
 describe("Provider registry — credential containment", () => {
   it("returns an unconfigured provider when business has no DB credentials", async () => {
-    const { initDb } = await import("../server/db.js");
-    const { initRegistry, getProvider } = await import(
-      "../server/providers/registry.js?containment-1"
+    await withEnv(
+      {
+        SHOPIFY_STORE_DOMAIN: "global.myshopify.com",
+        SHOPIFY_API_TOKEN: "shpat_global_token",
+      },
+      async () => {
+        const { initDb } = await import("../server/db.js");
+        const { initRegistry, getProvider } = await import(
+          "../server/providers/registry.js?containment-1"
+        );
+
+        const tmpPath = `/tmp/shimmerstock-containment-${crypto.randomUUID()}.db`;
+        const db = initDb(tmpPath);
+
+        try {
+          initRegistry();
+
+          // Business 99999 has no rows in provider_credentials
+          const provider = getProvider(99999, db);
+          const status = provider.getStatus();
+
+          // Must be NOT configured — no credential must leak from a singleton
+          expect(status.configured).toBe(false);
+          expect(status.canWrite).toBe(false);
+          expect(status.shopDomain).toBe("none");
+        } finally {
+          db.close();
+          try { require("fs").unlinkSync(tmpPath); } catch (_) { /* ok */ }
+        }
+      }
     );
-
-    const tmpPath = `/tmp/shimmerstock-containment-${crypto.randomUUID()}.db`;
-    const db = initDb(tmpPath);
-
-    try {
-      initRegistry();
-
-      // Business 99999 has no rows in provider_credentials
-      const provider = getProvider(99999, db);
-      const status = provider.getStatus();
-
-      // Must be NOT configured — no credential must leak from a singleton
-      expect(status.configured).toBe(false);
-      expect(status.canWrite).toBe(false);
-    } finally {
-      db.close();
-      try { require("fs").unlinkSync(tmpPath); } catch (_) { /* ok */ }
-    }
   });
 });

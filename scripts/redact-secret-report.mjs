@@ -21,8 +21,10 @@
 import { execSync } from "child_process";
 import { readFileSync, existsSync } from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 const CHECK_MODE = process.argv.includes("--check");
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 // ── File list (tracked git files only) ──────────────────────────────────
 
@@ -30,7 +32,7 @@ function getTrackedFiles() {
   try {
     const output = execSync("git ls-files --cached --others --exclude-standard", {
       encoding: "utf8",
-      cwd: path.dirname(new URL(import.meta.url).pathname + "/.."),
+      cwd: repoRoot,
     });
     return output
       .split("\n")
@@ -68,10 +70,10 @@ const SECRET_PATTERNS = [
     skipIn: /test|spec|fake|mock|stub|fixture|example|\.example$/i,
   },
   {
-    name: "Unsafe password log (console.log with password variable)",
-    pattern: /console\.log\s*\([^)]*(?:password|passwd|secret|token)[^)]*\)/i,
+    name: "Unsafe secret log (console.* with secret-bearing variable)",
+    pattern: /console\.(?:log|warn|error)\s*\([^)]*(?:\$\{[^}]*[A-Za-z0-9_]*(?:password|passwd|secret|token)[A-Za-z0-9_]*[^}]*\}|[,({][A-Za-z0-9_]*(?:password|passwd|secret|token)[A-Za-z0-9_]*\s*[:),}])/i,
     severity: "HIGH",
-    skipIn: /test|spec/i,
+    skipIn: /test|spec|\.md$/i,
   },
   {
     name: "Authorization header value in log",
@@ -96,7 +98,6 @@ const SCAN_EXTENSIONS = new Set([
 
 // ── Main scan ────────────────────────────────────────────────────────────
 
-const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const files = getTrackedFiles();
 const findings = [];
 

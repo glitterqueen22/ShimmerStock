@@ -1,5 +1,5 @@
 {
-  "include": ["tests/**/*.ts"],
+  "include": ["tests/**/*.ts", "tests/**/*.d.ts"],
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -21,8 +21,6 @@
     "allowJs": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-
-    "baseUrl": "."
+    "forceConsistentCasingInFileNames": true
   }
 }

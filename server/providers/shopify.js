@@ -49,6 +49,10 @@ function parseMode(rawMode) {
   return rawMode === "full" ? "full" : "readonly";
 }
 
+function hasOwnOption(options, key) {
+  return Object.prototype.hasOwnProperty.call(options, key);
+}
+
 // ── Shopify helpers (routed through centralized gateway) ──────────────────
 
 async function shopifyGet(mode, shopDomain, accessToken, path) {
@@ -70,22 +74,29 @@ export default class ShopifyProvider extends CommerceProvider {
    */
   constructor(options = {}) {
     super();
-    this._shopDomain = options.shopDomain || STORE_DOMAIN;
-    this._accessToken = options.accessToken || API_TOKEN;
+    this._shopDomain = hasOwnOption(options, "shopDomain")
+      ? (options.shopDomain ?? "")
+      : STORE_DOMAIN;
+    this._accessToken = hasOwnOption(options, "accessToken")
+      ? (options.accessToken ?? "")
+      : API_TOKEN;
 
     // _isMultiTenant must be set before _configured uses it.
-    this._isMultiTenant = Boolean(options.shopDomain && options.accessToken);
+    this._isMultiTenant = hasOwnOption(options, "shopDomain") || hasOwnOption(options, "accessToken");
 
     // Reject tokens that are clearly not Shopify Admin API tokens.
     // Shopify Admin API tokens start with "shpat_" or "shpca_".
     // "atkn_" tokens are NOT Admin API tokens — they're short-lived checkout tokens or similar.
     const token = this._accessToken || "";
     const looksValid = Boolean(token && (token.startsWith("shpat_") || token.startsWith("shpca_")));
-    this._configured = Boolean(this._isMultiTenant ? this._accessToken : looksValid);
+    this._configured = Boolean(this._shopDomain && looksValid);
 
     // Strict mode parsing — parseMode enforces all safety rules including
     // SHOPIFY_READ_ONLY and SHOPIFY_ALLOW_WRITE_MODE.
-    this._mode = parseMode(options.syncMode);
+    const requestedMode = hasOwnOption(options, "syncMode")
+      ? options.syncMode
+      : process.env.SHOPIFY_SYNC_MODE;
+    this._mode = parseMode(requestedMode);
   }
 
   // ── Status ────────────────────────────────────────────────────────────
