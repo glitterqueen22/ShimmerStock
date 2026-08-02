@@ -51,7 +51,19 @@ import { mountShopifyOauthRoutes } from "./shopify-oauth-routes.js";
 import { mountShopifyWebhookRoutes } from "./shopify-webhook-routes.js";
 
 const app = express();
-const PORT = 3000;
+
+// Validate PORT from environment — default to 3000 if not set.
+const _rawPort = process.env.PORT;
+const PORT = _rawPort
+  ? (() => {
+      const p = parseInt(_rawPort, 10);
+      if (!Number.isInteger(p) || p < 1 || p > 65535) {
+        console.error(`[startup] Invalid PORT value: "${_rawPort}" — must be an integer between 1 and 65535. Defaulting to 3000.`);
+        return 3000;
+      }
+      return p;
+    })()
+  : 3000;
 
 
 // Initialize database

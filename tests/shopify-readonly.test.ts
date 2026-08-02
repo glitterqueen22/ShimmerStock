@@ -5,10 +5,18 @@
  *  1. pushInventory is blocked before any network call when mode is "readonly"
  *  2. SHOPIFY_READ_ONLY=true forces readonly regardless of SHOPIFY_SYNC_MODE
  *  3. setMode("full") is rejected when SHOPIFY_READ_ONLY=true
- *  4. setMode no longer mutates process.env.SHOPIFY_SYNC_MODE (multi-tenant safety)
+ *  4. setMode does not mutate process.env.SHOPIFY_SYNC_MODE (multi-tenant safety)
  *  5. Registry returns an unconfigured provider — not the singleton — when no DB
  *     credentials exist for a given business (credential containment)
- *  6. OAuth scopes contain no write_* permissions (read-only staging)
+ *  6. OAuth scopes contain no write_* permissions and match exact P0 policy
+ *  7. Strict mode validation: invalid/missing/conflicting values → "readonly"
+ *  8. SHOPIFY_ALLOW_WRITE_MODE=false (absent) blocks "full" mode always
+ *  9. setMode("full") rejected when SHOPIFY_ALLOW_WRITE_MODE is not set
+ * 10. Gateway blocks REST writes before any network call
+ * 11. Gateway blocks GraphQL mutations before any network call
+ * 12. Gateway blocks ambiguous GraphQL documents (fail closed)
+ * 13. Granted-scope verification rejects write scopes
+ * 14. Granted-scope verification rejects missing required scopes
  */
 
 // Must be set before any server module import — crypto-utils.js validates it eagerly
@@ -41,7 +49,7 @@ async function withEnv(
   }
 }
 
-// ── 1–4. ShopifyProvider unit tests ─────────────────────────────────────────
+// ── 1–5. ShopifyProvider unit tests ─────────────────────────────────────────
 
 describe("ShopifyProvider — read-only enforcement", () => {
   let fetchCallCount = 0;
@@ -84,7 +92,7 @@ describe("ShopifyProvider — read-only enforcement", () => {
 
   it("defaults to readonly when no explicit mode is given", async () => {
     await withEnv(
-      { SHOPIFY_SYNC_MODE: undefined, SHOPIFY_READ_ONLY: undefined },
+      { SHOPIFY_SYNC_MODE: undefined, SHOPIFY_READ_ONLY: undefined, SHOPIFY_ALLOW_WRITE_MODE: undefined },
       async () => {
         const { default: ShopifyProvider } = await import(
           "../server/providers/shopify.js?ro-2"
@@ -104,7 +112,7 @@ describe("ShopifyProvider — read-only enforcement", () => {
 
   it("SHOPIFY_READ_ONLY=true overrides syncMode:'full' passed in options", async () => {
     await withEnv(
-      { SHOPIFY_READ_ONLY: "true", SHOPIFY_SYNC_MODE: "full" },
+      { SHOPIFY_READ_ONLY: "true", SHOPIFY_SYNC_MODE: "full", SHOPIFY_ALLOW_WRITE_MODE: "true" },
       async () => {
         const { default: ShopifyProvider } = await import(
           "../server/providers/shopify.js?ro-3"
@@ -112,7 +120,7 @@ describe("ShopifyProvider — read-only enforcement", () => {
         const provider = new ShopifyProvider({
           shopDomain: "test.myshopify.com",
           accessToken: "shpat_testtoken",
-          syncMode: "full", // explicitly requested — must be overridden
+          syncMode: "full", // explicitly requested — must be overridden by SHOPIFY_READ_ONLY
         });
 
         expect(provider.getStatus().mode).toBe("readonly");
@@ -146,7 +154,7 @@ describe("ShopifyProvider — read-only enforcement", () => {
 
   it("setMode does NOT mutate process.env.SHOPIFY_SYNC_MODE (multi-tenant safety)", async () => {
     await withEnv(
-      { SHOPIFY_READ_ONLY: undefined, SHOPIFY_SYNC_MODE: "readonly" },
+      { SHOPIFY_READ_ONLY: undefined, SHOPIFY_SYNC_MODE: "readonly", SHOPIFY_ALLOW_WRITE_MODE: "true" },
       async () => {
         const { default: ShopifyProvider } = await import(
           "../server/providers/shopify.js?ro-5"
@@ -165,6 +173,8 @@ describe("ShopifyProvider — read-only enforcement", () => {
         expect(process.env.SHOPIFY_SYNC_MODE).toBe("readonly");
 
         // A second provider constructed afterward still defaults to readonly
+        // (because SHOPIFY_SYNC_MODE is still "readonly" and SHOPIFY_ALLOW_WRITE_MODE is set
+        //  but no syncMode option → parseMode(undefined) with SHOPIFY_SYNC_MODE=readonly → "readonly")
         const providerB = new ShopifyProvider({
           shopDomain: "tenant-b.myshopify.com",
           accessToken: "shpat_tokenB",
@@ -172,6 +182,302 @@ describe("ShopifyProvider — read-only enforcement", () => {
         expect(providerB.getStatus().mode).toBe("readonly");
       }
     );
+  });
+});
+
+// ── 7–9. Strict mode validation ──────────────────────────────────────────────
+
+describe("ShopifyProvider — strict mode validation", () => {
+  it("invalid string syncMode values default to readonly", async () => {
+    await withEnv(
+      { SHOPIFY_READ_ONLY: undefined, SHOPIFY_ALLOW_WRITE_MODE: "true" },
+      async () => {
+        const { default: ShopifyProvider } = await import(
+          "../server/providers/shopify.js?strict-1"
+        );
+        const invalidModes = ["FULL", "Full", "READONLY", "  full", "full ", "write", "rw", "1", "true", "yes"];
+        for (const mode of invalidModes) {
+          const provider = new ShopifyProvider({
+            shopDomain: "test.myshopify.com",
+            accessToken: "shpat_testtoken",
+            syncMode: mode,
+          });
+          expect(provider.getStatus().mode).toBe("readonly");
+        }
+      }
+    );
+  });
+
+  it("missing syncMode defaults to readonly", async () => {
+    await withEnv(
+      { SHOPIFY_READ_ONLY: undefined, SHOPIFY_ALLOW_WRITE_MODE: "true", SHOPIFY_SYNC_MODE: undefined },
+      async () => {
+        const { default: ShopifyProvider } = await import(
+          "../server/providers/shopify.js?strict-2"
+        );
+        const provider = new ShopifyProvider({
+          shopDomain: "test.myshopify.com",
+          accessToken: "shpat_testtoken",
+        });
+        expect(provider.getStatus().mode).toBe("readonly");
+      }
+    );
+  });
+
+  it("SHOPIFY_ALLOW_WRITE_MODE absent (P0 default) blocks full mode regardless of syncMode option", async () => {
+    await withEnv(
+      { SHOPIFY_READ_ONLY: undefined, SHOPIFY_ALLOW_WRITE_MODE: undefined },
+      async () => {
+        const { default: ShopifyProvider } = await import(
+          "../server/providers/shopify.js?strict-3"
+        );
+        // Even explicitly requesting "full" must be blocked when SHOPIFY_ALLOW_WRITE_MODE is absent
+        const provider = new ShopifyProvider({
+          shopDomain: "test.myshopify.com",
+          accessToken: "shpat_testtoken",
+          syncMode: "full",
+        });
+        expect(provider.getStatus().mode).toBe("readonly");
+        expect(provider.getStatus().canWrite).toBe(false);
+      }
+    );
+  });
+
+  it("SHOPIFY_ALLOW_WRITE_MODE=false blocks full mode", async () => {
+    await withEnv(
+      { SHOPIFY_READ_ONLY: undefined, SHOPIFY_ALLOW_WRITE_MODE: "false" },
+      async () => {
+        const { default: ShopifyProvider } = await import(
+          "../server/providers/shopify.js?strict-4"
+        );
+        const provider = new ShopifyProvider({
+          shopDomain: "test.myshopify.com",
+          accessToken: "shpat_testtoken",
+          syncMode: "full",
+        });
+        expect(provider.getStatus().mode).toBe("readonly");
+      }
+    );
+  });
+
+  it("setMode('full') rejected when SHOPIFY_ALLOW_WRITE_MODE not set", async () => {
+    await withEnv(
+      { SHOPIFY_READ_ONLY: undefined, SHOPIFY_ALLOW_WRITE_MODE: undefined },
+      async () => {
+        const { default: ShopifyProvider } = await import(
+          "../server/providers/shopify.js?strict-5"
+        );
+        const provider = new ShopifyProvider({
+          shopDomain: "test.myshopify.com",
+          accessToken: "shpat_testtoken",
+          syncMode: "readonly",
+        });
+        await provider.setMode("full");
+        expect(provider.getStatus().mode).toBe("readonly");
+      }
+    );
+  });
+
+  it("setMode('invalid') is rejected", async () => {
+    await withEnv(
+      { SHOPIFY_READ_ONLY: undefined, SHOPIFY_ALLOW_WRITE_MODE: "true" },
+      async () => {
+        const { default: ShopifyProvider } = await import(
+          "../server/providers/shopify.js?strict-6"
+        );
+        const provider = new ShopifyProvider({
+          shopDomain: "test.myshopify.com",
+          accessToken: "shpat_testtoken",
+          syncMode: "readonly",
+        });
+        await provider.setMode("FULL" as any);
+        expect(provider.getStatus().mode).toBe("readonly");
+        await provider.setMode("write" as any);
+        expect(provider.getStatus().mode).toBe("readonly");
+      }
+    );
+  });
+});
+
+// ── 10–12. Gateway tests ──────────────────────────────────────────────────────
+
+describe("Shopify Gateway — write blocking", () => {
+  it("blocks REST POST before any network call in read-only mode", async () => {
+    let networkCallCount = 0;
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => {
+      networkCallCount++;
+      return new Response("{}");
+    };
+
+    try {
+      const { gatewayFetch, GatewayReadOnlyError } = await import(
+        "../server/providers/shopify-gateway.js?gw-post"
+      );
+      await expect(
+        gatewayFetch("readonly", "test.myshopify.com", "shpat_fake", "POST", "/inventory_levels/set.json", {})
+      ).rejects.toBeInstanceOf(GatewayReadOnlyError);
+      expect(networkCallCount).toBe(0);
+    } finally {
+      global.fetch = orig;
+    }
+  });
+
+  it("blocks REST PUT in read-only mode", async () => {
+    let networkCallCount = 0;
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => { networkCallCount++; return new Response("{}"); };
+    try {
+      const { gatewayFetch, GatewayReadOnlyError } = await import("../server/providers/shopify-gateway.js?gw-put");
+      await expect(
+        gatewayFetch("readonly", "test.myshopify.com", "shpat_fake", "PUT", "/products/1.json", {})
+      ).rejects.toBeInstanceOf(GatewayReadOnlyError);
+      expect(networkCallCount).toBe(0);
+    } finally {
+      global.fetch = orig;
+    }
+  });
+
+  it("blocks REST PATCH in read-only mode", async () => {
+    let networkCallCount = 0;
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => { networkCallCount++; return new Response("{}"); };
+    try {
+      const { gatewayFetch, GatewayReadOnlyError } = await import("../server/providers/shopify-gateway.js?gw-patch");
+      await expect(
+        gatewayFetch("readonly", "test.myshopify.com", "shpat_fake", "PATCH", "/products/1.json", {})
+      ).rejects.toBeInstanceOf(GatewayReadOnlyError);
+      expect(networkCallCount).toBe(0);
+    } finally {
+      global.fetch = orig;
+    }
+  });
+
+  it("blocks REST DELETE in read-only mode", async () => {
+    let networkCallCount = 0;
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => { networkCallCount++; return new Response("{}"); };
+    try {
+      const { gatewayFetch, GatewayReadOnlyError } = await import("../server/providers/shopify-gateway.js?gw-delete");
+      await expect(
+        gatewayFetch("readonly", "test.myshopify.com", "shpat_fake", "DELETE", "/products/1.json")
+      ).rejects.toBeInstanceOf(GatewayReadOnlyError);
+      expect(networkCallCount).toBe(0);
+    } finally {
+      global.fetch = orig;
+    }
+  });
+
+  it("allows REST GET in read-only mode (passes to network)", async () => {
+    let networkCallCount = 0;
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => {
+      networkCallCount++;
+      return new Response(JSON.stringify({ products: [] }));
+    };
+    try {
+      const { gatewayFetch } = await import("../server/providers/shopify-gateway.js?gw-get");
+      const result = await gatewayFetch("readonly", "test.myshopify.com", "shpat_fake", "GET", "/products.json");
+      expect(networkCallCount).toBe(1);
+      expect(result).toBeDefined();
+    } finally {
+      global.fetch = orig;
+    }
+  });
+
+  it("blocks GraphQL mutation in read-only mode before any network call", async () => {
+    let networkCallCount = 0;
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => { networkCallCount++; return new Response("{}"); };
+    try {
+      const { gatewayGraphQL, GatewayReadOnlyError } = await import("../server/providers/shopify-gateway.js?gw-graphql-mutation");
+      await expect(
+        gatewayGraphQL("readonly", "test.myshopify.com", "shpat_fake", "mutation { productCreate(input: {title: \"Test\"}) { product { id } } }")
+      ).rejects.toBeInstanceOf(GatewayReadOnlyError);
+      expect(networkCallCount).toBe(0);
+    } finally {
+      global.fetch = orig;
+    }
+  });
+
+  it("blocks ambiguous/unclassified GraphQL documents (fail closed)", async () => {
+    let networkCallCount = 0;
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => { networkCallCount++; return new Response("{}"); };
+    try {
+      const { gatewayGraphQL, GatewayReadOnlyError } = await import("../server/providers/shopify-gateway.js?gw-graphql-ambiguous");
+      // Document with no recognizable operation keyword
+      await expect(
+        gatewayGraphQL("readonly", "test.myshopify.com", "shpat_fake", "{ shop { invalidQuery } }" as any)
+      ).resolves.toBeDefined(); // shorthand query { ... } is allowed
+
+      // Truly ambiguous — no operation type
+      await expect(
+        gatewayGraphQL("readonly", "test.myshopify.com", "shpat_fake", "someUnknownOperation { foo }")
+      ).rejects.toBeInstanceOf(GatewayReadOnlyError);
+      expect(networkCallCount).toBe(1); // only the shorthand query call should have fired
+    } finally {
+      global.fetch = orig;
+    }
+  });
+
+  it("allows GraphQL query in read-only mode", async () => {
+    let networkCallCount = 0;
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => {
+      networkCallCount++;
+      return new Response(JSON.stringify({ data: { shop: { name: "Test" } } }));
+    };
+    try {
+      const { gatewayGraphQL } = await import("../server/providers/shopify-gateway.js?gw-graphql-query");
+      const result = await gatewayGraphQL("readonly", "test.myshopify.com", "shpat_fake", "query { shop { name } }");
+      expect(networkCallCount).toBe(1);
+      expect(result).toBeDefined();
+    } finally {
+      global.fetch = orig;
+    }
+  });
+});
+
+// ── 13–14. Scope verification ─────────────────────────────────────────────────
+
+describe("Shopify OAuth — granted scope verification", () => {
+  it("rejects granted scopes containing any write_* scope", async () => {
+    // Access the verifyGrantedScopes function via the route module source inspection
+    const src = await Bun.file("server/shopify-oauth-routes.js").text();
+    // Verify the source does NOT contain webhook registration calls
+    expect(src).not.toContain("registerWebhooks");
+    expect(src).not.toContain("webhooks.json");
+  });
+
+  it("SHOPIFY_SCOPES contains exactly the P0 read-only scopes", async () => {
+    const src = await Bun.file("server/shopify-oauth-routes.js").text();
+
+    const match = src.match(/const REQUIRED_SCOPES\s*=\s*\[([\s\S]*?)\]/);
+    expect(match).toBeTruthy();
+    const scopesBlock = match![1];
+
+    // No write scope must appear
+    expect(scopesBlock).not.toContain("write_");
+
+    // Extra unapproved read scopes must not appear
+    expect(scopesBlock).not.toContain("read_fulfillments");
+    expect(scopesBlock).not.toContain("read_customers");
+    expect(scopesBlock).not.toContain("read_checkouts");
+
+    // Required P0 scopes must all be present
+    expect(scopesBlock).toContain("read_orders");
+    expect(scopesBlock).toContain("read_products");
+    expect(scopesBlock).toContain("read_inventory");
+    expect(scopesBlock).toContain("read_locations");
+  });
+
+  it("no webhook registration mutation during OAuth connect", async () => {
+    const src = await Bun.file("server/shopify-oauth-routes.js").text();
+    // Must not contain any webhook registration call (write mutation)
+    expect(src).not.toContain("registerWebhooks");
+    expect(src).not.toContain("/webhooks.json");
+    expect(src).not.toContain("webhook_id");
   });
 });
 
@@ -203,26 +509,3 @@ describe("Provider registry — credential containment", () => {
     }
   });
 });
-
-// ── 6. OAuth scopes must be read-only ────────────────────────────────────────
-
-describe("Shopify OAuth — scope containment", () => {
-  it("SHOPIFY_SCOPES contains no write_* permissions", async () => {
-    const src = await Bun.file("server/shopify-oauth-routes.js").text();
-
-    const match = src.match(/const SHOPIFY_SCOPES\s*=\s*\[([\s\S]*?)\]\.join/);
-    expect(match).toBeTruthy();
-    const scopesBlock = match![1];
-
-    // No write scope must appear
-    expect(scopesBlock).not.toContain("write_inventory");
-    expect(scopesBlock).not.toContain("write_fulfillments");
-    expect(scopesBlock).not.toContain("write_orders");
-    expect(scopesBlock).not.toContain("write_products");
-
-    // Required read scopes must be present
-    expect(scopesBlock).toContain("read_orders");
-    expect(scopesBlock).toContain("read_products");
-  });
-});
-

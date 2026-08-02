@@ -10,55 +10,53 @@
  *   - Multi-tenant: accepts per-business credentials (shopDomain, accessToken)
  *
  * Environment variables (fallback when no business credentials):
- *   SHOPIFY_STORE_DOMAIN — default "glitzyglitterexpress.com"
- *   SHOPIFY_API_TOKEN    — the access token (absent → not configured)
- *   SHOPIFY_SYNC_MODE    — "readonly" (default) or "full"
+ *   SHOPIFY_STORE_DOMAIN       — default "glitzyglitterexpress.com"
+ *   SHOPIFY_API_TOKEN          — the access token (absent → not configured)
+ *   SHOPIFY_SYNC_MODE          — "readonly" (default) or "full"
+ *   SHOPIFY_READ_ONLY          — "true" to permanently lock to read-only
+ *   SHOPIFY_ALLOW_WRITE_MODE   — must be "true" to permit "full" mode; absent/false → always readonly
  */
 
 import CommerceProvider from "./interface.js";
 import { decryptToken } from "../crypto-utils.js";
+import { gatewayFetch } from "./shopify-gateway.js";
 
 const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || "glitzyglitterexpress.com";
 const API_TOKEN = process.env.SHOPIFY_API_TOKEN || "";
-const API_VERSION = "2024-01";
 
-// ── Low-level Shopify HTTP helpers ─────────────────────────────────────────
+// ── Mode parsing ───────────────────────────────────────────────────────────
 
-function makeBaseUrl(shopDomain) {
-  return `https://${shopDomain}/admin/api/${API_VERSION}`;
+/**
+ * Parse a raw mode value strictly.
+ *
+ * Rules (in priority order):
+ *  1. If SHOPIFY_READ_ONLY=true  → always "readonly"
+ *  2. If SHOPIFY_ALLOW_WRITE_MODE is not "true" → always "readonly"
+ *  3. If rawMode is the exact string "full" → "full"
+ *  4. All other values (undefined, null, "", "FULL", "  full", invalid strings) → "readonly"
+ *
+ * This means:
+ *  - Missing / malformed / conflicting / unapproved values → "readonly"
+ *  - For P0, SHOPIFY_ALLOW_WRITE_MODE is never set to "true", so full mode
+ *    is structurally impossible regardless of other settings.
+ *
+ * @param {string|undefined} rawMode
+ * @returns {"readonly"|"full"}
+ */
+function parseMode(rawMode) {
+  if (process.env.SHOPIFY_READ_ONLY === "true") return "readonly";
+  if (process.env.SHOPIFY_ALLOW_WRITE_MODE !== "true") return "readonly";
+  return rawMode === "full" ? "full" : "readonly";
 }
 
-function makeHeaders(accessToken) {
-  return {
-    "X-Shopify-Access-Token": accessToken,
-    "Content-Type": "application/json",
-  };
+// ── Shopify helpers (routed through centralized gateway) ──────────────────
+
+async function shopifyGet(mode, shopDomain, accessToken, path) {
+  return gatewayFetch(mode, shopDomain, accessToken, "GET", path);
 }
 
-async function shopifyGet(shopDomain, accessToken, path) {
-  const url = `${makeBaseUrl(shopDomain)}${path}`;
-  console.log(`[shopify] GET ${url}`);
-  const res = await fetch(url, { headers: makeHeaders(accessToken) });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Shopify GET ${path} failed (${res.status}): ${body}`);
-  }
-  return res.json();
-}
-
-async function shopifyPost(shopDomain, accessToken, path, body) {
-  const url = `${makeBaseUrl(shopDomain)}${path}`;
-  console.log(`[shopify] POST ${url}`);
-  const res = await fetch(url, {
-    method: "POST",
-    headers: makeHeaders(accessToken),
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Shopify POST ${path} failed (${res.status}): ${text}`);
-  }
-  return res.json();
+async function shopifyPost(mode, shopDomain, accessToken, path, body) {
+  return gatewayFetch(mode, shopDomain, accessToken, "POST", path, body);
 }
 
 // ── Shopify adapter class ──────────────────────────────────────────────────
@@ -68,7 +66,7 @@ export default class ShopifyProvider extends CommerceProvider {
    * @param {Object} [options]
    * @param {string} [options.shopDomain] — per-business shop domain (e.g. "mystore.myshopify.com")
    * @param {string} [options.accessToken] — per-business decrypted access token
-   * @param {string} [options.syncMode] — "readonly" or "full"
+   * @param {string} [options.syncMode] — "readonly" or "full" (strict; anything else → "readonly")
    */
   constructor(options = {}) {
     super();
@@ -85,12 +83,9 @@ export default class ShopifyProvider extends CommerceProvider {
     const looksValid = Boolean(token && (token.startsWith("shpat_") || token.startsWith("shpca_")));
     this._configured = Boolean(this._isMultiTenant ? this._accessToken : looksValid);
 
-    // SHOPIFY_READ_ONLY=true permanently locks the provider to read-only regardless
-    // of any other setting.  Fix precedence: wrap the ternary so that a falsy
-    // options.syncMode (e.g. undefined) doesn't short-circuit incorrectly.
-    const readOnlyLocked = process.env.SHOPIFY_READ_ONLY === "true";
-    const envMode = (!readOnlyLocked && process.env.SHOPIFY_SYNC_MODE === "full") ? "full" : "readonly";
-    this._mode = readOnlyLocked ? "readonly" : (options.syncMode || envMode);
+    // Strict mode parsing — parseMode enforces all safety rules including
+    // SHOPIFY_READ_ONLY and SHOPIFY_ALLOW_WRITE_MODE.
+    this._mode = parseMode(options.syncMode);
   }
 
   // ── Status ────────────────────────────────────────────────────────────
@@ -109,15 +104,18 @@ export default class ShopifyProvider extends CommerceProvider {
 
   /** @param {"readonly"|"full"} mode */
   async setMode(mode) {
-    // SHOPIFY_READ_ONLY=true is an immutable server-level override — never elevate to "full".
-    if (process.env.SHOPIFY_READ_ONLY === "true" && mode === "full") {
-      console.warn("[shopify] setMode('full') rejected — SHOPIFY_READ_ONLY is set");
+    // Validate input strictly — only exact "readonly" or "full" accepted.
+    const validated = parseMode(mode);
+    if (validated !== mode) {
+      console.warn(
+        `[shopify] setMode('${mode}') rejected — invalid or disallowed mode (SHOPIFY_READ_ONLY=${process.env.SHOPIFY_READ_ONLY}, SHOPIFY_ALLOW_WRITE_MODE=${process.env.SHOPIFY_ALLOW_WRITE_MODE})`
+      );
       return;
     }
-    this._mode = mode;
+    this._mode = validated;
     // Do NOT mutate process.env.SHOPIFY_SYNC_MODE here: that is a shared global that
     // would leak one tenant's mode change into every other ShopifyProvider instance.
-    console.log(`[shopify] Sync mode set to: ${mode}`);
+    console.log(`[shopify] Sync mode set to: ${validated}`);
   }
 
   // ── fetchOrders ───────────────────────────────────────────────────────
@@ -128,7 +126,7 @@ export default class ShopifyProvider extends CommerceProvider {
       throw new Error("Shopify is not configured — connect via OAuth or set SHOPIFY_API_TOKEN");
     }
 
-    const data = await shopifyGet(this._shopDomain, this._accessToken, "/orders.json?status=open&limit=250");
+    const data = await shopifyGet(this._mode, this._shopDomain, this._accessToken, "/orders.json?status=open&limit=250");
     const orders = data.orders || [];
 
     return orders.map((order) => ({
@@ -156,7 +154,7 @@ export default class ShopifyProvider extends CommerceProvider {
       throw new Error("Shopify is not configured — connect via OAuth or set SHOPIFY_API_TOKEN");
     }
 
-    const data = await shopifyGet(this._shopDomain, this._accessToken, "/products.json?limit=250");
+    const data = await shopifyGet(this._mode, this._shopDomain, this._accessToken, "/products.json?limit=250");
     const products = data.products || [];
 
     return products.map((p) => ({
@@ -192,21 +190,21 @@ export default class ShopifyProvider extends CommerceProvider {
     }
 
     try {
-      const variant = await shopifyGet(this._shopDomain, this._accessToken, `/variants/${variantId}.json`);
+      const variant = await shopifyGet(this._mode, this._shopDomain, this._accessToken, `/variants/${variantId}.json`);
       const inventoryItemId = variant.variant?.inventory_item_id;
       if (!inventoryItemId) {
         console.warn(`[shopify] No inventory_item_id for variant ${variantId}`);
         return { success: false, error: `No inventory_item_id for variant ${variantId}` };
       }
 
-      const locations = await shopifyGet(this._shopDomain, this._accessToken, "/locations.json");
+      const locations = await shopifyGet(this._mode, this._shopDomain, this._accessToken, "/locations.json");
       const firstLocation = locations.locations?.[0];
       if (!firstLocation) {
         console.warn("[shopify] No locations found");
         return { success: false, error: "No locations found" };
       }
 
-      await shopifyPost(this._shopDomain, this._accessToken, "/inventory_levels/set.json", {
+      await shopifyPost(this._mode, this._shopDomain, this._accessToken, "/inventory_levels/set.json", {
         location_id: firstLocation.id,
         inventory_item_id: inventoryItemId,
         available: newStock,
@@ -247,8 +245,9 @@ export default class ShopifyProvider extends CommerceProvider {
       return null;
     }
 
-    // Use DB-stored sync_mode if available, otherwise fall back to env var
-    const syncMode = creds.sync_mode || (process.env.SHOPIFY_SYNC_MODE === "full" ? "full" : "readonly");
+    // Use DB-stored sync_mode if available.
+    // parseMode will enforce SHOPIFY_READ_ONLY and SHOPIFY_ALLOW_WRITE_MODE rules.
+    const syncMode = creds.sync_mode || process.env.SHOPIFY_SYNC_MODE;
 
     return new ShopifyProvider({
       shopDomain: creds.shop_domain,

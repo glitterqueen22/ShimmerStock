@@ -646,7 +646,7 @@ export function initDb(dbPath) {
 
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("  🏢 Business 'Glitzy Glitter Express' created.");
-    console.log(`  🔐 Owner login: owner / ${ownerPassword}`);
+    console.log("  🔐 Owner login created. Retrieve password from OWNER_INITIAL_PASSWORD env or secure credential store.");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   }
 
@@ -672,7 +672,7 @@ export function initDb(dbPath) {
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("  🔐 Admin user seeded:");
     console.log("     Username: admin");
-    console.log(`     Password: ${password}`);
+    console.log("     Password: (set via ADMIN_INITIAL_PASSWORD env var, or retrieve from secure credential store)");
     console.log("  ⚠️  You will be prompted to change this password on first login!");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   } else {
@@ -696,7 +696,7 @@ export function initDb(dbPath) {
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("  🔐 Admin user seeded (migration):");
       console.log("     Username: admin");
-      console.log(`     Password: ${password}`);
+      console.log("     Password: (set via ADMIN_INITIAL_PASSWORD env var, or retrieve from secure credential store)");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
@@ -1637,6 +1637,26 @@ export function initDb(dbPath) {
   }
 
   console.log("Shopify OAuth: provider_credentials migration complete");
+
+  // ── Shopify OAuth State table — CSRF / replay protection ─────────────
+  // Stores server-side hashes of opaque state tokens for OAuth callbacks.
+  // Each row is single-use and expires after a short TTL.
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS shopify_oauth_state (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      state_hash TEXT NOT NULL UNIQUE,
+      user_id INTEGER NOT NULL,
+      business_id INTEGER NOT NULL,
+      session_id INTEGER,
+      expected_shop TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT DEFAULT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  console.log("Shopify OAuth: shopify_oauth_state table ready");
 
   // ── Shopify Webhook Deliveries table ─────────────────────────────
 
