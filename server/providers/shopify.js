@@ -75,15 +75,22 @@ export default class ShopifyProvider extends CommerceProvider {
     this._shopDomain = options.shopDomain || STORE_DOMAIN;
     this._accessToken = options.accessToken || API_TOKEN;
 
+    // _isMultiTenant must be set before _configured uses it.
+    this._isMultiTenant = Boolean(options.shopDomain && options.accessToken);
+
     // Reject tokens that are clearly not Shopify Admin API tokens.
     // Shopify Admin API tokens start with "shpat_" or "shpca_".
     // "atkn_" tokens are NOT Admin API tokens — they're short-lived checkout tokens or similar.
     const token = this._accessToken || "";
-    const looksValid = token && (token.startsWith("shpat_") || token.startsWith("shpca_"));
-    this._configured = this._isMultiTenant ? Boolean(this._accessToken) : looksValid;
+    const looksValid = Boolean(token && (token.startsWith("shpat_") || token.startsWith("shpca_")));
+    this._configured = Boolean(this._isMultiTenant ? this._accessToken : looksValid);
 
-    this._mode = options.syncMode || process.env.SHOPIFY_SYNC_MODE === "full" ? "full" : "readonly";
-    this._isMultiTenant = Boolean(options.shopDomain && options.accessToken);
+    // SHOPIFY_READ_ONLY=true permanently locks the provider to read-only regardless
+    // of any other setting.  Fix precedence: wrap the ternary so that a falsy
+    // options.syncMode (e.g. undefined) doesn't short-circuit incorrectly.
+    const readOnlyLocked = process.env.SHOPIFY_READ_ONLY === "true";
+    const envMode = (!readOnlyLocked && process.env.SHOPIFY_SYNC_MODE === "full") ? "full" : "readonly";
+    this._mode = readOnlyLocked ? "readonly" : (options.syncMode || envMode);
   }
 
   // ── Status ────────────────────────────────────────────────────────────
@@ -102,8 +109,14 @@ export default class ShopifyProvider extends CommerceProvider {
 
   /** @param {"readonly"|"full"} mode */
   async setMode(mode) {
+    // SHOPIFY_READ_ONLY=true is an immutable server-level override — never elevate to "full".
+    if (process.env.SHOPIFY_READ_ONLY === "true" && mode === "full") {
+      console.warn("[shopify] setMode('full') rejected — SHOPIFY_READ_ONLY is set");
+      return;
+    }
     this._mode = mode;
-    process.env.SHOPIFY_SYNC_MODE = mode; // keep env in sync for other consumers
+    // Do NOT mutate process.env.SHOPIFY_SYNC_MODE here: that is a shared global that
+    // would leak one tenant's mode change into every other ShopifyProvider instance.
     console.log(`[shopify] Sync mode set to: ${mode}`);
   }
 
@@ -168,6 +181,14 @@ export default class ShopifyProvider extends CommerceProvider {
         `[shopify] Skipping inventory push (not configured): sku=${sku}, variant=${variantId}, qty=${newStock}`
       );
       return { success: false, error: "Shopify not configured" };
+    }
+
+    // Block all write mutations in read-only mode — before any network call.
+    if (this._mode !== "full") {
+      console.log(
+        `[shopify] Read-only mode — inventory push blocked: sku=${sku}, variant=${variantId}, qty=${newStock}`
+      );
+      return { success: false, error: "Shopify is in read-only mode — inventory push blocked" };
     }
 
     try {

@@ -24,10 +24,9 @@ import { getProvider, invalidateProviderCache } from "./providers/registry.js";
 const SHOPIFY_SCOPES = [
   "read_orders",
   "read_products",
-  "write_inventory",
+  "read_inventory",
   "read_locations",
   "read_fulfillments",
-  "write_fulfillments",
   "read_customers",
   "read_checkouts",
 ].join(",");
