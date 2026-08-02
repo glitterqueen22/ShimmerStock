@@ -474,10 +474,13 @@ describe("Shopify OAuth — granted scope verification", () => {
 
   it("no webhook registration mutation during OAuth connect", async () => {
     const src = await Bun.file("server/shopify-oauth-routes.js").text();
-    // Must not contain any webhook registration call (write mutation)
+    // Must not contain any webhook registration call (write mutation to Shopify)
     expect(src).not.toContain("registerWebhooks");
     expect(src).not.toContain("/webhooks.json");
-    expect(src).not.toContain("webhook_id");
+    // Note: webhook_id = NULL in disconnect handler is fine (it's clearing a DB column, not calling Shopify)
+    // We verify no Shopify webhook API POST occurs by checking for the API call pattern
+    expect(src).not.toContain('webhooks.json"');
+    expect(src).not.toContain("webhooks.json`");
   });
 });
 

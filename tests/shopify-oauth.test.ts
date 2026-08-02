@@ -38,7 +38,7 @@ describe("Shopify OAuth Flow", () => {
   it("redirects to Shopify authorize URL with opaque state and exact P0 scopes", async () => {
     const res = await fetch(`${appUrl}/api/shopify/auth?shop=test.myshopify.com`, {
       redirect: "manual",
-      headers: { Authorization: `****** }
+      headers: { Authorization: `Bearer ${token}` }
     });
 
     expect(res.status).toBe(302);
@@ -107,7 +107,7 @@ describe("Shopify OAuth Flow", () => {
     // First get a real state token
     const authRes = await fetch(`${appUrl}/api/shopify/auth?shop=test.myshopify.com`, {
       redirect: "manual",
-      headers: { Authorization: `****** }
+      headers: { Authorization: `Bearer ${token}` }
     });
     const authUrl = new URL(authRes.headers.get("location")!);
     const state = authUrl.searchParams.get("state")!;
@@ -144,7 +144,7 @@ describe("Shopify OAuth Flow", () => {
     // Create state bound to test.myshopify.com
     const authRes = await fetch(`${appUrl}/api/shopify/auth?shop=test.myshopify.com`, {
       redirect: "manual",
-      headers: { Authorization: `****** }
+      headers: { Authorization: `Bearer ${token}` }
     });
     const authUrl = new URL(authRes.headers.get("location")!);
     const state = authUrl.searchParams.get("state")!;
@@ -168,7 +168,7 @@ describe("Shopify OAuth Flow", () => {
     // Get a valid state
     const authRes = await fetch(`${appUrl}/api/shopify/auth?shop=replay.myshopify.com`, {
       redirect: "manual",
-      headers: { Authorization: `****** }
+      headers: { Authorization: `Bearer ${token}` }
     });
     const authUrl = new URL(authRes.headers.get("location")!);
     const state = authUrl.searchParams.get("state")!;
@@ -220,7 +220,7 @@ describe("Shopify OAuth Flow", () => {
     // Get a valid state
     const authRes = await fetch(`${appUrl}/api/shopify/auth?shop=writescope.myshopify.com`, {
       redirect: "manual",
-      headers: { Authorization: `****** }
+      headers: { Authorization: `Bearer ${token}` }
     });
     const authUrl = new URL(authRes.headers.get("location")!);
     const state = authUrl.searchParams.get("state")!;
@@ -255,7 +255,7 @@ describe("Shopify OAuth Flow", () => {
   it("rejects callback when required read scope is missing", async () => {
     const authRes = await fetch(`${appUrl}/api/shopify/auth?shop=missingscope.myshopify.com`, {
       redirect: "manual",
-      headers: { Authorization: `****** }
+      headers: { Authorization: `Bearer ${token}` }
     });
     const authUrl = new URL(authRes.headers.get("location")!);
     const state = authUrl.searchParams.get("state")!;
@@ -290,7 +290,7 @@ describe("Shopify OAuth Flow", () => {
   it("successfully connects when all P0 scopes are granted and stores exact verified scopes", async () => {
     const authRes = await fetch(`${appUrl}/api/shopify/auth?shop=success.myshopify.com`, {
       redirect: "manual",
-      headers: { Authorization: `****** }
+      headers: { Authorization: `Bearer ${token}` }
     });
     const authUrl = new URL(authRes.headers.get("location")!);
     const state = authUrl.searchParams.get("state")!;
@@ -344,7 +344,7 @@ describe("Shopify OAuth Flow", () => {
   it("no webhook registration occurs during OAuth connect", async () => {
     const authRes = await fetch(`${appUrl}/api/shopify/auth?shop=nowebhook.myshopify.com`, {
       redirect: "manual",
-      headers: { Authorization: `****** }
+      headers: { Authorization: `Bearer ${token}` }
     });
     const authUrl = new URL(authRes.headers.get("location")!);
     const state = authUrl.searchParams.get("state")!;
