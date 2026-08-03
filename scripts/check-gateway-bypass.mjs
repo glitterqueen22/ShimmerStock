@@ -25,6 +25,7 @@
 import { execSync } from "child_process";
 import { readFileSync, existsSync } from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 const CHECK_MODE = process.argv.includes("--check");
 
@@ -67,8 +68,23 @@ const CODE_EXTENSIONS = new Set([
   ".js", ".ts", ".mjs", ".cjs", ".jsx", ".tsx", ".sh",
 ]);
 
+// ── Path resolution ────────────────────────────────────────────────────────────
+function resolveRepoRoot(moduleUrl) {
+  return path.resolve(path.dirname(fileURLToPath(moduleUrl)), "..");
+}
+
+function selfTestPathResolution() {
+  const simulatedUrl = "file:///tmp/shimmer%20stock/scripts/check-gateway-bypass.mjs";
+  const resolved = resolveRepoRoot(simulatedUrl);
+  if (resolved.includes("%20") || path.basename(resolved) !== "shimmer stock") {
+    throw new Error("Path resolution self-test failed for URL-encoded spaces");
+  }
+}
+
+selfTestPathResolution();
+
 // ── Get tracked files ─────────────────────────────────────────────────────────
-const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const repoRoot = resolveRepoRoot(import.meta.url);
 
 function getTrackedFiles() {
   try {

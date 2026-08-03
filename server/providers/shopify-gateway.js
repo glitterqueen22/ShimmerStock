@@ -30,6 +30,7 @@
  *   const data = await gatewayGraphQL(mode, shopDomain, accessToken, `query { shop { name } }`);
  */
 
+import { canonicalizeShopDomain, isCanonicalShopDomain } from "./shopify-domain.js";
 const API_VERSION = "2024-01";
 
 // ── Write-method classification ────────────────────────────────────────────
@@ -79,10 +80,11 @@ export function classifyGraphQLDocument(document) {
  */
 export async function gatewayFetch(mode, shopDomain, accessToken, method, path, body) {
   const upperMethod = (method || "GET").toUpperCase();
+  const normalizedShopDomain = canonicalizeShopDomain(shopDomain);
 
   // Defense-in-depth: validate shopDomain at the gateway boundary before any URL construction.
   // Callers are responsible for validating credentials, but the gateway enforces this redundantly.
-  if (typeof shopDomain !== "string" || !/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shopDomain)) {
+  if (!isCanonicalShopDomain(normalizedShopDomain)) {
     throw new Error(`[shopify-gateway] Rejected request with invalid shop domain`);
   }
 
@@ -93,9 +95,9 @@ export async function gatewayFetch(mode, shopDomain, accessToken, method, path, 
     throw new GatewayReadOnlyError(msg);
   }
 
-  const url = `https://${shopDomain}/admin/api/${API_VERSION}${path}`;
+  const url = `https://${normalizedShopDomain}/admin/api/${API_VERSION}${path}`;
   // Log without the access token
-  console.log(`[shopify-gateway] ${upperMethod} ${shopDomain}${path}`);
+  console.log(`[shopify-gateway] ${upperMethod} ${normalizedShopDomain}${path}`);
 
   const options = {
     method: upperMethod,
@@ -135,8 +137,9 @@ export async function gatewayFetch(mode, shopDomain, accessToken, method, path, 
  * @returns {Promise<any>}
  */
 export async function gatewayGraphQL(mode, shopDomain, accessToken, document, variables) {
+  const normalizedShopDomain = canonicalizeShopDomain(shopDomain);
   // Defense-in-depth: validate shopDomain at the gateway boundary before any URL construction.
-  if (typeof shopDomain !== "string" || !/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shopDomain)) {
+  if (!isCanonicalShopDomain(normalizedShopDomain)) {
     throw new Error(`[shopify-gateway] Rejected GraphQL request with invalid shop domain`);
   }
 
@@ -165,8 +168,8 @@ export async function gatewayGraphQL(mode, shopDomain, accessToken, document, va
     throw new GatewayReadOnlyError(msg);
   }
 
-  const url = `https://${shopDomain}/admin/api/${API_VERSION}/graphql.json`;
-  console.log(`[shopify-gateway] GraphQL ${docType} ${shopDomain}`);
+  const url = `https://${normalizedShopDomain}/admin/api/${API_VERSION}/graphql.json`;
+  console.log(`[shopify-gateway] GraphQL ${docType} ${normalizedShopDomain}`);
 
   const res = await fetch(url, {
     method: "POST",
@@ -178,7 +181,7 @@ export async function gatewayGraphQL(mode, shopDomain, accessToken, document, va
   });
 
   if (!res.ok) {
-    console.warn(`[shopify-gateway] GraphQL ${shopDomain} failed (${res.status})`);
+    console.warn(`[shopify-gateway] GraphQL ${normalizedShopDomain} failed (${res.status})`);
     throw new Error(`Shopify GraphQL failed (${res.status})`);
   }
 

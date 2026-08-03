@@ -29,6 +29,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { requireAuth } from "./auth.js";
 import { encryptToken } from "./crypto-utils.js";
 import { getProvider, invalidateProviderCache } from "./providers/registry.js";
+import { canonicalizeShopDomain, isCanonicalShopDomain } from "./providers/shopify-domain.js";
 import { gatewayFetch } from "./providers/shopify-gateway.js";
 
 // ── Rate limiters for OAuth endpoints ──────────────────────────────────────
@@ -71,17 +72,7 @@ const STATE_TTL_SECONDS = 600; // 10 minutes
 
 // ── Canonical shop domain validation ──────────────────────────────────────
 
-/**
- * Normalize a shop domain to lowercase.
- * Shopify shop domains are case-insensitive; always compare and store in lowercase.
- *
- * @param {string} shop
- * @returns {string}
- */
-export function canonicalizeShopDomain(shop) {
-  if (typeof shop !== "string") return "";
-  return shop.toLowerCase();
-}
+export { canonicalizeShopDomain };
 
 /**
  * Validate that a shop string is a canonical *.myshopify.com domain.
@@ -92,8 +83,7 @@ export function canonicalizeShopDomain(shop) {
  * @returns {boolean}
  */
 function isValidShopDomain(shop) {
-  if (typeof shop !== "string") return false;
-  return /^[a-z0-9][a-z0-9\-]*\.myshopify\.com$/.test(canonicalizeShopDomain(shop));
+  return isCanonicalShopDomain(shop);
 }
 
 // ── HMAC validation ───────────────────────────────────────────────────────
@@ -141,14 +131,15 @@ function validateHmac(query, secret) {
  * Never logs the token or client secret values.
  */
 async function exchangeCodeForToken(shopDomain, code) {
+  const normalizedShopDomain = canonicalizeShopDomain(shopDomain);
   // Defense-in-depth: assert canonical Shopify domain before constructing the URL.
   // The shopDomain should already have been validated by isValidShopDomain() in the caller,
   // but we re-validate here to prevent any accidental code path that skips that check.
-  if (typeof shopDomain !== "string" || !/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shopDomain)) {
+  if (!isCanonicalShopDomain(normalizedShopDomain)) {
     throw new Error("Invalid shop domain — must be a canonical *.myshopify.com domain");
   }
-  const url = `https://${shopDomain}/admin/oauth/access_token`;
-  console.log(`[shopify-oauth] Exchanging code for token: ${shopDomain}`);
+  const url = `https://${normalizedShopDomain}/admin/oauth/access_token`;
+  console.log(`[shopify-oauth] Exchanging code for token: ${normalizedShopDomain}`);
 
   const res = await fetch(url, {
     method: "POST",

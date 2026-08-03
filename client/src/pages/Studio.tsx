@@ -62,10 +62,13 @@ const TYPE_SIZES: Record<string, string> = {
 // ── API helpers ────────────────────────────────────────────────────────
 function apiHeaders() {
   const token = localStorage.getItem("shimmerstock_token");
-  return {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
   };
+  if (token) {
+    headers.Authorization = "Bearer " + token;
+  }
+  return headers;
 }
 
 export default function Studio() {

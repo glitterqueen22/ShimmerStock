@@ -333,6 +333,74 @@ describe("ShopifyProvider — strict mode validation", () => {
   });
 });
 
+describe("ShopifyProvider — canonical shop-domain validation", () => {
+  it("normalizes mixed-case shop domain and marks configured when credentials are valid", async () => {
+    const { default: ShopifyProvider } = await import(
+      "../server/providers/shopify.js?domain-valid-1"
+    );
+    const provider = new ShopifyProvider({
+      shopDomain: "  My-Store.MyShopify.COM  ",
+      accessToken: "shpat_valid_admin_token",
+      syncMode: "readonly",
+    });
+
+    const status = provider.getStatus();
+    expect(status.shopDomain).toBe("my-store.myshopify.com");
+    expect(status.configured).toBe(true);
+  });
+
+  it("rejects invalid and unusable shop-domain formats", async () => {
+    const { default: ShopifyProvider } = await import(
+      "../server/providers/shopify.js?domain-invalid-1"
+    );
+    const invalidDomains = [
+      "evil.example.com",
+      "store.myshopify.com.evil",
+      "https://store.myshopify.com",
+      "store.myshopify.com/path",
+      "store.myshopify.com:443",
+      "store.myshopify.com?x=1",
+      "",
+      "   ",
+    ];
+
+    for (const shopDomain of invalidDomains) {
+      const provider = new ShopifyProvider({
+        shopDomain,
+        accessToken: "shpat_valid_admin_token",
+        syncMode: "readonly",
+      });
+      const status = provider.getStatus();
+      expect(status.configured).toBe(false);
+      expect(status.canWrite).toBe(false);
+    }
+  });
+
+  it("fails closed before network when shop domain is invalid", async () => {
+    const { default: ShopifyProvider } = await import(
+      "../server/providers/shopify.js?domain-invalid-network"
+    );
+    let fetchCallCount = 0;
+    const originalFetch = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => {
+      fetchCallCount++;
+      return new Response("{}");
+    };
+
+    try {
+      const provider = new ShopifyProvider({
+        shopDomain: "https://store.myshopify.com",
+        accessToken: "shpat_valid_admin_token",
+        syncMode: "readonly",
+      });
+      await expect(provider.fetchOrders()).rejects.toThrow("Shopify is not configured");
+      expect(fetchCallCount).toBe(0);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});
+
 // ── 10–12. Gateway tests ──────────────────────────────────────────────────────
 
 describe("Shopify Gateway — write blocking", () => {

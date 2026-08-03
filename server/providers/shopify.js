@@ -20,6 +20,7 @@
 import CommerceProvider from "./interface.js";
 import { decryptToken } from "../crypto-utils.js";
 import { gatewayFetch } from "./shopify-gateway.js";
+import { canonicalizeShopDomain, isCanonicalShopDomain } from "./shopify-domain.js";
 
 const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || "glitzyglitterexpress.com";
 const API_TOKEN = process.env.SHOPIFY_API_TOKEN || "";
@@ -74,9 +75,11 @@ export default class ShopifyProvider extends CommerceProvider {
    */
   constructor(options = {}) {
     super();
-    this._shopDomain = hasOwnOption(options, "shopDomain")
+    this._shopDomain = canonicalizeShopDomain(
+      hasOwnOption(options, "shopDomain")
       ? (options.shopDomain ?? "")
-      : STORE_DOMAIN;
+      : STORE_DOMAIN
+    );
     this._accessToken = hasOwnOption(options, "accessToken")
       ? (options.accessToken ?? "")
       : API_TOKEN;
@@ -89,7 +92,8 @@ export default class ShopifyProvider extends CommerceProvider {
     // "atkn_" tokens are NOT Admin API tokens — they're short-lived checkout tokens or similar.
     const token = this._accessToken || "";
     const looksValid = Boolean(token && (token.startsWith("shpat_") || token.startsWith("shpca_")));
-    this._configured = Boolean(this._shopDomain && looksValid);
+    const hasValidShopDomain = isCanonicalShopDomain(this._shopDomain);
+    this._configured = Boolean(hasValidShopDomain && looksValid);
 
     // Strict mode parsing — parseMode enforces all safety rules including
     // SHOPIFY_READ_ONLY and SHOPIFY_ALLOW_WRITE_MODE.
