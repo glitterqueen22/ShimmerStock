@@ -242,14 +242,11 @@ export default function Partner() {
   const [commissionConfig, setCommissionConfig] = useState<CommissionConfig | null>(null);
   const [attributions, setAttributions] = useState<AttributionRecord[]>([]);
   const [pendingAttributions, setPendingAttributions] = useState<AttributionRecord[]>([]);
-  const [mySales] = useState<any[]>([]);
-  void mySales;
-  const [referralLinks] = useState<ReferralLink[]>([]);
-  void referralLinks;
-  const [showManualAttrModal, setShowManualAttrModal] = useState(false);
-  void showManualAttrModal;
-  const [manualAttrForm] = useState({ orderId: '', affiliateId: '', reason: '', commissionCents: '' });
-  void manualAttrForm;
+  // These state values are declared for future feature work; the getter is intentionally unused.
+  const [_mySales] = useState<any[]>([]);
+  const [_referralLinks] = useState<ReferralLink[]>([]);
+  const [_showManualAttrModal, setShowManualAttrModal] = useState(false);
+  const [_manualAttrForm] = useState({ orderId: '', affiliateId: '', reason: '', commissionCents: '' });
   const [attrSaving, setAttrSaving] = useState(false);
 
   // ── Loaders ──────────────────────────────────────────────────────

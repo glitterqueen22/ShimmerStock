@@ -576,7 +576,8 @@ export default function Fulfillment() {
 
   // ── Print State ────────────────────────────────────────────────
   const [printData, setPrintData] = useState<PrintData | null>(null);
-  const [printLoading, setPrintLoading] = useState(false); void printLoading;
+  // printLoading is set during label/slip fetching; the loading indicator render is pending UI work.
+  const [_printLoading, setPrintLoading] = useState(false);
 
   // ── Fetch all data ──────────────────────────────────────────────
   const fetchAll = useCallback(async () => {

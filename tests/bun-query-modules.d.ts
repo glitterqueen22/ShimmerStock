@@ -20,3 +20,8 @@ declare module '../server/providers/shopify-gateway.js?*' {
 declare module '../server/providers/registry.js?*' {
   export { initRegistry, getProvider } from '../server/providers/registry.js';
 }
+
+// Shopify OAuth routes with query params (cache-busting for test isolation)
+declare module '../server/shopify-oauth-routes.js?*' {
+  export { verifyGrantedScopes, canonicalizeShopDomain, mountShopifyOauthRoutes } from '../server/shopify-oauth-routes.js';
+}

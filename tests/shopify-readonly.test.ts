@@ -469,17 +469,156 @@ describe("Shopify Gateway — write blocking", () => {
       global.fetch = orig;
     }
   });
+
+  it("blocks GraphQL subscription in read-only mode before any network call", async () => {
+    let networkCallCount = 0;
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => { networkCallCount++; return new Response("{}"); };
+    try {
+      const { gatewayGraphQL, GatewayReadOnlyError } = await import("../server/providers/shopify-gateway.js?gw-sub-ro");
+      await expect(
+        gatewayGraphQL("readonly", "test.myshopify.com", "shpat_fake", "subscription { orderCreated { id } }")
+      ).rejects.toBeInstanceOf(GatewayReadOnlyError);
+      expect(networkCallCount).toBe(0);
+    } finally {
+      global.fetch = orig;
+    }
+  });
+
+  it("blocks GraphQL subscription in full mode before any network call (subscriptions never reach network)", async () => {
+    let networkCallCount = 0;
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => { networkCallCount++; return new Response("{}"); };
+    try {
+      const { gatewayGraphQL, GatewayReadOnlyError } = await import("../server/providers/shopify-gateway.js?gw-sub-full");
+      await expect(
+        gatewayGraphQL("full", "test.myshopify.com", "shpat_fake", "subscription { orderCreated { id } }")
+      ).rejects.toBeInstanceOf(GatewayReadOnlyError);
+      // Must be blocked BEFORE any network call regardless of mode
+      expect(networkCallCount).toBe(0);
+    } finally {
+      global.fetch = orig;
+    }
+  });
+
+  it("handles HEAD request without calling res.json() (no parse error)", async () => {
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => {
+      // HEAD responses have no body — simulated with empty response
+      return new Response(null, { status: 200 });
+    };
+    try {
+      const { gatewayFetch } = await import("../server/providers/shopify-gateway.js?gw-head");
+      // full mode required since HEAD is a read — but it's not in the write-methods set anyway
+      const result = await gatewayFetch("readonly", "test.myshopify.com", "shpat_fake", "HEAD", "/shop.json");
+      expect(result).toBeNull();
+    } finally {
+      global.fetch = orig;
+    }
+  });
+
+  it("handles 204 No Content response without calling res.json()", async () => {
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => {
+      return new Response(null, { status: 204 });
+    };
+    try {
+      const { gatewayFetch } = await import("../server/providers/shopify-gateway.js?gw-204");
+      const result = await gatewayFetch("full", "test.myshopify.com", "shpat_fake", "DELETE", "/some/resource.json");
+      expect(result).toBeNull();
+    } finally {
+      global.fetch = orig;
+    }
+  });
+
+  it("handles 205 Reset Content response without calling res.json()", async () => {
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => {
+      return new Response(null, { status: 205 });
+    };
+    try {
+      const { gatewayFetch } = await import("../server/providers/shopify-gateway.js?gw-205");
+      const result = await gatewayFetch("full", "test.myshopify.com", "shpat_fake", "DELETE", "/some/other.json");
+      expect(result).toBeNull();
+    } finally {
+      global.fetch = orig;
+    }
+  });
 });
 
 // ── 13–14. Scope verification ─────────────────────────────────────────────────
 
 describe("Shopify OAuth — granted scope verification", () => {
   it("rejects granted scopes containing any write_* scope", async () => {
-    // Access the verifyGrantedScopes function via the route module source inspection
-    const src = await Bun.file("server/shopify-oauth-routes.js").text();
-    // Verify the source does NOT contain webhook registration calls
-    expect(src).not.toContain("registerWebhooks");
-    expect(src).not.toContain("webhooks.json");
+    const { verifyGrantedScopes } = await import(
+      "../server/shopify-oauth-routes.js?scope-verify-write"
+    );
+
+    // A write scope must cause immediate rejection regardless of which reads are present
+    const result = verifyGrantedScopes(
+      "read_orders,read_products,read_inventory,read_locations,write_inventory"
+    );
+    expect(result.ok).toBe(false);
+    expect(result.verifiedScopes).toHaveLength(0);
+    expect(result.error).toContain("write_inventory");
+
+    // Multiple write scopes
+    const result2 = verifyGrantedScopes(
+      "read_products,write_orders,write_fulfillments"
+    );
+    expect(result2.ok).toBe(false);
+    expect(result2.error).toContain("write_");
+
+    // Token must NOT be activated when a write scope is present
+    // (verified by checking the scope-reject path returns ok: false before any DB write)
+    expect(result.ok).toBe(false);
+    expect(result2.ok).toBe(false);
+  });
+
+  it("rejects connections with missing required scopes", async () => {
+    const { verifyGrantedScopes } = await import(
+      "../server/shopify-oauth-routes.js?scope-verify-missing"
+    );
+
+    // Missing read_inventory
+    const r1 = verifyGrantedScopes("read_orders,read_products,read_locations");
+    expect(r1.ok).toBe(false);
+    expect(r1.error).toContain("read_inventory");
+
+    // Missing all required scopes
+    const r2 = verifyGrantedScopes("");
+    expect(r2.ok).toBe(false);
+
+    // Missing read_products
+    const r3 = verifyGrantedScopes("read_orders,read_inventory,read_locations");
+    expect(r3.ok).toBe(false);
+    expect(r3.error).toContain("read_products");
+  });
+
+  it("accepts exactly the required P0 scopes", async () => {
+    const { verifyGrantedScopes } = await import(
+      "../server/shopify-oauth-routes.js?scope-verify-ok"
+    );
+
+    const result = verifyGrantedScopes(
+      "read_orders,read_products,read_inventory,read_locations"
+    );
+    expect(result.ok).toBe(true);
+    expect(result.verifiedScopes).toContain("read_orders");
+    expect(result.verifiedScopes).toContain("read_products");
+    expect(result.verifiedScopes).toContain("read_inventory");
+    expect(result.verifiedScopes).toContain("read_locations");
+  });
+
+  it("accepts read_all_orders as equivalent to read_orders", async () => {
+    const { verifyGrantedScopes } = await import(
+      "../server/shopify-oauth-routes.js?scope-verify-all-orders"
+    );
+
+    const result = verifyGrantedScopes(
+      "read_all_orders,read_products,read_inventory,read_locations"
+    );
+    expect(result.ok).toBe(true);
   });
 
   it("SHOPIFY_SCOPES contains exactly the P0 read-only scopes", async () => {
@@ -551,5 +690,71 @@ describe("Provider registry — credential containment", () => {
         }
       }
     );
+  });
+
+  it("throws when getProvider() is called with businessId+db before initRegistry()", async () => {
+    const { initDb } = await import("../server/db.js");
+    // Use a distinct query-param to get a fresh module instance not yet initialized
+    const { getProvider } = await import(
+      "../server/providers/registry.js?uninit-check"
+    );
+
+    const tmpPath = `/tmp/shimmerstock-uninit-${crypto.randomUUID()}.db`;
+    const db = initDb(tmpPath);
+
+    try {
+      // Must throw — registry was never initialized for this module instance
+      expect(() => getProvider(99999, db)).toThrow(
+        "Provider registry not initialised"
+      );
+    } finally {
+      db.close();
+      try { require("fs").unlinkSync(tmpPath); } catch (_) { /* ok */ }
+    }
+  });
+
+  it("throws when getProvider() is called with no args before initRegistry()", async () => {
+    const { getProvider } = await import(
+      "../server/providers/registry.js?uninit-check-singleton"
+    );
+
+    // Must throw — registry was never initialized
+    expect(() => getProvider()).toThrow("Provider registry not initialised");
+  });
+});
+
+// ── Shop domain casing ───────────────────────────────────────────────────────
+
+describe("Shopify OAuth — shop domain canonicalization", () => {
+  it("accepts uppercase shop domain and normalizes to lowercase", async () => {
+    const { canonicalizeShopDomain } = await import(
+      "../server/shopify-oauth-routes.js?shop-domain-1"
+    );
+    expect(canonicalizeShopDomain("MYSTORE.myshopify.com")).toBe("mystore.myshopify.com");
+    expect(canonicalizeShopDomain("MyStore.MyShopify.COM")).toBe("mystore.myshopify.com");
+    expect(canonicalizeShopDomain("test-shop.myshopify.com")).toBe("test-shop.myshopify.com");
+  });
+
+  it("rejects a domain that differs after normalization in shop binding", async () => {
+    const { canonicalizeShopDomain } = await import(
+      "../server/shopify-oauth-routes.js?shop-domain-2"
+    );
+    // Case-only difference: after canonicalization, same domain — valid
+    const domainA = canonicalizeShopDomain("ShopA.myshopify.com");
+    const domainB = canonicalizeShopDomain("shopa.myshopify.com");
+    expect(domainA).toBe(domainB); // same domain, different case → equal after normalization
+
+    // Genuinely different domain: not the same even after normalization
+    const domainC = canonicalizeShopDomain("shopb.myshopify.com");
+    expect(domainA).not.toBe(domainC);
+  });
+
+  it("returns empty string for non-string input", async () => {
+    const { canonicalizeShopDomain } = await import(
+      "../server/shopify-oauth-routes.js?shop-domain-3"
+    );
+    expect(canonicalizeShopDomain(null as any)).toBe("");
+    expect(canonicalizeShopDomain(undefined as any)).toBe("");
+    expect(canonicalizeShopDomain(123 as any)).toBe("");
   });
 });

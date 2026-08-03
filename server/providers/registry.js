@@ -14,6 +14,9 @@ import ShopifyProvider from "./shopify.js";
 /** @type {import("./interface.js").default|null} */
 let _singletonProvider = null;
 
+/** Whether initRegistry() has been called. */
+let _initialized = false;
+
 /** @type {Map<number, import("./interface.js").default>} */
 const _businessCache = new Map();
 
@@ -22,6 +25,7 @@ const _businessCache = new Map();
  */
 export function initRegistry() {
   _singletonProvider = new ShopifyProvider();
+  _initialized = true;
   console.log("[registry] Singleton Shopify provider initialised");
 }
 
@@ -45,6 +49,14 @@ export function getProvider(businessId, db) {
       );
     }
     return _singletonProvider;
+  }
+
+  // Require explicit initialization before multi-tenant resolution.
+  // getProvider() must not silently succeed when initRegistry() was never called.
+  if (!_initialized) {
+    throw new Error(
+      "Provider registry not initialised — call initRegistry() at startup"
+    );
   }
 
   // Check cache first

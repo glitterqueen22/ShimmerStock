@@ -68,7 +68,20 @@ const STATE_TTL_SECONDS = 600; // 10 minutes
 // ── Canonical shop domain validation ──────────────────────────────────────
 
 /**
+ * Normalize a shop domain to lowercase.
+ * Shopify shop domains are case-insensitive; always compare and store in lowercase.
+ *
+ * @param {string} shop
+ * @returns {string}
+ */
+export function canonicalizeShopDomain(shop) {
+  if (typeof shop !== "string") return "";
+  return shop.toLowerCase();
+}
+
+/**
  * Validate that a shop string is a canonical *.myshopify.com domain.
+ * Always normalizes to lowercase before testing.
  * Rejects anything that is not exactly one subdomain label followed by .myshopify.com.
  *
  * @param {string} shop
@@ -76,7 +89,7 @@ const STATE_TTL_SECONDS = 600; // 10 minutes
  */
 function isValidShopDomain(shop) {
   if (typeof shop !== "string") return false;
-  return /^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/.test(shop);
+  return /^[a-z0-9][a-z0-9\-]*\.myshopify\.com$/.test(canonicalizeShopDomain(shop));
 }
 
 // ── HMAC validation ───────────────────────────────────────────────────────
@@ -162,10 +175,12 @@ async function fetchShopInfo(shopDomain, accessToken) {
  *  - No write_* scope is permitted.
  *  - All REQUIRED_SCOPES must be present (read_all_orders covers read_orders).
  *
+ * Exported for unit testing.
+ *
  * @param {string} grantedScopeString — comma-separated scope string from Shopify
  * @returns {{ ok: boolean, error?: string, verifiedScopes: string[] }}
  */
-function verifyGrantedScopes(grantedScopeString) {
+export function verifyGrantedScopes(grantedScopeString) {
   const grantedList = (grantedScopeString || "")
     .split(",")
     .map((s) => s.trim())
@@ -350,7 +365,8 @@ export function mountShopifyOauthRoutes(app, db) {
       const userId = req.user?.id;
       const businessId = req.businessId;
       const sessionId = req.sessionId ?? null;
-      const shop = req.query.shop;
+      // Canonicalize to lowercase at the input boundary
+      const shop = canonicalizeShopDomain(req.query.shop);
 
       if (!shop) {
         return res.status(400).json({ error: "Missing 'shop' query parameter (e.g. ?shop=mystore.myshopify.com)" });
@@ -389,7 +405,9 @@ export function mountShopifyOauthRoutes(app, db) {
 
   app.get("/api/shopify/auth/callback", oauthCallbackLimiter, async (req, res) => {
     try {
-      const { code, hmac, shop, state } = req.query;
+      const { code, hmac, state } = req.query;
+      // Canonicalize shop domain at the callback boundary
+      const shop = canonicalizeShopDomain(req.query.shop);
 
       if (!code || !hmac || !shop || !state) {
         return res.status(400).json({ error: "Missing required parameters: code, hmac, shop, state" });
@@ -444,7 +462,10 @@ export function mountShopifyOauthRoutes(app, db) {
 
       try {
         const shopData = await fetchShopInfo(shop, accessToken);
-        const verifiedShopDomain = shopData.shop?.myshopify_domain || shopData.shop?.domain || "";
+        // Normalize the verified domain to lowercase for comparison
+        const verifiedShopDomain = canonicalizeShopDomain(
+          shopData.shop?.myshopify_domain || shopData.shop?.domain || ""
+        );
 
         if (verifiedShopDomain && verifiedShopDomain !== shop) {
           throw new Error(`Shop identity mismatch: state says ${shop}, Shopify reports ${verifiedShopDomain}`);

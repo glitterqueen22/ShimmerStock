@@ -11,8 +11,8 @@
  *
  *   GraphQL:
  *     query       — allowed
- *     mutation    — blocked
- *     subscription — blocked
+ *     mutation    — blocked (in read-only mode)
+ *     subscription — always blocked (in all modes, pending separate milestone)
  *     ambiguous / unclassified — blocked (fail closed)
  *
  * Logs never include the access token or authorization header values.
@@ -110,6 +110,11 @@ export async function gatewayFetch(mode, shopDomain, accessToken, method, path, 
     throw new Error(`Shopify ${upperMethod} ${path} failed (${res.status}): ${text}`);
   }
 
+  // HEAD responses and no-content responses (204, 205) have no body — do not call res.json().
+  if (upperMethod === "HEAD" || res.status === 204 || res.status === 205) {
+    return null;
+  }
+
   return res.json();
 }
 
@@ -126,8 +131,16 @@ export async function gatewayFetch(mode, shopDomain, accessToken, method, path, 
 export async function gatewayGraphQL(mode, shopDomain, accessToken, document, variables) {
   const docType = classifyGraphQLDocument(document);
 
+  // Block subscription operations in ALL modes — subscriptions are not supported
+  // until a separate milestone explicitly enables them.
+  if (docType === "subscription") {
+    const msg = "[shopify-gateway] BLOCKED GraphQL subscription — subscriptions are not supported";
+    console.warn(msg);
+    throw new GatewayReadOnlyError(msg);
+  }
+
   // In read-only mode, only "query" documents are allowed.
-  // mutation, subscription, and unknown all fail closed.
+  // mutation and unknown all fail closed.
   if (mode !== "full" && docType !== "query") {
     const msg = `[shopify-gateway] BLOCKED GraphQL ${docType} — provider is in read-only mode`;
     console.warn(msg);
