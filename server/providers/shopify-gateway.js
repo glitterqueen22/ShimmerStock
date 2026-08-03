@@ -114,7 +114,7 @@ export async function gatewayFetch(mode, shopDomain, accessToken, method, path, 
   const res = await fetch(url, options);
 
   if (!res.ok) {
-    console.warn(`[shopify-gateway] ${upperMethod} ${shopDomain}${path} failed (${res.status})`);
+    console.warn(`[shopify-gateway] ${upperMethod} ${normalizedShopDomain}${path} failed (${res.status})`);
     throw new Error(`Shopify ${upperMethod} ${path} failed (${res.status})`);
   }
 

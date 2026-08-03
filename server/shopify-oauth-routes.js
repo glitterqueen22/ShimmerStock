@@ -377,8 +377,12 @@ export function mountShopifyOauthRoutes(app, db) {
       authUrl.searchParams.set("redirect_uri", `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/auth/callback`);
       authUrl.searchParams.set("state", stateToken);
 
+      const destination = authUrl.toString();
       console.log(`[shopify-oauth] Redirecting business ${businessId} to Shopify OAuth (shop: ${shop})`);
-      res.redirect(authUrl.toString());
+      if (req.query.format === "json") {
+        return res.json({ authUrl: destination });
+      }
+      res.redirect(destination);
     } catch (err) {
       console.error("GET /api/shopify/auth error:", err.message);
       res.status(500).json({ error: "Failed to initiate OAuth" });

@@ -82,9 +82,14 @@ export async function updateInventory(inventoryItemId, locationId, quantity) {
   }
 
   // All write calls routed through the centralized gateway — blocked in read-only mode.
-  await gatewayFetch(mode, STORE_DOMAIN, API_TOKEN, "POST", "/inventory_levels/set.json", {
-    location_id: locationId,
-    inventory_item_id: inventoryItemId,
-    available: quantity,
-  });
+  // Deprecated helper must fail closed without throwing to callers.
+  try {
+    await gatewayFetch(mode, STORE_DOMAIN, API_TOKEN, "POST", "/inventory_levels/set.json", {
+      location_id: locationId,
+      inventory_item_id: inventoryItemId,
+      available: quantity,
+    });
+  } catch (err) {
+    console.warn(`[shopify] Inventory update skipped: ${err?.message || "request blocked"}`);
+  }
 }

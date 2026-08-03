@@ -239,9 +239,9 @@ export default function ShopifyConnect({
 
     setConnecting(true);
     try {
-      // Redirect to OAuth
-      const redirectUrl = `/api/shopify/auth?shop=${encodeURIComponent(domain)}`;
-      window.location.href = redirectUrl;
+      const { authUrl } = await apiGet<{ authUrl: string }>(`/api/shopify/auth?shop=${encodeURIComponent(domain)}&format=json`);
+      if (!authUrl) throw new Error("Missing Shopify authorization URL");
+      window.location.href = authUrl;
       // Don't set connecting to false — we're leaving the page
     } catch (err: any) {
       toast(err.message || "Failed to initiate connection", "error");
@@ -315,9 +315,15 @@ export default function ShopifyConnect({
     }
   };
 
-  const handleReauthorize = () => {
+  const handleReauthorize = async () => {
     if (status?.shopDomain) {
-      window.location.href = `/api/shopify/auth?shop=${encodeURIComponent(status.shopDomain)}`;
+      try {
+        const { authUrl } = await apiGet<{ authUrl: string }>(`/api/shopify/auth?shop=${encodeURIComponent(status.shopDomain)}&format=json`);
+        if (!authUrl) throw new Error("Missing Shopify authorization URL");
+        window.location.href = authUrl;
+      } catch (err: any) {
+        toast(err.message || "Failed to initiate reauthorization", "error");
+      }
     }
   };
 

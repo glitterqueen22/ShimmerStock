@@ -73,6 +73,23 @@ describe("Shopify OAuth Flow", () => {
     expect(scopes).not.toContain("read_checkouts");
   });
 
+  it("returns JSON auth URL when requested via format=json", async () => {
+    const res = await fetch(`${appUrl}/api/shopify/auth?shop=json-test.myshopify.com&format=json`, {
+      headers: { Authorization: "Bearer " + token }
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json() as any;
+    expect(data.authUrl).toContain("https://json-test.myshopify.com/admin/oauth/authorize");
+  });
+
+  it("rejects query-token auth fallback", async () => {
+    const res = await fetch(`${appUrl}/api/shopify/auth?shop=test.myshopify.com&token=${encodeURIComponent(token)}`, {
+      redirect: "manual"
+    });
+    expect(res.status).toBe(401);
+  });
+
   it("rejects callback with missing state", async () => {
     const query = {
       code: "test_code",

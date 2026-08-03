@@ -10,7 +10,7 @@
  *   - Multi-tenant: accepts per-business credentials (shopDomain, accessToken)
  *
  * Environment variables (fallback when no business credentials):
- *   SHOPIFY_STORE_DOMAIN       — default "glitzyglitterexpress.com"
+ *   SHOPIFY_STORE_DOMAIN       — canonical "*.myshopify.com" domain (e.g. "mystore.myshopify.com")
  *   SHOPIFY_API_TOKEN          — the access token (absent → not configured)
  *   SHOPIFY_SYNC_MODE          — "readonly" (default) or "full"
  *   SHOPIFY_READ_ONLY          — "true" to permanently lock to read-only

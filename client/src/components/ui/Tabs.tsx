@@ -18,14 +18,13 @@ export interface TabsProps {
 }
 
 export function Tabs({ tabs, active, activeId, activeTab, onChange, onTabChange, className = '' }: TabsProps) {
-  const tabIdFor = (tab: Tab, index: number) => tab.id ?? tab.key ?? `tab-${index}`;
-  const currentActive = active ?? activeId ?? activeTab ?? (tabs[0] ? tabIdFor(tabs[0], 0) : "");
+  const currentActive = active ?? activeId ?? activeTab ?? (tabs[0]?.id ?? tabs[0]?.key ?? '');
   const handleChange = onChange ?? onTabChange ?? (() => {});
 
   return (
     <div className={`bg-rose-50 p-1 rounded-xl inline-flex gap-0.5 ${className}`}>
       {tabs.map((tab, index) => {
-        const tabId = tabIdFor(tab, index);
+        const tabId = tab.id ?? tab.key ?? `tab-${index}`;
         const count = tab.count ?? (typeof tab.badge === 'number' ? tab.badge : undefined);
         const isActive = tabId === currentActive;
 
