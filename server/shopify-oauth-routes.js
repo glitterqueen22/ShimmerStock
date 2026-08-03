@@ -137,6 +137,12 @@ function validateHmac(query, secret) {
  * Never logs the token or client secret values.
  */
 async function exchangeCodeForToken(shopDomain, code) {
+  // Defense-in-depth: assert canonical Shopify domain before constructing the URL.
+  // The shopDomain should already have been validated by isValidShopDomain() in the caller,
+  // but we re-validate here to prevent any accidental code path that skips that check.
+  if (typeof shopDomain !== "string" || !/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shopDomain)) {
+    throw new Error("Invalid shop domain — must be a canonical *.myshopify.com domain");
+  }
   const url = `https://${shopDomain}/admin/oauth/access_token`;
   console.log(`[shopify-oauth] Exchanging code for token: ${shopDomain}`);
 
@@ -477,7 +483,9 @@ export function mountShopifyOauthRoutes(app, db) {
         console.log(`[shopify-oauth] Token verified for ${shop}: shop=${shopName || "unknown"}, scopes OK`);
       } catch (err) {
         verifyError = err.message;
-        console.error(`[shopify-oauth] Token validation failed for ${shop}:`, verifyError);
+        // Sanitize before logging — err.message may contain API-sourced data (log-injection prevention)
+        const safeError = String(verifyError || "").slice(0, 200).replace(/[\r\n\t]/g, " ");
+        console.error(`[shopify-oauth] Token validation failed for ${shop}:`, safeError);
       }
 
       if (verified) {

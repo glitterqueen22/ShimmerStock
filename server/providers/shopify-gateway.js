@@ -80,6 +80,12 @@ export function classifyGraphQLDocument(document) {
 export async function gatewayFetch(mode, shopDomain, accessToken, method, path, body) {
   const upperMethod = (method || "GET").toUpperCase();
 
+  // Defense-in-depth: validate shopDomain at the gateway boundary before any URL construction.
+  // Callers are responsible for validating credentials, but the gateway enforces this redundantly.
+  if (typeof shopDomain !== "string" || !/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shopDomain)) {
+    throw new Error(`[shopify-gateway] Rejected request with invalid shop domain`);
+  }
+
   // Block write methods in read-only mode — before any network call
   if (mode !== "full" && REST_WRITE_METHODS.has(upperMethod)) {
     const msg = `[shopify-gateway] BLOCKED ${upperMethod} ${path} — provider is in read-only mode`;
@@ -129,6 +135,11 @@ export async function gatewayFetch(mode, shopDomain, accessToken, method, path, 
  * @returns {Promise<any>}
  */
 export async function gatewayGraphQL(mode, shopDomain, accessToken, document, variables) {
+  // Defense-in-depth: validate shopDomain at the gateway boundary before any URL construction.
+  if (typeof shopDomain !== "string" || !/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shopDomain)) {
+    throw new Error(`[shopify-gateway] Rejected GraphQL request with invalid shop domain`);
+  }
+
   const docType = classifyGraphQLDocument(document);
 
   // Block subscription operations in ALL modes — subscriptions are not supported
