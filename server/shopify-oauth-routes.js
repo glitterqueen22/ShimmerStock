@@ -60,9 +60,9 @@ const oauthCallbackLimiter = rateLimit({
 const REQUIRED_SCOPES = ["read_orders", "read_products", "read_inventory", "read_locations"];
 const SHOPIFY_SCOPES = REQUIRED_SCOPES.join(",");
 
-// Shopify may grant read_all_orders as a superset of read_orders — that is the only
-// extra scope that is permitted.  Any other scope not in this approved set is rejected.
-const APPROVED_SCOPES = new Set([...REQUIRED_SCOPES, "read_all_orders"]);
+// P0 policy: the approved set is exactly REQUIRED_SCOPES — no additional scopes.
+// read_all_orders is NOT approved for P0; it belongs in a separate owner-approved scope milestone.
+const APPROVED_SCOPES = new Set(REQUIRED_SCOPES);
 
 const API_VERSION = "2024-01";
 
@@ -183,7 +183,8 @@ async function fetchShopInfo(shopDomain, accessToken) {
 /**
  * Verify granted scopes against P0 policy:
  *  - No write_* scope is permitted.
- *  - All REQUIRED_SCOPES must be present (read_all_orders covers read_orders).
+ *  - Granted scopes must exactly match APPROVED_SCOPES (same as REQUIRED_SCOPES for P0).
+ *  - All REQUIRED_SCOPES must be present.
  *
  * Exported for unit testing.
  *
@@ -217,13 +218,7 @@ export function verifyGrantedScopes(grantedScopeString) {
   }
 
   // Check all required scopes are present
-  // read_all_orders is Shopify's broader scope that covers read_orders
-  const missing = REQUIRED_SCOPES.filter((req) => {
-    if (req === "read_orders") {
-      return !grantedList.includes("read_orders") && !grantedList.includes("read_all_orders");
-    }
-    return !grantedList.includes(req);
-  });
+  const missing = REQUIRED_SCOPES.filter((req) => !grantedList.includes(req));
 
   if (missing.length > 0) {
     return {

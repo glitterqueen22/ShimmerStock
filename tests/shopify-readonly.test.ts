@@ -553,6 +553,9 @@ describe("Shopify Gateway — write blocking", () => {
     (global as any).fetch = async (..._args: any[]) => {
       return new Response(sensitiveBody, { status: 429 });
     };
+    const warnMessages: string[] = [];
+    const origWarn = console.warn;
+    console.warn = (...args: any[]) => { warnMessages.push(args.join(" ")); };
     try {
       const { gatewayFetch } = await import("../server/providers/shopify-gateway.js?gw-error-rest");
       let thrown: Error | null = null;
@@ -567,8 +570,14 @@ describe("Shopify Gateway — write blocking", () => {
       expect(thrown!.message).not.toContain("shpat_secret");
       // It must still contain the HTTP method and status code for diagnosing the failure
       expect(thrown!.message).toContain("429");
+      // console.warn must not log the upstream body either
+      const allWarns = warnMessages.join("\n");
+      expect(allWarns).not.toContain(sensitiveBody);
+      expect(allWarns).not.toContain("shpat_secret");
+      expect(allWarns).not.toContain("body preview");
     } finally {
       global.fetch = orig;
+      console.warn = origWarn;
     }
   });
 
@@ -578,6 +587,9 @@ describe("Shopify Gateway — write blocking", () => {
     (global as any).fetch = async (..._args: any[]) => {
       return new Response(sensitiveBody, { status: 401 });
     };
+    const warnMessages: string[] = [];
+    const origWarn = console.warn;
+    console.warn = (...args: any[]) => { warnMessages.push(args.join(" ")); };
     try {
       const { gatewayGraphQL } = await import("../server/providers/shopify-gateway.js?gw-error-graphql");
       let thrown: Error | null = null;
@@ -590,8 +602,14 @@ describe("Shopify Gateway — write blocking", () => {
       expect(thrown!.message).not.toContain(sensitiveBody);
       expect(thrown!.message).not.toContain("shpat_abc");
       expect(thrown!.message).toContain("401");
+      // console.warn must not log the upstream body either
+      const allWarns = warnMessages.join("\n");
+      expect(allWarns).not.toContain(sensitiveBody);
+      expect(allWarns).not.toContain("shpat_abc");
+      expect(allWarns).not.toContain("body preview");
     } finally {
       global.fetch = orig;
+      console.warn = origWarn;
     }
   });
 });
@@ -660,7 +678,7 @@ describe("Shopify OAuth — granted scope verification", () => {
     expect(result.verifiedScopes).toContain("read_locations");
   });
 
-  it("accepts read_all_orders as equivalent to read_orders", async () => {
+  it("rejects read_all_orders — not in P0 exact approved scope set", async () => {
     const { verifyGrantedScopes } = await import(
       "../server/shopify-oauth-routes.js?scope-verify-all-orders"
     );
@@ -668,7 +686,9 @@ describe("Shopify OAuth — granted scope verification", () => {
     const result = verifyGrantedScopes(
       "read_all_orders,read_products,read_inventory,read_locations"
     );
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("unapproved");
+    expect(result.error).toContain("read_all_orders");
   });
 
   it("SHOPIFY_SCOPES contains exactly the P0 read-only scopes", async () => {
@@ -731,11 +751,13 @@ describe("Shopify OAuth — granted scope verification", () => {
     expect(r3.ok).toBe(false);
     expect(r3.error).toContain("unapproved");
 
-    // read_all_orders is the ONLY additional scope permitted (superset of read_orders)
-    const ok = verifyGrantedScopes(
+    // read_all_orders is NOT approved for P0 — must be rejected like any other extra scope
+    const r4 = verifyGrantedScopes(
       "read_all_orders,read_products,read_inventory,read_locations"
     );
-    expect(ok.ok).toBe(true);
+    expect(r4.ok).toBe(false);
+    expect(r4.error).toContain("unapproved");
+    expect(r4.error).toContain("read_all_orders");
   });
 });
 

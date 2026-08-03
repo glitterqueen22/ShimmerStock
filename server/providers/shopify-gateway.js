@@ -112,10 +112,7 @@ export async function gatewayFetch(mode, shopDomain, accessToken, method, path, 
   const res = await fetch(url, options);
 
   if (!res.ok) {
-    const text = await res.text();
-    // Log a truncated excerpt internally (never include in thrown message — upstream body may contain sensitive payloads).
-    const preview = text.slice(0, 200);
-    console.warn(`[shopify-gateway] ${upperMethod} ${shopDomain}${path} failed (${res.status}) — upstream body preview: ${preview}${text.length > 200 ? "…[truncated]" : ""}`);
+    console.warn(`[shopify-gateway] ${upperMethod} ${shopDomain}${path} failed (${res.status})`);
     throw new Error(`Shopify ${upperMethod} ${path} failed (${res.status})`);
   }
 
@@ -181,10 +178,7 @@ export async function gatewayGraphQL(mode, shopDomain, accessToken, document, va
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    // Log a truncated excerpt internally (never include in thrown message — upstream body may contain sensitive payloads).
-    const preview = text.slice(0, 200);
-    console.warn(`[shopify-gateway] GraphQL ${shopDomain} failed (${res.status}) — upstream body preview: ${preview}${text.length > 200 ? "…[truncated]" : ""}`);
+    console.warn(`[shopify-gateway] GraphQL ${shopDomain} failed (${res.status})`);
     throw new Error(`Shopify GraphQL failed (${res.status})`);
   }
 
