@@ -483,9 +483,9 @@ export function mountShopifyOauthRoutes(app, db) {
         console.log(`[shopify-oauth] Token verified for ${shop}: shop=${shopName || "unknown"}, scopes OK`);
       } catch (err) {
         verifyError = err.message;
-        // Sanitize before logging — err.message may contain API-sourced data (log-injection prevention)
-        const safeError = String(verifyError || "").slice(0, 200).replace(/[\r\n\t]/g, " ");
-        console.error(`[shopify-oauth] Token validation failed for ${shop}:`, safeError);
+        // Do not interpolate shop domain or error message into the format string —
+        // both may contain API-sourced data (log-injection / tainted-format-string prevention).
+        console.error("[shopify-oauth] Token validation failed — Shopify identity check rejected");
       }
 
       if (verified) {
