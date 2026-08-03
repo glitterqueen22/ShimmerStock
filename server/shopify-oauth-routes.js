@@ -344,29 +344,7 @@ function consumeOAuthState(db, stateToken, callbackShop) {
 export function mountShopifyOauthRoutes(app, db) {
   // ── Initiate OAuth ────────────────────────────────────────────────────
 
-  // Token-from-query fallback for browser redirects (window.location.href can't set headers).
-  // This path also looks up session details so state can be properly bound.
-  app.get("/api/shopify/auth", oauthInitLimiter, (req, res, next) => {
-    const token = req.query.token;
-    if (token) {
-      const session = db.query(`
-        SELECT s.id as session_id, s.user_id, ub.business_id
-        FROM sessions s
-        JOIN user_businesses ub ON s.user_id = ub.user_id AND ub.is_active = 1
-        WHERE s.token = ? AND s.expires_at > datetime('now')
-      `).get(token);
-      if (session) {
-        req.user = { id: session.user_id };
-        req.businessId = session.business_id;
-        req.sessionId = session.session_id;
-        return next();
-      }
-      const shop = req.query.shop || "";
-      const loginUrl = `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/login?redirect=/commerce${shop ? `&shop=${encodeURIComponent(shop)}` : ""}`;
-      return res.redirect(loginUrl);
-    }
-    requireAuth(db, "shopify.read")(req, res, next);
-  }, (req, res) => {
+  app.get("/api/shopify/auth", oauthInitLimiter, requireAuth(db, "shopify.read"), (req, res) => {
     try {
       const userId = req.user?.id;
       const businessId = req.businessId;

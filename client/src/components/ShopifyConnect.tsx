@@ -239,9 +239,8 @@ export default function ShopifyConnect({
 
     setConnecting(true);
     try {
-      // Redirect to OAuth — pass token as query param so browser redirect works
-      const token = localStorage.getItem("shimmerstock_token");
-      const redirectUrl = `/api/shopify/auth?shop=${encodeURIComponent(domain)}&token=${encodeURIComponent(token || "")}`;
+      // Redirect to OAuth
+      const redirectUrl = `/api/shopify/auth?shop=${encodeURIComponent(domain)}`;
       window.location.href = redirectUrl;
       // Don't set connecting to false — we're leaving the page
     } catch (err: any) {
@@ -318,8 +317,7 @@ export default function ShopifyConnect({
 
   const handleReauthorize = () => {
     if (status?.shopDomain) {
-      const token = localStorage.getItem("shimmerstock_token");
-      window.location.href = `/api/shopify/auth?shop=${encodeURIComponent(status.shopDomain)}&token=${encodeURIComponent(token || "")}`;
+      window.location.href = `/api/shopify/auth?shop=${encodeURIComponent(status.shopDomain)}`;
     }
   };
 
