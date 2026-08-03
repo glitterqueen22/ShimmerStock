@@ -17,6 +17,8 @@
  * 12. Gateway blocks ambiguous GraphQL documents (fail closed)
  * 13. Granted-scope verification rejects write scopes
  * 14. Granted-scope verification rejects missing required scopes
+ * 15. Gateway errors do not include upstream response body (sensitive payload redaction)
+ * 16. Granted-scope verification rejects extra unapproved scopes (least privilege)
  */
 
 // Must be set before any server module import — crypto-utils.js validates it eagerly
@@ -544,6 +546,54 @@ describe("Shopify Gateway — write blocking", () => {
       global.fetch = orig;
     }
   });
+
+  it("error thrown by gatewayFetch does not include upstream response body (sensitive payload redaction)", async () => {
+    const sensitiveBody = '{"errors":[{"message":"[API_KEY=shpat_secret] rate limit exceeded","extensions":{"code":"THROTTLED"}}]}';
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => {
+      return new Response(sensitiveBody, { status: 429 });
+    };
+    try {
+      const { gatewayFetch } = await import("../server/providers/shopify-gateway.js?gw-error-rest");
+      let thrown: Error | null = null;
+      try {
+        await gatewayFetch("readonly", "test.myshopify.com", "shpat_fake", "GET", "/products.json");
+      } catch (e: any) {
+        thrown = e;
+      }
+      expect(thrown).not.toBeNull();
+      // The thrown error message must not contain the raw upstream body
+      expect(thrown!.message).not.toContain(sensitiveBody);
+      expect(thrown!.message).not.toContain("shpat_secret");
+      // It must still contain the HTTP method and status code for diagnosing the failure
+      expect(thrown!.message).toContain("429");
+    } finally {
+      global.fetch = orig;
+    }
+  });
+
+  it("error thrown by gatewayGraphQL does not include upstream response body", async () => {
+    const sensitiveBody = '{"errors":[{"message":"Access token invalid","extensions":{"code":"ACCESS_DENIED"}}],"sensitive_token":"shpat_abc"}';
+    const orig = global.fetch;
+    (global as any).fetch = async (..._args: any[]) => {
+      return new Response(sensitiveBody, { status: 401 });
+    };
+    try {
+      const { gatewayGraphQL } = await import("../server/providers/shopify-gateway.js?gw-error-graphql");
+      let thrown: Error | null = null;
+      try {
+        await gatewayGraphQL("readonly", "test.myshopify.com", "shpat_fake", "query { shop { name } }");
+      } catch (e: any) {
+        thrown = e;
+      }
+      expect(thrown).not.toBeNull();
+      expect(thrown!.message).not.toContain(sensitiveBody);
+      expect(thrown!.message).not.toContain("shpat_abc");
+      expect(thrown!.message).toContain("401");
+    } finally {
+      global.fetch = orig;
+    }
+  });
 });
 
 // ── 13–14. Scope verification ─────────────────────────────────────────────────
@@ -652,6 +702,40 @@ describe("Shopify OAuth — granted scope verification", () => {
     // We verify no Shopify webhook API POST occurs by checking for the API call pattern
     expect(src).not.toContain('webhooks.json"');
     expect(src).not.toContain("webhooks.json`");
+  });
+
+  it("rejects extra unapproved read scopes beyond the P0 approved set", async () => {
+    const { verifyGrantedScopes } = await import(
+      "../server/shopify-oauth-routes.js?scope-verify-extra"
+    );
+
+    // Extra read scope not in the approved P0 set must be rejected (least privilege)
+    const r1 = verifyGrantedScopes(
+      "read_orders,read_products,read_inventory,read_locations,read_customers"
+    );
+    expect(r1.ok).toBe(false);
+    expect(r1.error).toContain("unapproved");
+    expect(r1.error).toContain("read_customers");
+
+    // Another unapproved scope
+    const r2 = verifyGrantedScopes(
+      "read_orders,read_products,read_inventory,read_locations,read_checkouts"
+    );
+    expect(r2.ok).toBe(false);
+    expect(r2.error).toContain("read_checkouts");
+
+    // Multiple extra scopes at once
+    const r3 = verifyGrantedScopes(
+      "read_orders,read_products,read_inventory,read_locations,read_fulfillments,read_content"
+    );
+    expect(r3.ok).toBe(false);
+    expect(r3.error).toContain("unapproved");
+
+    // read_all_orders is the ONLY additional scope permitted (superset of read_orders)
+    const ok = verifyGrantedScopes(
+      "read_all_orders,read_products,read_inventory,read_locations"
+    );
+    expect(ok.ok).toBe(true);
   });
 });
 

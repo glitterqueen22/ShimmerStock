@@ -287,15 +287,29 @@ export default function ShopifyConnect({
       toast(err.message || "Disconnect failed", "error");
     }
   };
-  const handleSetMode = async (mode: "readonly" | "full") => {
+  const handleSetMode = async (requestedMode: "readonly" | "full") => {
     setModeSwitching(true);
     try {
-      await apiPost("/api/shopify/sync-mode", { mode });
-      toast(mode === "full" ? "Full Sync enabled — ShimmerStock can now write to Shopify" : "Safe Mode enabled — read-only", "success");
-      if (mode === "full") dismissSafeMode();
+      const result = await apiPost<{ mode: "readonly" | "full"; canWrite: boolean }>("/api/shopify/sync-mode", { mode: requestedMode });
+      // Use the server response as the source of truth — it reports the mode actually applied,
+      // which may differ from the requested mode if server-side policy blocks full mode.
+      const appliedMode = result?.mode;
+      const appliedCanWrite = result?.canWrite === true;
+
+      if (appliedMode === "full" && appliedCanWrite) {
+        toast("Full Sync enabled — ShimmerStock can now write to Shopify", "success");
+        dismissSafeMode();
+      } else if (requestedMode === "full" && appliedMode !== "full") {
+        // Full mode was requested but blocked by server policy — keep UI in Safe Mode.
+        toast("Full Sync remains disabled. Shopify is still read-only.", "warning");
+      } else {
+        toast("Safe Mode enabled — read-only", "success");
+      }
+
       fetchStatus();
     } catch (err: any) {
       toast(err.message || "Failed to update sync mode", "error");
+      fetchStatus(); // refresh to reflect actual server state
     } finally {
       setModeSwitching(false);
       setShowModeConfirm(false);
@@ -725,7 +739,22 @@ export default function ShopifyConnect({
                   </ul>
                 </button>
 
-                {/* Full Sync Card */}
+                {/* Full Sync Card — disabled when server reports canWrite === false (P0 policy) */}
+                {status!.canWrite === false ? (
+                  <div
+                    className="text-left rounded-xl border-2 p-3 border-rose-100 bg-rose-50/40 opacity-50 cursor-not-allowed"
+                    title="Write access is unavailable in the current configuration"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-300" />
+                      <span className="text-xs font-bold text-rose-400">Full Sync</span>
+                      <span className="text-[10px] bg-rose-100 text-rose-500 px-1.5 py-0.5 rounded-full font-semibold">Unavailable</span>
+                    </div>
+                    <p className="text-[11px] text-rose-400 leading-relaxed">
+                      Write access is not enabled in the current configuration. Contact your administrator to activate Full Sync.
+                    </p>
+                  </div>
+                ) : (
                 <button
                   onClick={() => {
                     if (status!.syncMode !== "full") {
@@ -763,6 +792,7 @@ export default function ShopifyConnect({
                     </li>
                   </ul>
                 </button>
+                )}
               </div>
             </div>
           </div>

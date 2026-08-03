@@ -60,6 +60,10 @@ const oauthCallbackLimiter = rateLimit({
 const REQUIRED_SCOPES = ["read_orders", "read_products", "read_inventory", "read_locations"];
 const SHOPIFY_SCOPES = REQUIRED_SCOPES.join(",");
 
+// Shopify may grant read_all_orders as a superset of read_orders — that is the only
+// extra scope that is permitted.  Any other scope not in this approved set is rejected.
+const APPROVED_SCOPES = new Set([...REQUIRED_SCOPES, "read_all_orders"]);
+
 const API_VERSION = "2024-01";
 
 // ── OAuth state TTL ────────────────────────────────────────────────────────
@@ -198,6 +202,16 @@ export function verifyGrantedScopes(grantedScopeString) {
     return {
       ok: false,
       error: `Connection rejected: Shopify granted write scopes that are not permitted: ${writeScopesFound.join(", ")}`,
+      verifiedScopes: [],
+    };
+  }
+
+  // Reject any scope that is not in the approved P0 set (least privilege).
+  const extraScopes = grantedList.filter((s) => !APPROVED_SCOPES.has(s));
+  if (extraScopes.length > 0) {
+    return {
+      ok: false,
+      error: `Connection rejected: Shopify granted unapproved scopes: ${extraScopes.join(", ")}`,
       verifiedScopes: [],
     };
   }
