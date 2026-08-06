@@ -936,14 +936,17 @@ describe("Shopify OAuth — shop domain canonicalization", () => {
 // ── Legacy shopify.js domain validation ─────────────────────────────────────
 
 describe("Legacy shopify.js — fail closed on missing/non-canonical domain", () => {
+  // A single query-string cache key is used throughout because SHOPIFY_STORE_DOMAIN
+  // is read at function-call time (not module-init time), so a shared module
+  // instance correctly reflects each test's env mutation.
   it("getInventoryInfo returns null when SHOPIFY_STORE_DOMAIN is missing", async () => {
     const savedDomain = process.env.SHOPIFY_STORE_DOMAIN;
     const savedToken = process.env.SHOPIFY_API_TOKEN;
     try {
       delete process.env.SHOPIFY_STORE_DOMAIN;
       process.env.SHOPIFY_API_TOKEN = "shpat_test_token";
-      const { getInventoryInfo } = await import("../server/shopify.js?legacy-domain-missing");
-      const result = await getInventoryInfo("123");
+      const mod = await import("../server/shopify.js?legacy-domain-tests");
+      const result = await mod.getInventoryInfo("123");
       expect(result).toBeNull();
     } finally {
       if (savedDomain !== undefined) process.env.SHOPIFY_STORE_DOMAIN = savedDomain;
@@ -953,15 +956,15 @@ describe("Legacy shopify.js — fail closed on missing/non-canonical domain", ()
     }
   });
 
-  it("getInventoryInfo returns null when SHOPIFY_STORE_DOMAIN is non-canonical", async () => {
+  it("getInventoryInfo returns null when SHOPIFY_STORE_DOMAIN is non-canonical (old hardcoded GGE fallback)", async () => {
     const savedDomain = process.env.SHOPIFY_STORE_DOMAIN;
     const savedToken = process.env.SHOPIFY_API_TOKEN;
     try {
       // Non-canonical: missing .myshopify.com suffix (the old hardcoded fallback)
       process.env.SHOPIFY_STORE_DOMAIN = "glitzyglitterexpress.com";
       process.env.SHOPIFY_API_TOKEN = "shpat_test_token";
-      const { getInventoryInfo } = await import("../server/shopify.js?legacy-domain-noncanon");
-      const result = await getInventoryInfo("123");
+      const mod = await import("../server/shopify.js?legacy-domain-tests");
+      const result = await mod.getInventoryInfo("123");
       expect(result).toBeNull();
     } finally {
       if (savedDomain !== undefined) process.env.SHOPIFY_STORE_DOMAIN = savedDomain;
@@ -977,8 +980,8 @@ describe("Legacy shopify.js — fail closed on missing/non-canonical domain", ()
     try {
       process.env.SHOPIFY_STORE_DOMAIN = "https://mystore.myshopify.com/admin";
       process.env.SHOPIFY_API_TOKEN = "shpat_test_token";
-      const { getInventoryInfo } = await import("../server/shopify.js?legacy-domain-url");
-      const result = await getInventoryInfo("123");
+      const mod = await import("../server/shopify.js?legacy-domain-tests");
+      const result = await mod.getInventoryInfo("123");
       expect(result).toBeNull();
     } finally {
       if (savedDomain !== undefined) process.env.SHOPIFY_STORE_DOMAIN = savedDomain;
@@ -994,9 +997,9 @@ describe("Legacy shopify.js — fail closed on missing/non-canonical domain", ()
     try {
       delete process.env.SHOPIFY_STORE_DOMAIN;
       process.env.SHOPIFY_API_TOKEN = "shpat_test_token";
-      const { updateInventory } = await import("../server/shopify.js?legacy-update-missing");
+      const mod = await import("../server/shopify.js?legacy-domain-tests");
       // Should not throw even with no domain configured
-      await expect(updateInventory("item1", "loc1", 5)).resolves.toBeUndefined();
+      await expect(mod.updateInventory("item1", "loc1", 5)).resolves.toBeUndefined();
     } finally {
       if (savedDomain !== undefined) process.env.SHOPIFY_STORE_DOMAIN = savedDomain;
       else delete process.env.SHOPIFY_STORE_DOMAIN;
@@ -1011,8 +1014,8 @@ describe("Legacy shopify.js — fail closed on missing/non-canonical domain", ()
     try {
       process.env.SHOPIFY_STORE_DOMAIN = "glitzyglitterexpress.com";
       process.env.SHOPIFY_API_TOKEN = "shpat_test_token";
-      const { updateInventory } = await import("../server/shopify.js?legacy-update-noncanon");
-      await expect(updateInventory("item1", "loc1", 5)).resolves.toBeUndefined();
+      const mod = await import("../server/shopify.js?legacy-domain-tests");
+      await expect(mod.updateInventory("item1", "loc1", 5)).resolves.toBeUndefined();
     } finally {
       if (savedDomain !== undefined) process.env.SHOPIFY_STORE_DOMAIN = savedDomain;
       else delete process.env.SHOPIFY_STORE_DOMAIN;
