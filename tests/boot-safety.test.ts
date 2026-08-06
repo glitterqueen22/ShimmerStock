@@ -68,6 +68,11 @@ describe("Boot safety — ENCRYPTION_KEY required", () => {
 // ── Bootstrap credential tests ────────────────────────────────────────────────
 
 import fs from "fs";
+import type { Database } from "bun:sqlite";
+import {
+  TEST_OWNER_INITIAL_PASSWORD,
+  TEST_ADMIN_INITIAL_PASSWORD,
+} from "./helpers/bootstrap-creds.js";
 
 /** Temporarily set env vars, run fn synchronously, restore originals. */
 function withSyncEnv(vars: Record<string, string | undefined>, fn: () => void) {
@@ -246,8 +251,8 @@ describe("Bootstrap credential — fail-closed validation", () => {
     try {
       withSyncEnv(
         {
-          OWNER_INITIAL_PASSWORD: "TestOwner!Bootstrap#2025",
-          ADMIN_INITIAL_PASSWORD: "TestAdmin!Bootstrap#2025",
+          OWNER_INITIAL_PASSWORD: TEST_OWNER_INITIAL_PASSWORD,
+          ADMIN_INITIAL_PASSWORD: TEST_ADMIN_INITIAL_PASSWORD,
         },
         () => {
           const db = initDb(tmpPath);

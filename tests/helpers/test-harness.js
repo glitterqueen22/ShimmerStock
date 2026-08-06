@@ -19,6 +19,10 @@ import { initDb } from "../../server/db.js";
 import * as store from "../../server/store.js";
 import { hashPassword } from "../../server/auth.js";
 import fs from "fs";
+import {
+  TEST_OWNER_INITIAL_PASSWORD,
+  TEST_ADMIN_INITIAL_PASSWORD,
+} from "./bootstrap-creds.js";
 
 // ── Schema helpers ────────────────────────────────────────────────────────
 
@@ -34,8 +38,8 @@ export function createTestDb() {
   // and replaces them immediately after, so the values never reach production.
   const savedOwner = process.env.OWNER_INITIAL_PASSWORD;
   const savedAdmin = process.env.ADMIN_INITIAL_PASSWORD;
-  process.env.OWNER_INITIAL_PASSWORD = "TestOwner!Bootstrap#2025";
-  process.env.ADMIN_INITIAL_PASSWORD = "TestAdmin!Bootstrap#2025";
+  process.env.OWNER_INITIAL_PASSWORD = TEST_OWNER_INITIAL_PASSWORD;
+  process.env.ADMIN_INITIAL_PASSWORD = TEST_ADMIN_INITIAL_PASSWORD;
   let db;
   try {
     db = initDb(dbPath);

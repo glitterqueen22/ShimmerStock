@@ -27,6 +27,10 @@ process.env.ENCRYPTION_KEY =
   "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
+import {
+  TEST_OWNER_INITIAL_PASSWORD,
+  TEST_ADMIN_INITIAL_PASSWORD,
+} from "./helpers/bootstrap-creds.js";
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -60,8 +64,8 @@ async function withEnv(
 function initDbWithTestCreds(initDbFn: (p: string) => any, tmpPath: string) {
   const savedOwner = process.env.OWNER_INITIAL_PASSWORD;
   const savedAdmin = process.env.ADMIN_INITIAL_PASSWORD;
-  process.env.OWNER_INITIAL_PASSWORD = "TestOwner!Bootstrap#2025";
-  process.env.ADMIN_INITIAL_PASSWORD = "TestAdmin!Bootstrap#2025";
+  process.env.OWNER_INITIAL_PASSWORD = TEST_OWNER_INITIAL_PASSWORD;
+  process.env.ADMIN_INITIAL_PASSWORD = TEST_ADMIN_INITIAL_PASSWORD;
   try {
     return initDbFn(tmpPath);
   } finally {
