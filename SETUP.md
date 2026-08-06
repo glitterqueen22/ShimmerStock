@@ -32,7 +32,8 @@ cp .env.example .env
 | `SHOPIFY_API_TOKEN` | Shopify Admin API access token (for backward compat) |
 | `SHOPIFY_READ_ONLY` | Set to `true` to prevent write operations to Shopify |
 | `ENCRYPTION_KEY` | 64-char hex string for encrypting sensitive data at rest |
-| `SHIMMERSTOCK_URL` | Public URL of the application (for webhook registration) |
+| `OWNER_INITIAL_PASSWORD` | Required on a fresh database to seed the initial owner account |
+| `ADMIN_INITIAL_PASSWORD` | Required on a fresh database to seed the initial admin account |
 
 ### Optional Environment Variables
 
@@ -40,7 +41,13 @@ cp .env.example .env
 |----------|-------------|
 | `PORT` | Server port (default: `3000`) |
 | `NODE_ENV` | Environment (`development`, `production`) |
-| `SESSION_SECRET` | Secret for session token signing |
+| `SHIMMERSTOCK_URL` | Public base URL; required for staging/private mode and production |
+| `SHIMMERSTOCK_DB_PATH` | Override the SQLite database path (recommended for private staging volumes) |
+| `SHIMMERSTOCK_BACKUP_DIR` | Override backup archive/log directory (recommended for private staging volumes) |
+| `SHIMMERSTOCK_PRIVATE_MODE` | Set to `true` to disable public self-service registration |
+| `SESSION_COOKIE_SAME_SITE` | Cookie SameSite mode (`lax`, `strict`, `none`) |
+| `SESSION_COOKIE_SECURE` | Force secure session cookies outside production/private mode |
+| `CORS_ALLOWED_ORIGIN` | Optional explicit cross-origin origin for trusted non-browser clients or local split-origin development |
 
 ### Example `.env`
 
@@ -52,6 +59,8 @@ SHOPIFY_STORE_DOMAIN=yourstore.myshopify.com
 ENCRYPTION_KEY=your_64_char_hex_encryption_key
 SHIMMERSTOCK_URL=http://localhost:3000
 SHOPIFY_API_TOKEN=your_api_token
+OWNER_INITIAL_PASSWORD=replace-with-strong-owner-password
+ADMIN_INITIAL_PASSWORD=replace-with-strong-admin-password
 ```
 
 ## Database Initialization
@@ -62,7 +71,7 @@ The database is created automatically on first server start:
 bun run dev
 ```
 
-This creates `shimmerstock.db` in the project root with WAL journal mode enabled.
+This creates `shimmerstock.db` in the project root with WAL journal mode enabled. For private staging, set `SHIMMERSTOCK_DB_PATH` to a persistent mounted volume path and set `SHIMMERSTOCK_BACKUP_DIR` to a persistent backups directory on the same volume.
 
 ### Seed Demo Data
 
@@ -100,11 +109,11 @@ cd client && npx vite --port 5173
 # Build frontend
 bun run build
 
-# Start production server
-bun run start
+# Start production server after a build
+bun run start:server
 ```
 
-The production server serves the built React app from `client/dist/` and the API from the same Express process on port 3000.
+The production server serves the built React app from `client/dist/` and the API from the same Express process. In staging/private mode or production mode, `SHIMMERSTOCK_URL` must be set to an `https://` URL.
 
 ## Directory Structure After Setup
 

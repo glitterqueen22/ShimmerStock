@@ -352,10 +352,10 @@ export default function Calculation() {
         if (isNaN(val)) throw new Error(`"${inp.label}" must be a number`);
         numericInputs[inp.key] = val;
       }
-      const token = localStorage.getItem("shimmerstock_token");
       const res = await fetch("/api/calc/formulas/validate", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ expression: builderExpression, inputs: builderInputs }),
       });
       const vData = await res.json();

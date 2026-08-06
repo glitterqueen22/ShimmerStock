@@ -15,7 +15,8 @@ function bizId(req) {
   return req.businessId || req.user?.business_id || 1;
 }
 
-export function mountAffiliateAttributionRoutes(app, db) {
+export function mountAffiliateAttributionRoutes(app, db, options = {}) {
+  const isPrivateMode = Boolean(options.isPrivateMode);
 
   // ═══════════════════════════════════════════════════════════════════
   // ATTRIBUTION RULES
@@ -232,6 +233,10 @@ export function mountAffiliateAttributionRoutes(app, db) {
   // POST /api/affiliate-attribution/track-click
   app.post("/api/affiliate-attribution/track-click", (req, res) => {
     try {
+      if (isPrivateMode) {
+        return res.status(403).json({ error: "Public submissions are disabled in private staging mode" });
+      }
+
       const { linkCode, visitorId } = req.body;
       if (!linkCode || !visitorId) {
         return res.status(400).json({ error: "linkCode and visitorId are required" });

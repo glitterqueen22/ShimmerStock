@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { apiFetch } from "../lib/api";
 
 // ── Types ────────────────────────────────────────────────────────────
 interface IndustryConfig {
@@ -104,16 +105,8 @@ export function IndustryProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const token = localStorage.getItem("shimmerstock_token");
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
     try {
-      const res = await fetch("/api/business/settings", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch("/api/business/settings");
 
       if (!res.ok) {
         // If 403 (no settings.read perm), just use defaults
@@ -127,9 +120,7 @@ export function IndustryProvider({ children }: { children: ReactNode }) {
 
       if (data.industryConfigId) {
         // Fetch full industry config
-        const industryRes = await fetch(`/api/industry/${data.industryConfigId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const industryRes = await apiFetch(`/api/industry/${data.industryConfigId}`);
 
         if (industryRes.ok) {
           const industryData = await industryRes.json();

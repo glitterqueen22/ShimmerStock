@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Novi from "../components/Novi";
 import { PageHeader, Button, Tabs, EmptyState, ErrorBanner, useToast } from "../components/ui";
+import { apiFetch as authApiFetch } from "../lib/api";
 
 // ── Types ──
 
@@ -110,19 +111,12 @@ const ROLE_RECOMMENDATIONS: Record<string, { role: string; description: string; 
 
 // ── Helpers ──
 
-function getToken(): string | null {
-  return localStorage.getItem("shimmerstock_token");
-}
-
 function authHeaders() {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
+  return { "Content-Type": "application/json" };
 }
 
 async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const res = await fetch(url, { ...options, headers: { ...authHeaders(), ...(options.headers as any || {}) } });
-  if (res.status === 401) { localStorage.removeItem("shimmerstock_token"); window.location.href = "/login"; }
-  return res;
+  return authApiFetch(url, { ...options, headers: { ...authHeaders(), ...(options.headers as any || {}) } });
 }
 
 function formatDate(d: string | null): string {

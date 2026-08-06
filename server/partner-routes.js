@@ -14,7 +14,8 @@ function bizId(req) {
   return req.businessId || req.user?.business_id || 1;
 }
 
-export function mountPartnerRoutes(app, db) {
+export function mountPartnerRoutes(app, db, options = {}) {
+  const isPrivateMode = Boolean(options.isPrivateMode);
 
   // ═══════════════════════════════════════════════════════════════════
   // SUMMARY
@@ -298,6 +299,10 @@ export function mountPartnerRoutes(app, db) {
   // POST /api/partner/forms/:formId/submissions — public submission (no auth)
   app.post("/api/partner/forms/:formId/submissions", (req, res) => {
     try {
+      if (isPrivateMode) {
+        return res.status(403).json({ error: "Public submissions are disabled in private staging mode" });
+      }
+
       const formId = parseInt(req.params.formId);
       const { applicant_email, applicant_name, data, program_id, business_id } = req.body;
 

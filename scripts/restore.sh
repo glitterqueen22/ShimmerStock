@@ -9,6 +9,7 @@
 # Usage:
 #   ENCRYPTION_KEY=... ./scripts/restore.sh backups/shimmerstock-2026-01-01-120000.db.gz.enc
 #   ENCRYPTION_KEY=... bash scripts/restore.sh <backup-file>
+#   ENCRYPTION_KEY=... SHIMMERSTOCK_BACKUP_DIR=/data/backups ./scripts/restore.sh /data/backups/shimmerstock-2026-01-01-120000.db.gz.enc
 # ──────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -16,9 +17,9 @@ set -euo pipefail
 # ── Configuration ────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-BACKUP_DIR="${PROJECT_DIR}/backups"
+BACKUP_DIR="${SHIMMERSTOCK_BACKUP_DIR:-${PROJECT_DIR}/backups}"
 LOG_FILE="${BACKUP_DIR}/restore.log"
-DB_PATH="${PROJECT_DIR}/shimmerstock.db"
+DB_PATH="${SHIMMERSTOCK_DB_PATH:-${PROJECT_DIR}/shimmerstock.db}"
 
 log() {
   local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
@@ -63,7 +64,7 @@ if [ ! -f "$BACKUP_FILE" ]; then
   fail "Backup file not found: $BACKUP_FILE"
 fi
 
-for cmd in gzip openssl; do
+for cmd in gzip openssl sqlite3; do
   if ! command -v "$cmd" &>/dev/null; then
     fail "Required command not found: $cmd"
   fi
@@ -112,8 +113,9 @@ fi
 
 # Step 4: Stop any running server (best-effort)
 log "  Stopping any running server..."
-pkill -f "bun.*serve.ts" 2>/dev/null || true
-pkill -f "bun run serve" 2>/dev/null || true
+pkill -f "bun.*server/index.js" 2>/dev/null || true
+pkill -f "bun run start:server" 2>/dev/null || true
+pkill -f "bun run start" 2>/dev/null || true
 sleep 1
 
 # Step 5: Replace the live database
@@ -129,7 +131,18 @@ cp "$DB_RESTORED" "$DB_PATH"
 # Step 6: Clean up WAL/SHM files (they belong to the old database)
 rm -f "${DB_PATH}-wal" "${DB_PATH}-shm"
 
-# Step 7: Clean up intermediate files
+# Step 7: Verify the restored live DB opens and is internally consistent
+log "  Verifying restored database..."
+if ! sqlite3 "$DB_PATH" "PRAGMA integrity_check;" 2>/dev/null | grep -q "ok"; then
+  fail "Restored live database failed integrity check"
+fi
+
+TABLE_COUNT="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table';" 2>/dev/null || true)"
+if [ -z "$TABLE_COUNT" ] || [ "$TABLE_COUNT" -lt 1 ]; then
+  fail "Restored live database failed readiness check"
+fi
+
+# Step 8: Clean up intermediate files
 rm -f "$DB_RESTORED"
 
 log "✅ Restore complete. Database has been replaced with: $(basename "$BACKUP_FILE")"

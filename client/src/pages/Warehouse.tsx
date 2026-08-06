@@ -3,6 +3,7 @@ import { Tabs, Button, Modal, Badge, EmptyState, ErrorBanner, PageHeader, useToa
 import { RADIUS } from '../design/tokens';
 import { MOTION } from '../design/motion';
 import Novi from '../components/Novi';
+import { apiFetch } from '../lib/api';
 
 // ── Types ────────────────────────────────────────────────────────
 interface Bin {
@@ -93,10 +94,9 @@ const TRANSFER_COLORS: Record<string, string> = {
 
 // ── API helper ────────────────────────────────────────────────────
 function api(path: string, init?: RequestInit) {
-  const token = localStorage.getItem('shimmerstock_token');
-  return fetch(path, {
+  return apiFetch(path, {
     ...init,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...init?.headers },
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
   }).then((r) => {
     if (!r.ok) return r.json().then((e) => { throw new Error(e.error || r.statusText); });
     return r.json();
@@ -280,7 +280,7 @@ export default function Warehouse() {
       setPickList(data);
       // Also load shipments for split orders
       const shipRes = await fetch(`/api/fulfillment/orders/${order.id}/shipments`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('shimmerstock_token')}` }
+        credentials: 'same-origin'
       });
       if (shipRes.ok) {
         const shipments = await shipRes.json();

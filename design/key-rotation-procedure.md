@@ -84,7 +84,7 @@ The ENCRYPTION_KEY is the most critical secret. It encrypts all Shopify OAuth ac
 
 6. **Start the server:**
    ```bash
-   cd /home/team/shared/site && bun run serve.ts
+   cd /home/team/shared/site && bun run start:server
    ```
 
 #### Post-Rotation Verification
@@ -146,7 +146,7 @@ The Shopify Client Secret is managed in the **Shopify Partner Dashboard**, not i
 3. **Restart the server** (required to pick up the new env var):
    ```bash
    sudo lsof -ti:3000 | xargs kill
-   cd /home/team/shared/site && bun run serve.ts
+   cd /home/team/shared/site && bun run start:server
    ```
 
 4. **Verify:** Log in, navigate to Commerce/Shopify settings, trigger a test connection.
@@ -380,7 +380,7 @@ node -e "console.log(require('crypto').randomBytes(16).toString('base64url'))"
 sudo lsof -ti:3000 | xargs kill
 
 # Start the server (from site directory)
-cd /home/team/shared/site && setsid nohup bun run serve.ts > /tmp/shimmerstock.log 2>&1 &
+cd /home/team/shared/site && setsid nohup bun run start:server > /tmp/shimmerstock.log 2>&1 &
 
 # Check if server is running
 curl -s -o /dev/null -w "%{http_code}" http://localhost:3000

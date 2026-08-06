@@ -1,33 +1,35 @@
 # Backup & Restore
 
-ShimmerStock uses SQLite with WAL mode. Backups are created via `scripts/backup.sh` and restored via `scripts/restore.sh`.
+ShimmerStock uses SQLite with WAL mode for the current private single-instance pilot. Backups are created via `scripts/backup.sh` and restored via `scripts/restore.sh`.
 
 ## Quick Start
 
 ```bash
 # Create a backup
-ENCRYPTION_KEY=... ./scripts/backup.sh
+ENCRYPTION_KEY=... SHIMMERSTOCK_DB_PATH=/data/shimmerstock.db SHIMMERSTOCK_BACKUP_DIR=/data/backups ./scripts/backup.sh
 
 # Restore from backup
-ENCRYPTION_KEY=... ./scripts/restore.sh backups/shimmerstock-2026-01-01-120000.db.gz.enc
+ENCRYPTION_KEY=... SHIMMERSTOCK_DB_PATH=/data/shimmerstock.db SHIMMERSTOCK_BACKUP_DIR=/data/backups ./scripts/restore.sh /data/backups/shimmerstock-2026-01-01-120000.db.gz.enc
 ```
 
 The ENCRYPTION_KEY must be the same 64-character hex string used by the server (from `.env`). The scripts reject empty or missing keys.
 
 ## Backup Script (`scripts/backup.sh`)
 
-Creates an encrypted, compressed backup of `shimmerstock.db`.
+Creates an encrypted, compressed backup of `SHIMMERSTOCK_DB_PATH` when set, otherwise `shimmerstock.db` in the project root. Backup archives are written to `SHIMMERSTOCK_BACKUP_DIR` when set, otherwise `backups/` in the project root.
 
 **Pipeline:**
 1. Uses `sqlite3 .backup` for a consistent WAL-safe snapshot
 2. Compresses with `gzip`
 3. Encrypts with AES-256-CBC via `openssl enc` (PBKDF2, 100k iterations)
-4. Names the file `backups/shimmerstock-YYYY-MM-DD-HHMMSS.db.gz.enc`
-5. Logs result to stdout and `backups/backup.log`
+4. Decrypts the new backup into a temporary location and verifies it with `PRAGMA integrity_check`
+5. Confirms the restored temp DB opens and contains schema tables
+6. Names the file `SHIMMERSTOCK_BACKUP_DIR/shimmerstock-YYYY-MM-DD-HHMMSS.db.gz.enc`
+7. Logs result to stdout and `SHIMMERSTOCK_BACKUP_DIR/backup.log`
 
 **Exit codes:** 0 on success, 1 on any failure.
 
-**Environment:** Requires `ENCRYPTION_KEY` (64-char hex). Requires `sqlite3`, `gzip`, `openssl` on PATH.
+**Environment:** Requires `ENCRYPTION_KEY` (64-char hex). Optional `SHIMMERSTOCK_BACKUP_DIR` (defaults to `./backups`). Requires `sqlite3`, `gzip`, `openssl` on PATH.
 
 ## Restore Script (`scripts/restore.sh`)
 
@@ -41,13 +43,28 @@ Decrypts, decompresses, verifies, and restores a backup.
 5. Saves the current DB to `shimmerstock.db.pre-restore-*.bak`
 6. Copies the restored DB into place
 7. Cleans up WAL/SHM files
-8. Logs to `backups/restore.log`
+8. Verifies the live restored DB again with integrity and schema checks
+9. Logs to `backups/restore.log`
 
 **Confirmation:** Requires the user to type `YES` before overwriting.
 
 **Usage:** `ENCRYPTION_KEY=... ./scripts/restore.sh <backup-file>`
 
-Running without arguments lists available backups in `backups/`.
+Running without arguments lists available backups in `SHIMMERSTOCK_BACKUP_DIR` (defaults to `backups/`).
+
+## Railway Persistent Volume Layout
+
+Preferred private staging shape:
+
+```text
+/data/shimmerstock.db
+/data/backups/
+```
+
+Set:
+
+- `SHIMMERSTOCK_DB_PATH=/data/shimmerstock.db`
+- `SHIMMERSTOCK_BACKUP_DIR=/data/backups`
 
 ## Retention Policy
 
@@ -70,13 +87,13 @@ find "$BACKUP_DIR" -name "shimmerstock-*.db.gz.enc" -mtime +7 -delete
 # Monthly (1st): keep last 6 — tag or preserve separately
 ```
 
-For a production deployment, consider copying backups to off-site storage (S3, rsync) after each successful backup.
+For a private staging deployment, copy backups off-host after each successful run. PostgreSQL remains mandatory before onboarding unrelated external paying businesses.
 
 ## Recommended Cron Schedule
 
 ```cron
 # Daily backup at 2:00 AM
-0 2 * * * ENCRYPTION_KEY=<key> /opt/shimmerstock/scripts/backup.sh
+0 2 * * * ENCRYPTION_KEY=<key> SHIMMERSTOCK_DB_PATH=/srv/shimmerstock/data/shimmerstock-staging.db /opt/shimmerstock/scripts/backup.sh
 
 # Cleanup old backups at 2:30 AM
 30 2 * * * /opt/shimmerstock/scripts/retention-cleanup.sh
@@ -89,7 +106,7 @@ The backup script exits non-zero on failure. Wrap it in a cron job with alerting
 ```bash
 #!/bin/bash
 # Wrapper with failure alert
-ENCRYPTION_KEY=... /opt/shimmerstock/scripts/backup.sh || {
+ENCRYPTION_KEY=... SHIMMERSTOCK_DB_PATH=/srv/shimmerstock/data/shimmerstock-staging.db /opt/shimmerstock/scripts/backup.sh || {
   echo "ShimmerStock backup failed at $(date)" | mail -s "ALERT: Backup Failed" ops@example.com
 }
 ```
@@ -124,7 +141,7 @@ ENCRYPTION_KEY=... ./scripts/restore.sh backups/shimmerstock-2026-07-31-HHMMSS.d
 - `sqlite3 shimmerstock.db "PRAGMA integrity_check"` → `ok`
 - `SELECT count(*) FROM businesses` → `1`
 - `SELECT count(*) FROM users` → `8`
-- Server starts and serves API: `bun run serve.ts` → listening on port
+- Server starts and serves API: `bun run start:server` → listening on configured port
 - `curl http://localhost:<port>/api/auth/login` responds (even with invalid creds, the endpoint is alive)
 - Login test: `admin / [REDACTED — change immediately]` authenticates successfully against restored DB
 
@@ -146,7 +163,7 @@ Restore should be tested at least monthly (aligns with the disaster recovery che
 
 ## Future: PostgreSQL Backup
 
-When migrating to PostgreSQL, replace the file-copy backup with:
+Before onboarding unrelated external paying businesses, replace the private-staging SQLite backup flow with PostgreSQL backup and restore:
 
 ```bash
 # Full dump

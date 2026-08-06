@@ -2756,7 +2756,7 @@ export function initDb(dbPath) {
   `);
   console.log("Founding Members: tables ready");
 
-  console.log("Database initialized:", DB_PATH);
+  console.log("Database initialized:", dbPath || DB_PATH);
   return db;
 }
 // ── Affiliate Attribution Engine Tables ────────────────────────────────

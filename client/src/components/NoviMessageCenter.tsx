@@ -167,13 +167,12 @@ export default function NoviMessageCenter({ embedded = false, refreshKey = 0 }: 
   async function updateStatus(messageId: number, status: string) {
     setActionLoading((prev) => ({ ...prev, [messageId]: status }));
     try {
-      const token = localStorage.getItem("shimmerstock_token");
       const res = await fetch(`/api/novi/messages/${messageId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
+        credentials: "same-origin",
         body: JSON.stringify({ status }),
       });
 
@@ -189,8 +188,8 @@ export default function NoviMessageCenter({ embedded = false, refreshKey = 0 }: 
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
             },
+            credentials: "same-origin",
           }).catch(() => {});
         }
       }

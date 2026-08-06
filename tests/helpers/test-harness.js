@@ -208,7 +208,15 @@ export async function loginAs(appUrl, username, password) {
  * 3. Starts on ephemeral port
  * Returns { appUrl, db, dbPath, server, cleanup }
  */
-export async function setupTest() {
+export async function setupTest(options = {}) {
+  const envOverrides = options.env || {};
+  const savedEnv = {};
+  for (const [key, value] of Object.entries(envOverrides)) {
+    savedEnv[key] = process.env[key];
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+
   // Ensure encryption key is valid before importing server code
   if (!/^[0-9a-f]{64}$/i.test(process.env.ENCRYPTION_KEY || "")) {
     process.env.ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -233,6 +241,10 @@ export async function setupTest() {
     cleanup: async () => {
       server.close();
       db.close();
+      for (const [key, value] of Object.entries(savedEnv)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
       try { fs.unlinkSync(dbPath); } catch (_) { /* ok */ }
       try { fs.unlinkSync(dbPath + "-wal"); } catch (_) { /* ok */ }
       try { fs.unlinkSync(dbPath + "-shm"); } catch (_) { /* ok */ }

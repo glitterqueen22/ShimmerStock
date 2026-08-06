@@ -1,6 +1,6 @@
 /**
- * Thin wrapper around fetch that adds the auth token to API requests.
- * On 401 responses, clears the session and redirects to /login.
+ * Thin wrapper around same-origin fetch for cookie-based auth.
+ * On 401 responses, clears auth state and redirects to /login.
  *
  * MOBILE NOTE: The `window.location.href` redirect pattern (lines 26, 103) is
  * web-only. A React Native/Expo mobile app must NOT import this file — it should
@@ -9,6 +9,8 @@
  */
 
 import { measureApiCall } from './perf';
+
+export const AUTH_REQUIRED_EVENT = "shimmerstock:auth-required";
 
 /**
  * Sanitize error messages for display — strip stack traces, JSON dumps,
@@ -33,17 +35,8 @@ export function sanitizeError(raw: unknown): string {
   return cleaned || "Something went wrong. Please try again.";
 }
 
-function getToken(): string | null {
-  return localStorage.getItem("shimmerstock_token");
-}
-
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
-  const headers: Record<string, string> = { ...extra };
-  const token = getToken();
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-  return headers;
+  return { ...extra };
 }
 
 /**
@@ -52,7 +45,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
  */
 function handleAuthError(res: Response): boolean {
   if (res.status === 401) {
-    localStorage.removeItem("shimmerstock_token");
+    window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
     window.location.href = "/login";
     return true;
   }
@@ -61,7 +54,7 @@ function handleAuthError(res: Response): boolean {
 
 export async function apiGet<T = any>(url: string): Promise<T> {
   const start = performance.now();
-  const res = await fetch(url, { headers: authHeaders() });
+  const res = await fetch(url, { headers: authHeaders(), credentials: "same-origin" });
   measureApiCall(url, performance.now() - start);
   if (handleAuthError(res)) {
     // Redirect triggered — return a never-resolving promise to halt execution
@@ -79,6 +72,7 @@ export async function apiPost<T = any>(url: string, body?: any): Promise<T> {
   const res = await fetch(url, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
+    credentials: "same-origin",
     body: body ? JSON.stringify(body) : undefined,
   });
   measureApiCall(url, performance.now() - start);
@@ -97,6 +91,7 @@ export async function apiPut<T = any>(url: string, body?: any): Promise<T> {
   const res = await fetch(url, {
     method: "PUT",
     headers: authHeaders({ "Content-Type": "application/json" }),
+    credentials: "same-origin",
     body: body ? JSON.stringify(body) : undefined,
   });
   measureApiCall(url, performance.now() - start);
@@ -115,6 +110,7 @@ export async function apiDelete<T = any>(url: string): Promise<T> {
   const res = await fetch(url, {
     method: "DELETE",
     headers: authHeaders(),
+    credentials: "same-origin",
   });
   measureApiCall(url, performance.now() - start);
   if (handleAuthError(res)) {
@@ -135,9 +131,9 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
   const headers = authHeaders(
     options.headers ? (options.headers as Record<string, string>) : {}
   );
-  const res = await fetch(url, { ...options, headers });
+  const res = await fetch(url, { ...options, headers, credentials: "same-origin" });
   if (res.status === 401) {
-    localStorage.removeItem("shimmerstock_token");
+    window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
     window.location.href = "/login";
   }
   return res;

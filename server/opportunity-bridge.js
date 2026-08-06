@@ -10,7 +10,7 @@
  * existing Opportunity Center categories and merges everything into the table.
  */
 
-import { on } from "./events.js";
+import { on, off } from "./events.js";
 import * as store from "./store.js";
 import { runAllChecks } from "./novi-detection.js";
 import { detectOpportunities } from "./opportunities.js";
@@ -177,4 +177,8 @@ export function initOpportunityBridge(database) {
   on("opportunity.detected", handleOpportunityDetected);
 
   console.log("[opportunity-bridge] Bridge initialized — listening for opportunity.detected events");
+
+  return () => {
+    off("opportunity.detected", handleOpportunityDetected);
+  };
 }

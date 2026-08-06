@@ -5,6 +5,7 @@ import { useIndustry } from '../../context/IndustryContext';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { RADIUS } from '../../design/tokens';
 import { MOTION } from '../../design/motion';
+import { apiGet } from '../../lib/api';
 
 // ── Link Configuration ────────────────────────────────────────────
 interface NavLinkConfig {
@@ -110,13 +111,7 @@ export function Navbar() {
   // ── Fetch opportunities badge count ──────────────────────────────
   useEffect(() => {
     if (!user) return;
-    const token = localStorage.getItem('shimmerstock_token');
-    if (!token) return;
-
-    fetch('/api/opportunities/summary', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : null))
+    apiGet<any>('/api/opportunities/summary')
       .then((data) => {
         if (data?.summary?.total) {
           setOppBadge(data.summary.total);
@@ -128,13 +123,7 @@ export function Navbar() {
   // ── Fetch Novi unread badge count ────────────────────────────────
   useEffect(() => {
     if (!user) return;
-    const token = localStorage.getItem('shimmerstock_token');
-    if (!token) return;
-
-    fetch('/api/novi/messages/summary', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : null))
+    apiGet<any>('/api/novi/messages/summary')
       .then((data) => {
         if (data?.unread_count) {
           setNoviBadge(data.unread_count);
@@ -146,13 +135,7 @@ export function Navbar() {
   // ── Fetch CS inbox unread badge count ───────────────────────────
   useEffect(() => {
     if (!user) return;
-    const token = localStorage.getItem('shimmerstock_token');
-    if (!token) return;
-
-    fetch('/api/cs/unread-count', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : null))
+    apiGet<any>('/api/cs/unread-count')
       .then((data) => {
         if (data?.total) {
           setCsBadge(data.total);

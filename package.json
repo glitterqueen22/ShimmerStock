@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "cd client && npx vite build",
-    "start": "bun run build && bun run server/index.js",
+    "start": "bun run build && bun run start:server",
+    "start:server": "bun run server/index.js",
     "dev": "bun run server/index.js",
     "test": "bun test",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.tests.json",

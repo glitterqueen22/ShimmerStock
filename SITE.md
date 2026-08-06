@@ -34,23 +34,15 @@ does not update the live site — you must publish.) It always takes over port 3
 from whatever is running there, so it's safe to re-run no matter who started the
 current server. The server log is `.run/server.log`.
 
-## Going live (production hosting)
+## Staging runtime
 
-The preview above (port 3000) is where the site runs _while you build it_ — instant and free, but a
-preview: it can sleep, and it has no custom domain. To put the site **live on the web** — a fast,
-always-on URL the owner can share and point their own domain at — publish it to a real host (Vercel).
+This repository's current application runtime is the Bun and Express server started by:
 
 ```bash
-export VERCEL_TOKEN=...   # the team lead collects this from the owner
-bun run go-live           # builds, deploys, makes the project public, prints "LIVE: <url>"
+bun run start:server
 ```
 
-`go-live` bundles the SSR handler (via `vercel-entry.ts`, which adapts Vercel's Node function
-signature to the site's web fetch handler) into `.vercel/output` — no Git repo needed — then deploys
-it. It resolves the token's team scope automatically and makes the new project public (new Vercel
-projects inherit org SSO protection, which would otherwise show a login wall), so the owner only ever
-pastes a `VERCEL_TOKEN`. Pass `DATABASE_URL` in the environment too if the site uses a database. The
-team lead runs this flow and reports the live URL; don't hand-roll hosting or tunnels.
+For private staging, follow [DEPLOYMENT.md](DEPLOYMENT.md). Do not use Vercel or `serve.ts` for the current ShimmerStock application runtime.
 
 ## Making it dynamic
 

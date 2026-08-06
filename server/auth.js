@@ -1,6 +1,19 @@
 import * as store from "./store.js";
 import crypto from "node:crypto";
 
+function parseCookies(cookieHeader) {
+  const cookies = {};
+  cookieHeader.split(";").forEach((pair) => {
+    const idx = pair.indexOf("=");
+    if (idx > 0) {
+      const key = pair.substring(0, idx).trim();
+      const value = pair.substring(idx + 1).trim();
+      cookies[key] = decodeURIComponent(value);
+    }
+  });
+  return cookies;
+}
+
 /**
  * Hash a password using bcrypt (via Bun.password).
  */
@@ -29,6 +42,39 @@ export function generateResetToken() {
   return crypto.randomUUID();
 }
 
+export function extractSessionToken(req, cookieName = "token") {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return authHeader.slice(7);
+  }
+
+  if (req.headers.cookie) {
+    const cookies = parseCookies(req.headers.cookie);
+    return cookies[cookieName] || null;
+  }
+
+  return null;
+}
+
+export function setSessionCookie(res, token, expiresAt, runtimeConfig) {
+  res.cookie(runtimeConfig.sessionCookieName, token, {
+    httpOnly: runtimeConfig.sessionCookieHttpOnly,
+    sameSite: runtimeConfig.sessionCookieSameSite,
+    secure: runtimeConfig.sessionCookieSecure,
+    expires: new Date(expiresAt),
+    path: "/",
+  });
+}
+
+export function clearSessionCookie(res, runtimeConfig) {
+  res.clearCookie(runtimeConfig.sessionCookieName, {
+    httpOnly: runtimeConfig.sessionCookieHttpOnly,
+    sameSite: runtimeConfig.sessionCookieSameSite,
+    secure: runtimeConfig.sessionCookieSecure,
+    path: "/",
+  });
+}
+
 /**
  * Express middleware: require authentication with optional permission check.
  * Reads token from Authorization: Bearer <token> header or "token" cookie.
@@ -40,20 +86,7 @@ export function generateResetToken() {
  */
 export function requireAuth(db, permission) {
   return (req, res, next) => {
-    // Extract token
-    let token = null;
-
-    // Check Authorization header
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.slice(7);
-    }
-
-    // Fallback to cookie
-    if (!token && req.headers.cookie) {
-      const cookies = parseCookies(req.headers.cookie);
-      token = cookies.token;
-    }
+    const token = extractSessionToken(req);
 
     if (!token) {
       return res.status(401).json({ error: "Authentication required" });
@@ -133,20 +166,4 @@ export function refreshSession(db, token) {
     const newExpiry = new Date(now.getTime() + 8 * 60 * 60 * 1000).toISOString();
     store.refreshSessionExpiry(db, session.id, newExpiry);
   }
-}
-
-/**
- * Parse Cookie header into an object.
- */
-function parseCookies(cookieHeader) {
-  const cookies = {};
-  cookieHeader.split(";").forEach((pair) => {
-    const idx = pair.indexOf("=");
-    if (idx > 0) {
-      const key = pair.substring(0, idx).trim();
-      const value = pair.substring(idx + 1).trim();
-      cookies[key] = decodeURIComponent(value);
-    }
-  });
-  return cookies;
 }
