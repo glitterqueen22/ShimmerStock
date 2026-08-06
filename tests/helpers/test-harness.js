@@ -29,7 +29,28 @@ import fs from "fs";
  */
 export function createTestDb() {
   const dbPath = `/tmp/shimmerstock-test-${crypto.randomUUID()}.db`;
-  const db = initDb(dbPath);
+  // Supply explicit test-only bootstrap credentials so production validation passes.
+  // These credentials are used only for the seeded accounts; seedFixtures() wipes
+  // and replaces them immediately after, so the values never reach production.
+  const savedOwner = process.env.OWNER_INITIAL_PASSWORD;
+  const savedAdmin = process.env.ADMIN_INITIAL_PASSWORD;
+  process.env.OWNER_INITIAL_PASSWORD = "TestOwner!Bootstrap#2025";
+  process.env.ADMIN_INITIAL_PASSWORD = "TestAdmin!Bootstrap#2025";
+  let db;
+  try {
+    db = initDb(dbPath);
+  } finally {
+    if (savedOwner !== undefined) {
+      process.env.OWNER_INITIAL_PASSWORD = savedOwner;
+    } else {
+      delete process.env.OWNER_INITIAL_PASSWORD;
+    }
+    if (savedAdmin !== undefined) {
+      process.env.ADMIN_INITIAL_PASSWORD = savedAdmin;
+    } else {
+      delete process.env.ADMIN_INITIAL_PASSWORD;
+    }
+  }
   seedFixtures(db);
   return { db, dbPath };
 }

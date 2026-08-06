@@ -51,6 +51,27 @@ async function withEnv(
   }
 }
 
+/**
+ * Invoke initDb with explicit test-only bootstrap credentials so the
+ * production fail-closed validation passes in test contexts.
+ * Restores original env values after the call.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function initDbWithTestCreds(initDbFn: (p: string) => any, tmpPath: string) {
+  const savedOwner = process.env.OWNER_INITIAL_PASSWORD;
+  const savedAdmin = process.env.ADMIN_INITIAL_PASSWORD;
+  process.env.OWNER_INITIAL_PASSWORD = "TestOwner!Bootstrap#2025";
+  process.env.ADMIN_INITIAL_PASSWORD = "TestAdmin!Bootstrap#2025";
+  try {
+    return initDbFn(tmpPath);
+  } finally {
+    if (savedOwner !== undefined) process.env.OWNER_INITIAL_PASSWORD = savedOwner;
+    else delete process.env.OWNER_INITIAL_PASSWORD;
+    if (savedAdmin !== undefined) process.env.ADMIN_INITIAL_PASSWORD = savedAdmin;
+    else delete process.env.ADMIN_INITIAL_PASSWORD;
+  }
+}
+
 // ── 1–5. ShopifyProvider unit tests ─────────────────────────────────────────
 
 describe("ShopifyProvider — read-only enforcement", () => {
@@ -845,7 +866,7 @@ describe("Provider registry — credential containment", () => {
         );
 
         const tmpPath = `/tmp/shimmerstock-containment-${crypto.randomUUID()}.db`;
-        const db = initDb(tmpPath);
+        const db = initDbWithTestCreds(initDb, tmpPath);
 
         try {
           initRegistry();
@@ -874,7 +895,7 @@ describe("Provider registry — credential containment", () => {
     );
 
     const tmpPath = `/tmp/shimmerstock-uninit-${crypto.randomUUID()}.db`;
-    const db = initDb(tmpPath);
+    const db = initDbWithTestCreds(initDb, tmpPath);
 
     try {
       // Must throw — registry was never initialized for this module instance
