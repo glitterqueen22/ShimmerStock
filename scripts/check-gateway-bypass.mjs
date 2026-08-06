@@ -83,7 +83,7 @@ function selfTestPathResolution() {
 
 selfTestPathResolution();
 
-// ── Get tracked files ─────────────────────────────────────────────────────────
+// ── Get tracked plus untracked non-ignored files ──────────────────────────────
 const repoRoot = resolveRepoRoot(import.meta.url);
 
 function getTrackedFiles() {
@@ -144,7 +144,7 @@ for (const relPath of files) {
 
 // ── Report ────────────────────────────────────────────────────────────────────
 if (findings.length === 0) {
-  console.log("✅  No Shopify gateway bypass patterns found in tracked code files.");
+  console.log("✅  No Shopify gateway bypass patterns found in tracked plus untracked non-ignored code files.");
   process.exit(0);
 }
 

@@ -2,7 +2,7 @@
 /**
  * scripts/redact-secret-report.mjs
  *
- * Scans tracked files for patterns that look like committed secrets,
+ * Scans tracked plus untracked non-ignored files for patterns that look like committed secrets,
  * hard-coded credentials, or unsafe logging of sensitive values.
  *
  * Usage:
@@ -26,7 +26,7 @@ import { fileURLToPath } from "url";
 const CHECK_MODE = process.argv.includes("--check");
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-// ── File list (tracked git files only) ──────────────────────────────────
+// ── File list (tracked plus untracked non-ignored files) ─────────────────────
 
 function getTrackedFiles() {
   try {
@@ -140,7 +140,7 @@ for (const relPath of files) {
 // ── Report ───────────────────────────────────────────────────────────────
 
 if (findings.length === 0) {
-  console.log("✅  No secret patterns found in tracked files.");
+  console.log("✅  No secret patterns found in tracked plus untracked non-ignored files.");
   process.exit(0);
 }
 

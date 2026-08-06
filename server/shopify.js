@@ -14,6 +14,7 @@
 
 import ShopifyProvider from "./providers/shopify.js";
 import { gatewayFetch } from "./providers/shopify-gateway.js";
+import { isCanonicalShopDomain } from "./providers/shopify-domain.js";
 
 const _provider = new ShopifyProvider();
 const _status = _provider.getStatus();
@@ -47,11 +48,11 @@ export async function fetchProducts() {
  */
 export async function getInventoryInfo(variantId) {
   // All calls routed through the centralized gateway — read-only mode enforced.
-  const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || "glitzyglitterexpress.com";
+  const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || "";
   const API_TOKEN = process.env.SHOPIFY_API_TOKEN || "";
   const mode = _provider.getStatus().mode;
 
-  if (!API_TOKEN) return null;
+  if (!API_TOKEN || !isCanonicalShopDomain(STORE_DOMAIN)) return null;
 
   try {
     const variant = await gatewayFetch(mode, STORE_DOMAIN, API_TOKEN, "GET", `/variants/${variantId}.json`);
@@ -72,11 +73,11 @@ export async function getInventoryInfo(variantId) {
  * @deprecated Use provider.pushInventory() instead.
  */
 export async function updateInventory(inventoryItemId, locationId, quantity) {
-  const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || "glitzyglitterexpress.com";
+  const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || "";
   const API_TOKEN = process.env.SHOPIFY_API_TOKEN || "";
   const mode = _provider.getStatus().mode;
 
-  if (!API_TOKEN) {
+  if (!API_TOKEN || !isCanonicalShopDomain(STORE_DOMAIN)) {
     console.log(`[shopify] Skipping inventory update (not configured): item=${inventoryItemId}, qty=${quantity}`);
     return;
   }

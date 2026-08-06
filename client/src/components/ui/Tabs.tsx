@@ -18,7 +18,7 @@ export interface TabsProps {
 }
 
 export function Tabs({ tabs, active, activeId, activeTab, onChange, onTabChange, className = '' }: TabsProps) {
-  const currentActive = active ?? activeId ?? activeTab ?? (tabs[0]?.id ?? tabs[0]?.key ?? '');
+  const currentActive = active ?? activeId ?? activeTab ?? (tabs[0]?.id ?? tabs[0]?.key ?? `tab-0`);
   const handleChange = onChange ?? onTabChange ?? (() => {});
 
   return (
