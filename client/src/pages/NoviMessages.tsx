@@ -40,13 +40,12 @@ export default function NoviMessages() {
     setScanning(true);
     setScanResult(null);
     try {
-      const token = localStorage.getItem("shimmerstock_token");
       const res = await fetch("/api/novi/scan", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
+        credentials: "same-origin",
       });
       const data = await res.json();
       setScanResult(data);

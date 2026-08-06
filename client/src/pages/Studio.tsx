@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Novi from "../components/Novi";
 import { PageHeader, Button, Skeleton, EmptyState, ErrorBanner, useToast } from "../components/ui";
+import { apiFetch } from "../lib/api";
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface StudioTemplate {
@@ -61,14 +62,9 @@ const TYPE_SIZES: Record<string, string> = {
 
 // ── API helpers ────────────────────────────────────────────────────────
 function apiHeaders() {
-  const token = localStorage.getItem("shimmerstock_token");
-  const headers: Record<string, string> = {
+  return {
     "Content-Type": "application/json",
   };
-  if (token) {
-    headers.Authorization = "Bearer " + token;
-  }
-  return headers;
 }
 
 export default function Studio() {
@@ -111,10 +107,10 @@ export default function Studio() {
     try {
       setError(null);
       const [templatesRes, productsRes, assetsRes, brandRes] = await Promise.all([
-        fetch("/api/studio/templates", { headers: apiHeaders() }),
-        fetch("/api/studio/products", { headers: apiHeaders() }),
-        fetch("/api/studio/assets", { headers: apiHeaders() }),
-        fetch("/api/studio/brand", { headers: apiHeaders() }),
+        apiFetch("/api/studio/templates", { headers: apiHeaders() }),
+        apiFetch("/api/studio/products", { headers: apiHeaders() }),
+        apiFetch("/api/studio/assets", { headers: apiHeaders() }),
+        apiFetch("/api/studio/brand", { headers: apiHeaders() }),
       ]);
 
       if (!templatesRes.ok || !productsRes.ok || !assetsRes.ok || !brandRes.ok) {
@@ -155,7 +151,7 @@ export default function Studio() {
   const loadAssets = useCallback(async () => {
     setAssetsLoading(true);
     try {
-      const res = await fetch("/api/studio/assets", { headers: apiHeaders() });
+      const res = await apiFetch("/api/studio/assets", { headers: apiHeaders() });
       if (res.ok) setAssets(await res.json());
     } catch {}
     setAssetsLoading(false);
@@ -165,7 +161,7 @@ export default function Studio() {
   async function handleGenerate() {
     setGenerating(true);
     try {
-      const res = await fetch("/api/studio/generate", {
+      const res = await apiFetch("/api/studio/generate", {
         method: "POST",
         headers: apiHeaders(),
         body: JSON.stringify({
@@ -197,7 +193,7 @@ export default function Studio() {
       const assetType = selectedTemplate?.type || "social_post";
       const assetTitle = headline || selectedProduct?.name || "Untitled Asset";
 
-      const res = await fetch("/api/studio/assets", {
+      const res = await apiFetch("/api/studio/assets", {
         method: "POST",
         headers: apiHeaders(),
         body: JSON.stringify({
@@ -222,7 +218,7 @@ export default function Studio() {
   // ── Delete asset ─────────────────────────────────────────────────────
   async function handleDeleteAsset(id: number) {
     try {
-      const res = await fetch(`/api/studio/assets/${id}`, {
+      const res = await apiFetch(`/api/studio/assets/${id}`, {
         method: "DELETE",
         headers: apiHeaders(),
       });
@@ -239,7 +235,7 @@ export default function Studio() {
     if (!newTemplateName.trim()) return;
     setSavingTemplate(true);
     try {
-      const res = await fetch("/api/studio/templates", {
+      const res = await apiFetch("/api/studio/templates", {
         method: "POST",
         headers: apiHeaders(),
         body: JSON.stringify({
@@ -267,7 +263,7 @@ export default function Studio() {
   async function handleSaveBrand() {
     setSavingBrand(true);
     try {
-      const res = await fetch("/api/studio/brand", {
+      const res = await apiFetch("/api/studio/brand", {
         method: "PUT",
         headers: apiHeaders(),
         body: JSON.stringify({

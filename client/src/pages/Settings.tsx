@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useIndustry } from "../context/IndustryContext";
 import { useAuth } from "../contexts/AuthContext";
 import { PageHeader, Button, Badge, Skeleton, ErrorBanner, useToast } from "../components/ui";
+import { apiFetch } from "../lib/api";
 
 // ── Types ────────────────────────────────────────────────────────────
 interface IndustryProfile {
@@ -48,12 +49,7 @@ export default function Settings() {
 
   // ── Fetch industries ───────────────────────────────────────────────
   useEffect(() => {
-    const token = localStorage.getItem("shimmerstock_token");
-    if (!token) return;
-
-    fetch("/api/industry", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    apiFetch("/api/industry")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load industries");
         return res.json();
@@ -88,16 +84,12 @@ export default function Settings() {
 
   // ── Save ───────────────────────────────────────────────────────────
   async function handleSave() {
-    const token = localStorage.getItem("shimmerstock_token");
-    if (!token) return;
-
     setSaving(true);
     try {
-      const res = await fetch("/api/business/settings", {
+      const res = await apiFetch("/api/business/settings", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           industryConfigId: selectedIndustryId,

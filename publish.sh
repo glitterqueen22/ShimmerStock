@@ -2,8 +2,8 @@
 # Rebuild the site and (re)start the production server on port 3000.
 # Build runs in the foreground so errors surface; the server is launched in a new
 # session (setsid) so it keeps running after this script — and your shell — exits.
-# serve.ts frees the port (across user boundaries, retrying on races) before
-# binding, so this is safe to re-run no matter who started the current server.
+# the Bun/Express staging runtime is restarted on the same port, so this is safe
+# to re-run no matter who started the current server.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -17,7 +17,7 @@ mkdir -p .run
 bun install
 bun run build
 set -a; source .env; set +a
-setsid nohup bun run start > .run/server.log 2>&1 < /dev/null &
+setsid nohup bun run start:server > .run/server.log 2>&1 < /dev/null &
 
 # Wait for the new server to actually answer before reporting success, so a
 # startup crash surfaces here instead of silently leaving the old page live.

@@ -14,9 +14,14 @@ import {
   generateResetToken,
   requireAuth,
   refreshSession,
+  extractSessionToken,
+  setSessionCookie,
+  clearSessionCookie,
 } from "./auth.js";
 import { auditLog, getDeviceInfo } from "./audit.js";
 import { emit, getProductionSummary, getCalculationSummary } from "./events.js";
+import { logError, logInfo, logWarn } from "./logging.js";
+import { getRuntimeConfig } from "./runtime-config.js";
 import { evaluate } from "./calc.js";
 import { mountPurchasingRoutes } from "./purchasing-routes.js";
 import { mountTimelineRoutes } from "./timeline.js";
@@ -51,29 +56,94 @@ import { mountShopifyOauthRoutes } from "./shopify-oauth-routes.js";
 import { mountShopifyWebhookRoutes } from "./shopify-webhook-routes.js";
 
 const app = express();
+let runtimeConfig;
+try {
+  runtimeConfig = getRuntimeConfig();
+} catch (err) {
+  logError("startup", err.message || "Invalid runtime configuration");
+  throw err;
+}
 
-// Validate PORT from environment — default to 3000 if not set.
-const _rawPort = process.env.PORT;
-const PORT = _rawPort
-  ? (() => {
-      const p = parseInt(_rawPort, 10);
-      if (!Number.isInteger(p) || p < 1 || p > 65535) {
-        console.error(`[startup] Invalid PORT value: "${_rawPort}" — must be an integer between 1 and 65535. Defaulting to 3000.`);
-        return 3000;
-      }
-      return p;
-    })()
-  : 3000;
+const runtimeState = {
+  startupComplete: false,
+  shuttingDown: false,
+};
 
+const cleanupTasks = [];
+
+app.set("trust proxy", runtimeConfig.trustProxy ? 1 : false);
+
+function addCleanupTask(task) {
+  if (typeof task === "function") {
+    cleanupTasks.push(task);
+  }
+}
+
+function blockPublicSubmissionInPrivateMode(res) {
+  if (!runtimeConfig.isPrivateMode) {
+    return false;
+  }
+
+  res.status(403).json({
+    error: "Public submissions are disabled in private staging mode",
+  });
+  return true;
+}
+
+function authResponsePayload(token, expiresAt, user, mustChangePassword) {
+  const payload = {
+    user,
+    ...(mustChangePassword && { mustChangePassword: true }),
+  };
+
+  if (!runtimeConfig.isProductionLike) {
+    return {
+      token,
+      expiresAt,
+      ...payload,
+    };
+  }
+
+  return payload;
+}
 
 // Initialize database
-const db = initDb(process.env.SHIMMERSTOCK_DB_PATH);
+const db = initDb(runtimeConfig.dbPath);
+
+function isDatabaseReady() {
+  try {
+    db.query("SELECT 1 as ok").get();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+app.get("/health", (_req, res) => {
+  if (runtimeState.shuttingDown) {
+    return res.status(503).json({ status: "shutting_down" });
+  }
+  return res.status(200).json({ status: "ok" });
+});
+
+app.get("/ready", (_req, res) => {
+  const ready = runtimeState.startupComplete && !runtimeState.shuttingDown && isDatabaseReady();
+  if (!ready) {
+    return res.status(503).json({ status: "not_ready" });
+  }
+  return res.status(200).json({ status: "ready" });
+});
 
 // Mount webhooks FIRST so they can read raw body
 mountShopifyWebhookRoutes(app, db);
 
 app.use(express.json());
-app.use(cors());
+if (runtimeConfig.corsAllowedOrigin) {
+  app.use(cors({
+    origin: runtimeConfig.corsAllowedOrigin,
+    credentials: true,
+  }));
+}
 
 // Initialize provider registry (CommerceProvider abstraction)
 initRegistry();
@@ -115,6 +185,7 @@ app.post("/api/auth/login", async (req, res) => {
     const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
     const loginBusinessId = activeBiz ? activeBiz.business_id : user.business_id;
     store.createSession(db, { userId: user.id, token, expiresAt, businessId: loginBusinessId });
+    setSessionCookie(res, token, expiresAt, runtimeConfig);
 
     // Check if user needs to change password (password_changed_at is NULL)
     const mustChangePassword = user.password_changed_at === null;
@@ -138,9 +209,7 @@ app.post("/api/auth/login", async (req, res) => {
       userId: user.id,
       username: user.username,
     });
-    res.json({
-      token,
-      user: {
+    res.json(authResponsePayload(token, expiresAt, {
         id: user.id,
         username: user.username,
         display_name: user.display_name,
@@ -155,11 +224,9 @@ app.post("/api/auth/login", async (req, res) => {
           role: b.role,
           is_active: b.is_active,
         })),
-      },
-      ...(mustChangePassword && { mustChangePassword: true }),
-    });
+      }, mustChangePassword));
   } catch (err) {
-    console.error("POST /api/auth/login error:", err);
+    logError("auth", "POST /api/auth/login failed", { error: err?.message || String(err) });
     res.status(500).json({ error: "Login failed" });
   }
 });
@@ -177,9 +244,10 @@ app.post("/api/auth/logout", requireAuth(db), (req, res) => {
       deviceInfo: getDeviceInfo(req),
     });
     store.deleteSession(db, req.sessionId);
+    clearSessionCookie(res, runtimeConfig);
     res.json({ success: true });
   } catch (err) {
-    console.error("POST /api/auth/logout error:", err);
+    logError("auth", "POST /api/auth/logout failed", { error: err?.message || String(err) });
     res.status(500).json({ error: "Logout failed" });
   }
 });
@@ -197,9 +265,10 @@ app.post("/api/auth/logout-all", requireAuth(db), (req, res) => {
       deviceInfo: getDeviceInfo(req),
     });
     store.deleteAllUserSessions(db, req.user.id);
+    clearSessionCookie(res, runtimeConfig);
     res.json({ success: true });
   } catch (err) {
-    console.error("POST /api/auth/logout-all error:", err);
+    logError("auth", "POST /api/auth/logout-all failed", { error: err?.message || String(err) });
     res.status(500).json({ error: "Logout all failed" });
   }
 });
@@ -207,19 +276,7 @@ app.post("/api/auth/logout-all", requireAuth(db), (req, res) => {
 // GET /api/auth/me — with session refresh
 app.get("/api/auth/me", (req, res, next) => {
   // Extract token manually for refresh before auth middleware
-  let token = null;
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.slice(7);
-  }
-  if (!token && req.headers.cookie) {
-    const idx = req.headers.cookie.indexOf("token=");
-    if (idx >= 0) {
-      const start = idx + 6;
-      const end = req.headers.cookie.indexOf(";", start);
-      token = req.headers.cookie.substring(start, end > 0 ? end : undefined);
-    }
-  }
+  const token = extractSessionToken(req, runtimeConfig.sessionCookieName);
 
   // Authenticate
   const authMiddleware = requireAuth(db);
@@ -406,6 +463,10 @@ app.post("/api/auth/reset-password", async (req, res) => {
 // POST /api/auth/register — create account + business
 app.post("/api/auth/register", async (req, res) => {
   try {
+    if (runtimeConfig.isPrivateMode) {
+      return res.status(403).json({ error: "Self-service registration is disabled in private staging mode" });
+    }
+
     const { username, password, displayName, businessName } = req.body;
 
     if (!username || !password || !displayName || !businessName) {
@@ -480,6 +541,7 @@ app.post("/api/auth/register", async (req, res) => {
 
       return {
         token,
+        expiresAt,
         user: {
           id: userId,
           username: trimmedUsername,
@@ -493,13 +555,14 @@ app.post("/api/auth/register", async (req, res) => {
       };
     });
 
-    res.status(201).json(result);
+    setSessionCookie(res, result.token, result.expiresAt, runtimeConfig);
+    res.status(201).json(authResponsePayload(result.token, result.expiresAt, result.user));
   } catch (err) {
     if (err.message && err.message.includes("UNIQUE constraint failed")) {
       const msg = err.message.includes("users.username") ? "Username already exists" : err.message.includes("businesses.slug") || err.message.includes("businesses.name") ? "A business with this name already exists" : "Username or business name already exists";
       return res.status(409).json({ error: msg });
     }
-    console.error("POST /api/auth/register error:", err);
+    logError("auth", "POST /api/auth/register failed", { error: err?.message || String(err) });
     res.status(500).json({ error: "Registration failed" });
   }
 });
@@ -3414,12 +3477,12 @@ mountStudioRoutes(app, db);
   mountGrowthRoutes(app, db);
   mountNoviEvolutionRoutes(app, db);
   mountNoviMessageRoutes(app, db);
-  initNoviDetection(db);
-  initOpportunityBridge(db);
+  addCleanupTask(initNoviDetection(db));
+  addCleanupTask(initOpportunityBridge(db));
   mountTeamRoutes(app, db);
   mountFulfillmentRoutes(app, db);
-  mountPartnerRoutes(app, db);
-  mountAffiliateAttributionRoutes(app, db);
+  mountPartnerRoutes(app, db, { isPrivateMode: runtimeConfig.isPrivateMode });
+  mountAffiliateAttributionRoutes(app, db, { isPrivateMode: runtimeConfig.isPrivateMode });
   mountStoreCreditRoutes(app, db);
   mountBrandSetupRoutes(app, db);
   mountOnboardingRoutes(app, db);
@@ -3431,6 +3494,10 @@ mountStudioRoutes(app, db);
 
 app.post('/api/dream-grant/apply', (req, res) => {
   try {
+    if (blockPublicSubmissionInPrivateMode(res)) {
+      return;
+    }
+
     const { name, email, dream, build, stopping, change, mean } = req.body;
     if (!name || !email || !dream || !build || !change) {
       return res.status(400).json({ error: 'Name, email, dream, build, and change are required.' });
@@ -3441,7 +3508,7 @@ app.post('/api/dream-grant/apply', (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
       [name, email, dream, build, stopping || '', change, mean || '']
     );
-    console.log(`Dream Grant application received from ${name} <${email}>`);
+    logInfo("dream-grant", "Application received");
     res.json({ success: true, message: 'Application received.' });
   } catch (err) {
     console.error('Dream Grant submission error:', err);
@@ -3476,6 +3543,10 @@ app.use((err, req, res, _next) => {
 // ── Waitlist join endpoint ─────────────────────────────────────────
 app.post('/api/waitlist/join', (req, res) => {
   try {
+    if (blockPublicSubmissionInPrivateMode(res)) {
+      return;
+    }
+
     const { name, email, business_type, current_software, pain_point } = req.body;
     if (!name || !email) return res.status(400).json({ error: 'Name and email are required.' });
     db.run(
@@ -3507,9 +3578,41 @@ app.get("*", (req, res) => {
 });
 
 if (!process.env.SHIMMERSTOCK_TEST) {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`ShimmerStock running on http://0.0.0.0:${PORT}`);
+  const server = app.listen(runtimeConfig.port, "0.0.0.0", () => {
+    runtimeState.startupComplete = true;
+    logInfo("startup", `ShimmerStock listening on port ${runtimeConfig.port}`);
   });
+
+  async function shutdown(signal) {
+    if (runtimeState.shuttingDown) return;
+    runtimeState.shuttingDown = true;
+    logWarn("shutdown", `Received ${signal}; closing server resources`);
+
+    await new Promise((resolve) => {
+      server.close(() => resolve());
+    });
+
+    for (const cleanupTask of cleanupTasks.splice(0).reverse()) {
+      try {
+        await cleanupTask();
+      } catch (err) {
+        logError("shutdown", "Cleanup task failed", { error: err?.message || String(err) });
+      }
+    }
+
+    try {
+      db.close();
+    } catch (err) {
+      logError("shutdown", "Database close failed", { error: err?.message || String(err) });
+    }
+
+    process.exit(0);
+  }
+
+  process.once("SIGTERM", () => void shutdown("SIGTERM"));
+  process.once("SIGINT", () => void shutdown("SIGINT"));
+} else {
+  runtimeState.startupComplete = true;
 }
 
 export { app, db };

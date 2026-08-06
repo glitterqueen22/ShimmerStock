@@ -8,7 +8,7 @@
  * Respects novi_settings.frequency to avoid overwhelming users.
  */
 
-import { on, emit } from "./events.js";
+import { on, off, emit } from "./events.js";
 import * as store from "./store.js";
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -901,8 +901,15 @@ function detectIndustryNotConfigured(db, businessId) {
 export function initNoviDetection(db) {
   console.log("[novi-detection] Initializing detection engine...");
 
+  const disposers = [];
+
+  function subscribe(event, handler) {
+    on(event, handler);
+    disposers.push(() => off(event, handler));
+  }
+
   // ── inventory.updated — Low Inventory + Out of Stock + Inventory Mismatch ──
-  on("inventory.updated", (payload) => {
+  subscribe("inventory.updated", (payload) => {
     const bizId = payload?.businessId;
     if (!bizId) return;
     console.log(`[novi-detection] inventory.updated for business ${bizId}`);
@@ -920,7 +927,7 @@ export function initNoviDetection(db) {
   });
 
   // ── order.created — Orders Combine, Split, First Sale, Fulfillment Deadline, Milestones, Delayed ──
-  on("order.created", (payload) => {
+  subscribe("order.created", (payload) => {
     const bizId = payload?.businessId;
     if (!bizId) return;
     console.log(`[novi-detection] order.created for business ${bizId}, order #${payload.orderNumber || payload.orderId}`);
@@ -943,7 +950,7 @@ export function initNoviDetection(db) {
   });
 
   // ── auth.login — Setup Incomplete, First Login, Shopify Not Connected, Industry Not Configured ──
-  on("auth.login", (payload) => {
+  subscribe("auth.login", (payload) => {
     const bizId = payload?.businessId;
     if (!bizId) return;
     console.log(`[novi-detection] auth.login for business ${bizId}`);
@@ -979,11 +986,11 @@ export function initNoviDetection(db) {
     }
   };
 
-  on("product.created", handleProductSync);
-  on("commerce.products_synced", handleProductSync);
+  subscribe("product.created", handleProductSync);
+  subscribe("commerce.products_synced", handleProductSync);
 
   // ── warehouse.order_shipped — First Shipment Milestone ────────
-  on("warehouse.order_shipped", (payload) => {
+  subscribe("warehouse.order_shipped", (payload) => {
     const bizId = payload?.businessId;
     if (!bizId) return;
     console.log(`[novi-detection] warehouse.order_shipped for business ${bizId}`);
@@ -999,7 +1006,7 @@ export function initNoviDetection(db) {
   });
 
   // ── fulfillment.shipment_created — First Shipment Milestone ───
-  on("fulfillment.shipment_created", (payload) => {
+  subscribe("fulfillment.shipment_created", (payload) => {
     const bizId = payload?.businessId;
     if (!bizId) return;
     console.log(`[novi-detection] fulfillment.shipment_created for business ${bizId}`);
@@ -1015,7 +1022,7 @@ export function initNoviDetection(db) {
   });
 
   // ── partner.application_submitted — Affiliate Applications ────
-  on("partner.application_submitted", (payload) => {
+  subscribe("partner.application_submitted", (payload) => {
     const bizId = payload?.businessId;
     if (!bizId) return;
     console.log(`[novi-detection] partner.application_submitted for business ${bizId}`);
@@ -1031,7 +1038,7 @@ export function initNoviDetection(db) {
   });
 
   // ── order.status_changed — Returns Waiting + Customer Follow-Up ────
-  on("order.status_changed", (payload) => {
+  subscribe("order.status_changed", (payload) => {
     const bizId = payload?.businessId;
     if (!bizId) return;
     console.log(`[novi-detection] order.status_changed for business ${bizId}`);
@@ -1050,7 +1057,7 @@ export function initNoviDetection(db) {
   console.log("[novi-detection] Detection engine initialized — listening for events");
 
   // ── Startup scan: run all checks once after a 30s delay ──────────
-  setTimeout(() => {
+  const startupTimer = setTimeout(() => {
     try {
       const businesses = db.query("SELECT id FROM businesses").all();
       console.log(`[novi-detection] Running startup scan for ${businesses.length} businesses...`);
@@ -1069,7 +1076,7 @@ export function initNoviDetection(db) {
   }, 30000);
 
   // ── Periodic scan: run all checks every 10 minutes ──────────────
-  setInterval(() => {
+  const periodicTimer = setInterval(() => {
     try {
       const businesses = db.query("SELECT id FROM businesses").all();
       let totalMessages = 0;
@@ -1086,6 +1093,14 @@ export function initNoviDetection(db) {
       console.error("[novi-detection] Periodic scan error:", err.message);
     }
   }, 10 * 60 * 1000);
+
+  return () => {
+    clearTimeout(startupTimer);
+    clearInterval(periodicTimer);
+    for (const dispose of disposers.splice(0).reverse()) {
+      dispose();
+    }
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════

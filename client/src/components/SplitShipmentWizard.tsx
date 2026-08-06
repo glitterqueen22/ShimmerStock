@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button, Modal, Badge, useToast } from './ui';
 import Novi from './Novi';
+import { apiFetch } from '../lib/api';
 
 // ── Types ──────────────────────────────────────────────────────────
 interface OrderItem {
@@ -29,10 +30,9 @@ type HandleRemaining = 'hold' | 'notify' | 'refund' | 'store_credit' | 'wait';
 
 // ── Internal API helper (same pattern as Fulfillment.tsx) ─────────
 function api(path: string, init?: RequestInit) {
-  const token = localStorage.getItem('shimmerstock_token');
-  return fetch(path, {
+  return apiFetch(path, {
     ...init,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...init?.headers },
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
 }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button, Badge, Modal, useToast } from './ui';
 import Novi from './Novi';
+import { apiFetch } from '../lib/api';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -47,10 +48,9 @@ interface ProductResult {
 // ── Internal API helper ────────────────────────────────────────────
 
 function api(path: string, init?: RequestInit) {
-  const token = localStorage.getItem('shimmerstock_token');
-  return fetch(path, {
+  return apiFetch(path, {
     ...init,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...init?.headers },
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
 }
 

@@ -1,156 +1,148 @@
 # Deployment
 
-## Overview
+## Current architecture
 
-ShimmerStock is a single-process Bun/Express application that serves both the API and the React frontend. Deployment is straightforward: build the frontend, start the server.
+ShimmerStock is currently a single-process Bun and Express application that serves both the API and the built React frontend from one long-running web process. For the P1 internal pilot, staging must remain:
 
-## Build Steps
+- one persistent web service
+- one persistent volume for SQLite and backups
+- manual deploy only from reviewed `main`
+- private environment variables injected by the host
+- HTTPS terminated by the platform
+- no Vercel
+- no Shopify connection for GGE
+- no Shopify write mode
+
+`serve.ts` is not the ShimmerStock staging runtime and should not be used for this application deployment path.
+
+## Build and start
 
 ```bash
-# Install dependencies
-bun install
-
-# Build the React frontend
+bun install --frozen-lockfile
 bun run build
-
-# Start the server
-bun run start
+bun run start:server
 ```
 
-The `bun run start` command runs `bun run build && bun run server/index.js`, which:
-1. Builds the React app to `client/dist/`
-2. Starts Express on port 3000, serving both API routes and the static frontend
+`bun run start:server` is the long-running process command for staging and production-style hosts.
 
-## Production Environment
+## Required staging environment variables
 
-### Required Environment Variables
+| Variable | Purpose |
+|----------|---------|
+| `ENCRYPTION_KEY` | Required 64-char hex key for encrypted secrets at rest |
+| `OWNER_INITIAL_PASSWORD` | Required only when seeding a fresh staging database |
+| `ADMIN_INITIAL_PASSWORD` | Required only when seeding a fresh staging database |
+| `SHIMMERSTOCK_URL` | Required `https://` public staging URL |
+| `SHIMMERSTOCK_DB_PATH` | SQLite path on the persistent mounted volume |
+| `SHIMMERSTOCK_BACKUP_DIR` | Backup archive directory on the same persistent volume as SQLite |
+| `SHIMMERSTOCK_PRIVATE_MODE` | Set to `true` for invite-only/private staging |
+| `PORT` | Host-injected port for the web process |
+| `RAILPACK_DEPLOY_APT_PACKAGES` | Must be `sqlite3 gzip openssl` so backup/restore tools are available at runtime |
+| `RAILWAY_DEPLOYMENT_DRAINING_SECONDS` | Must be `30` so graceful shutdown cleanup can complete on SIGTERM |
 
-All variables from [SETUP.md](SETUP.md) must be set in production, plus:
+## Optional staging environment variables
 
-| Variable | Description |
-|----------|-------------|
-| `NODE_ENV` | Set to `production` |
-| `PORT` | Server port (default: `3000`) |
-| `SHIMMERSTOCK_URL` | Public URL of the deployment (for webhooks, OAuth callbacks) |
+| Variable | Purpose |
+|----------|---------|
+| `NODE_ENV` | Set to `production` on the staging host |
+| `SESSION_COOKIE_SAME_SITE` | Override default cookie same-site mode (`lax`) |
+| `SESSION_COOKIE_SECURE` | Force secure cookies outside production/private mode |
+| `CORS_ALLOWED_ORIGIN` | Leave unset by default; set only for an explicitly approved cross-origin client |
+| `SHOPIFY_READ_ONLY` | Extra safety net; keep `true` |
+| `SHOPIFY_ALLOW_WRITE_MODE` | Must remain unset or `false` |
+| `SHOPIFY_SYNC_MODE` | Leave unset unless a future approved milestone requires it |
+| `SHOPIFY_CLIENT_ID` | Leave configured only if a future approved milestone requires Shopify OAuth |
+| `SHOPIFY_CLIENT_SECRET` | Leave configured only if a future approved milestone requires Shopify OAuth |
+| `SHOPIFY_STORE_DOMAIN` | Leave unset unless explicitly needed for an approved test |
+| `SHOPIFY_API_TOKEN` | Leave unset unless explicitly needed for an approved read-only test |
+| `PUBLIC_URL` | Optional marketing/public URL override used by affiliate attribution links |
 
-### Process Management
+## Health and readiness
 
-Use a process manager to keep the server running:
+- Liveness: `GET /health`
+- Readiness: `GET /ready`
 
-**systemd (recommended):**
+Both return only a minimal status payload and expose no secrets or internal operational detail.
 
-```ini
-# /etc/systemd/system/shimmerstock.service
-[Unit]
-Description=ShimmerStock
-After=network.target
+Cross-origin requests remain denied by default. Only set `CORS_ALLOWED_ORIGIN` when an explicitly approved client needs cross-origin access.
 
-[Service]
-Type=simple
-User=shimmerstock
-WorkingDirectory=/opt/shimmerstock
-ExecStart=/usr/local/bin/bun run server/index.js
-Restart=always
-RestartSec=5
-Environment=NODE_ENV=production
-EnvironmentFile=/opt/shimmerstock/.env
+## Private staging behavior
 
-[Install]
-WantedBy=multi-user.target
+- `SHIMMERSTOCK_PRIVATE_MODE=true` disables `POST /api/auth/register`
+- `SHIMMERSTOCK_PRIVATE_MODE=true` blocks unauthenticated public submission writes:
+  - `POST /api/dream-grant/apply`
+  - `POST /api/waitlist/join`
+  - `POST /api/partner/forms/:formId/submissions`
+  - `POST /api/affiliate-attribution/track-click`
+- authenticated application flows continue to work
+- access is limited to seeded bootstrap accounts plus users created or invited by authenticated owners/admins
+
+## SQLite staging layout
+
+Recommended volume layout on the host:
+
+```text
+/data/
+  shimmerstock.db
+  backups/
 ```
 
-```bash
-sudo systemctl enable --now shimmerstock
-```
+Startup migrations are idempotent and run at boot through `initDb()`.
 
-**PM2:**
+PostgreSQL remains mandatory before onboarding unrelated external paying businesses.
 
-```bash
-pm2 start server/index.js --name shimmerstock --interpreter bun
-pm2 save
-pm2 startup
-```
+## Railway-ready service shape
 
-### Reverse Proxy
+Recommended single service shape:
 
-Run behind Nginx or Caddy for SSL termination:
+- Source: GitHub repository `main`
+- Builder: Nixpacks or Railpack
+- Build command: `bun install --frozen-lockfile && bun run build`
+- Start command: `bun run start:server`
+- Health check path: `/ready`
+- Instance count: 1
+- Persistent volume: mounted path used by `SHIMMERSTOCK_DB_PATH`
+- TLS: platform-managed
+- Deploy policy: manual deploy only from reviewed `main`
 
-**Nginx:**
+Runtime behavior for Railway:
 
-```nginx
-server {
-    listen 443 ssl;
-    server_name shimmerstock.example.com;
+- the app listens on host-injected `PORT`
+- the server binds `0.0.0.0` (all interfaces)
+- no hardcoded port values
 
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
+Do not enable automatic deploys from pull requests or unreviewed branches.
 
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
+## Manual Railway settings to configure
 
-**Caddy:**
+1. Attach one persistent volume.
+2. Set `SHIMMERSTOCK_DB_PATH` to `/data/shimmerstock.db`.
+3. Set `SHIMMERSTOCK_BACKUP_DIR` to `/data/backups`.
+4. Set `RAILPACK_DEPLOY_APT_PACKAGES=sqlite3 gzip openssl`.
+5. Set `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=30`.
+6. Inject the required environment variables listed above.
+7. Set the health check path to `/ready`.
+8. Use manual deploy from reviewed `main` only.
+9. Keep `SHOPIFY_ALLOW_WRITE_MODE` disabled.
+10. Keep GGE disconnected.
 
-```
-shimmerstock.example.com {
-    reverse_proxy localhost:3000
-}
-```
+## Backup, restore, and rollback
 
-## Health Check
+Backup and restore use the existing encrypted SQLite scripts with:
 
-The server exposes a health endpoint:
+- `SHIMMERSTOCK_DB_PATH=/data/shimmerstock.db`
+- `SHIMMERSTOCK_BACKUP_DIR=/data/backups`
 
-```
-GET /api/health
-→ { "status": "ok", "uptime": 12345 }
-```
+Rollback procedure:
 
-Use this for monitoring and load balancer health checks.
+1. Stop the staging process.
+2. Restore the last known-good encrypted backup to the configured `SHIMMERSTOCK_DB_PATH`.
+3. Restart with `bun run start:server`.
+4. Verify `GET /ready` returns `200`.
 
-## Shopify Webhooks
+## Obsolete deployment guidance to avoid
 
-Ensure `SHIMMERSTOCK_URL` is set to the public URL. Shopify webhooks are registered at:
-
-```
-POST /api/shopify/webhooks/<topic>
-```
-
-The Shopify OAuth flow will register webhooks automatically for connected stores.
-
-## Logging
-
-Server logs go to stdout/stderr by default. Redirect to a file with your process manager:
-
-```bash
-# systemd: logs go to journald
-journalctl -u shimmerstock -f
-
-# PM2:
-pm2 logs shimmerstock
-```
-
-## Security Checklist
-
-- [ ] Rotate all default credentials and API tokens
-- [ ] Use a strong, random `ENCRYPTION_KEY`
-- [ ] Set `SHOPIFY_READ_ONLY=true` as a safety net initially
-- [ ] Ensure `.env` is not committed to the repository
-- [ ] Run behind HTTPS (reverse proxy with SSL)
-- [ ] Set up firewall rules (only expose ports 80/443, not 3000 directly)
-- [ ] Configure automated database backups (see [BACKUP.md](BACKUP.md))
-- [ ] Set up monitoring and alerting (see P0.7 in business plan)
-
-## Resource Requirements
-
-- **Memory**: ~256MB minimum, 512MB recommended
-- **Disk**: 1GB minimum for application + database growth
-- **CPU**: 1 vCPU sufficient for moderate load
-
-SQLite performs well up to moderate concurrency. For high-traffic deployments, migrate to PostgreSQL.
+- Do not use Vercel for the current stateful Bun and Express plus SQLite application.
+- Do not use `serve.ts` as the ShimmerStock app runtime.
+- Do not auto-deploy pull requests.
+- Do not provision paid infrastructure as part of code changes.

@@ -4,6 +4,7 @@ import Novi from '../components/Novi';
 import PrintModal, { type PrintData } from './PrintableLabel';
 import SplitShipmentWizard from '../components/SplitShipmentWizard';
 import OperationsCenter from '../components/OperationsCenter';
+import { apiFetch } from '../lib/api';
 
 // ── Types ────────────────────────────────────────────────────────
 interface PendingOrder {
@@ -256,10 +257,9 @@ const ACTION_TYPES = [
 ];
 
 function api(path: string, init?: RequestInit) {
-  const token = localStorage.getItem('shimmerstock_token');
-  return fetch(path, {
+  return apiFetch(path, {
     ...init,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...init?.headers },
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
 }
 

@@ -158,13 +158,12 @@ export default function Opportunities() {
   ) {
     setActionLoading((prev) => ({ ...prev, [id]: true }));
     try {
-      const token = localStorage.getItem("shimmerstock_token");
       const res = await fetch(`/api/opportunities/${encodeURIComponent(id)}/${action}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
+        credentials: "same-origin",
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!res.ok) throw new Error("Action failed");
