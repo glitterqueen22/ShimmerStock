@@ -120,6 +120,46 @@ describe("Shopify OAuth Flow", () => {
     expect(data.error).toContain("Unknown or replayed state");
   });
 
+  it("does not exchange or store token when final state consume fails", async () => {
+    const shop = "consume-fail.myshopify.com";
+    db.run(
+      "DELETE FROM provider_credentials WHERE business_id = ? AND provider = 'shopify' AND shop_domain = ?",
+      [businessId, shop]
+    );
+
+    const forgedState = crypto.randomBytes(32).toString("hex");
+    const query = {
+      code: "test_code",
+      shop,
+      state: forgedState,
+    };
+    const hmac = generateCallbackHmac(query as Record<string, string>, "test_client_secret");
+    const qs = new URLSearchParams({ ...query, hmac }).toString();
+
+    let oauthExchangeCalls = 0;
+    const originalFetch = global.fetch;
+    (global as any).fetch = mock(async (input: any, init?: any) => {
+      const urlStr = input.toString();
+      if (urlStr.includes("/admin/oauth/access_token")) {
+        oauthExchangeCalls += 1;
+      }
+      return originalFetch(input, init);
+    });
+
+    try {
+      const res = await fetch(`${appUrl}/api/shopify/auth/callback?${qs}`, { redirect: "manual" });
+      expect(res.status).toBe(400);
+      expect(oauthExchangeCalls).toBe(0);
+
+      const row = db
+        .query("SELECT id FROM provider_credentials WHERE business_id = ? AND provider = 'shopify' AND shop_domain = ?")
+        .get(businessId, shop);
+      expect(row).toBeNull();
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
   it("rejects callback with invalid HMAC", async () => {
     // First get a real state token
     const authRes = await fetch(`${appUrl}/api/shopify/auth?shop=test.myshopify.com`, {

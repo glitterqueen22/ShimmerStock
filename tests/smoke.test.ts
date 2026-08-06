@@ -4,7 +4,7 @@ import { describe, expect, it, beforeAll } from "bun:test";
 // and calls process.exit(1) if absent. Set it before any imports that transitively
 // load crypto-utils.
 beforeAll(() => {
-  if (!process.env.ENCRYPTION_KEY) {
+  if (!/^[0-9a-f]{64}$/i.test(process.env.ENCRYPTION_KEY || "")) {
     process.env.ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
   }
 });

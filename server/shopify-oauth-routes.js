@@ -269,6 +269,11 @@ function consumeOAuthState(db, stateToken, callbackShop) {
     return { ok: false, error: "Missing state token" };
   }
 
+  const normalizedCallbackShop = canonicalizeShopDomain(callbackShop);
+  if (!normalizedCallbackShop) {
+    return { ok: false, error: "Invalid callback shop" };
+  }
+
   const stateHash = crypto.createHash("sha256").update(stateToken).digest("hex");
   const record = db
     .query("SELECT * FROM shopify_oauth_state WHERE state_hash = ?")
@@ -288,10 +293,11 @@ function consumeOAuthState(db, stateToken, callbackShop) {
     return { ok: false, error: "State expired — please restart the OAuth flow" };
   }
 
-  if (record.expected_shop !== callbackShop) {
+  const normalizedExpectedShop = canonicalizeShopDomain(record.expected_shop || "");
+  if (!normalizedExpectedShop || normalizedExpectedShop !== normalizedCallbackShop) {
     return {
       ok: false,
-      error: `Shop mismatch: expected ${record.expected_shop}, got ${callbackShop}`,
+      error: `Shop mismatch: expected ${record.expected_shop}, got ${normalizedCallbackShop}`,
     };
   }
 
@@ -326,14 +332,50 @@ function consumeOAuthState(db, stateToken, callbackShop) {
     }
   }
 
-  // Atomically mark as used — only one call can succeed (UPDATE returns changes=1)
+  // Final atomic consume against the source of truth.
+  // Rechecks all critical bindings in SQL so stale in-memory reads cannot pass.
   const result = db.run(
-    "UPDATE shopify_oauth_state SET used_at = datetime('now') WHERE state_hash = ? AND used_at IS NULL",
-    [stateHash]
+    `UPDATE shopify_oauth_state
+     SET used_at = datetime('now')
+     WHERE state_hash = ?
+       AND used_at IS NULL
+       AND expires_at > datetime('now')
+       AND lower(expected_shop) = lower(?)
+       AND (? IS NULL OR user_id = ?)
+       AND (? IS NULL OR business_id = ?)
+       AND (? IS NULL OR session_id = ?)
+       AND (
+         session_id IS NULL OR EXISTS (
+           SELECT 1
+           FROM sessions s
+           WHERE s.id = shopify_oauth_state.session_id
+             AND s.expires_at > datetime('now')
+             AND s.user_id = shopify_oauth_state.user_id
+         )
+       )
+       AND (
+         business_id IS NULL OR user_id IS NULL OR EXISTS (
+           SELECT 1
+           FROM user_businesses ub
+           WHERE ub.user_id = shopify_oauth_state.user_id
+             AND ub.business_id = shopify_oauth_state.business_id
+             AND ub.is_active = 1
+         )
+       )`,
+    [
+      stateHash,
+      normalizedCallbackShop,
+      record.user_id ?? null,
+      record.user_id ?? null,
+      record.business_id ?? null,
+      record.business_id ?? null,
+      record.session_id ?? null,
+      record.session_id ?? null,
+    ]
   );
 
   if (result.changes !== 1) {
-    return { ok: false, error: "State already consumed (race condition) — replay rejected" };
+    return { ok: false, error: "State validation failed during final consume — restart the OAuth flow" };
   }
 
   return { ok: true, record };

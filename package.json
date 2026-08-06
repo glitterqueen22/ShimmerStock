@@ -7,7 +7,7 @@
     "start": "bun run build && bun run server/index.js",
     "dev": "bun run server/index.js",
     "test": "bun test",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.tests.json",
     "check:safety": "node scripts/redact-secret-report.mjs --check && node scripts/check-gateway-bypass.mjs --check",
     "seed": "bun run server/seed.js",
     "seed:reset": "bun run server/seed.js --reset"

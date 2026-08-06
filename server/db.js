@@ -118,27 +118,48 @@ const BOOTSTRAP_PASSWORD_MIN_LENGTH = 12;
  * Never generates a fallback password — callers must provide a valid value.
  */
 function validateBootstrapCredential(envVarName, value) {
-  if (!value || value.trim() === "") {
+  if (typeof value !== "string") {
     throw new Error(
       `Bootstrap configuration error: ${envVarName} is required to create the initial seeded account but is not set. ` +
       `Set a strong, unique password in the ${envVarName} environment variable before starting the server on a fresh database.`
     );
   }
+
+  const normalizedValue = value.trim();
+
+  if (normalizedValue === "") {
+    throw new Error(
+      `Bootstrap configuration error: ${envVarName} is required to create the initial seeded account but is not set. ` +
+      `Set a strong, unique password in the ${envVarName} environment variable before starting the server on a fresh database.`
+    );
+  }
+
+  if (normalizedValue !== value) {
+    throw new Error(
+      `Bootstrap configuration error: ${envVarName} cannot contain leading or trailing whitespace. ` +
+      `Set the exact credential value without surrounding spaces.`
+    );
+  }
+
+  const normalizedLower = normalizedValue.toLowerCase();
+
   if (
-    KNOWN_PLACEHOLDER_PASSWORDS.has(value) ||
-    KNOWN_PLACEHOLDER_PASSWORDS.has(value.toLowerCase())
+    KNOWN_PLACEHOLDER_PASSWORDS.has(normalizedLower)
   ) {
     throw new Error(
       `Bootstrap configuration error: ${envVarName} is set to a known placeholder value. ` +
       `Replace it with a unique, strong password before starting the server.`
     );
   }
-  if (value.length < BOOTSTRAP_PASSWORD_MIN_LENGTH) {
+
+  if (normalizedValue.length < BOOTSTRAP_PASSWORD_MIN_LENGTH) {
     throw new Error(
       `Bootstrap configuration error: ${envVarName} must be at least ${BOOTSTRAP_PASSWORD_MIN_LENGTH} characters. ` +
       `Set a stronger password in the ${envVarName} environment variable.`
     );
   }
+
+  return normalizedValue;
 }
 
 export function initDb(dbPath) {
@@ -651,8 +672,10 @@ export function initDb(dbPath) {
     );
 
     // Create owner user (no business_id — uses user_businesses junction)
-    const ownerPassword = process.env.OWNER_INITIAL_PASSWORD;
-    validateBootstrapCredential("OWNER_INITIAL_PASSWORD", ownerPassword);
+    const ownerPassword = validateBootstrapCredential(
+      "OWNER_INITIAL_PASSWORD",
+      process.env.OWNER_INITIAL_PASSWORD
+    );
     const ownerHash = Bun.password.hashSync(ownerPassword);
     const ownerResult = db.run(
       "INSERT INTO users (username, password_hash, display_name, role, password_changed_at) VALUES (?, ?, ?, ?, datetime('now'))",
@@ -691,8 +714,10 @@ export function initDb(dbPath) {
 
   const existingUsers = db.query("SELECT COUNT(*) as count FROM users").get();
   if (existingUsers.count === 0) {
-    const password = process.env.ADMIN_INITIAL_PASSWORD;
-    validateBootstrapCredential("ADMIN_INITIAL_PASSWORD", password);
+    const password = validateBootstrapCredential(
+      "ADMIN_INITIAL_PASSWORD",
+      process.env.ADMIN_INITIAL_PASSWORD
+    );
     const hash = Bun.password.hashSync(password);
     // password_changed_at is left NULL so first login triggers mustChangePassword
     const adminResult = db.run(
@@ -715,8 +740,10 @@ export function initDb(dbPath) {
     // Ensure admin user exists (for migration case: business created but admin user missing)
     const existingAdmin = db.query("SELECT id FROM users WHERE username = ?").get("admin");
     if (!existingAdmin) {
-      const password = process.env.ADMIN_INITIAL_PASSWORD;
-      validateBootstrapCredential("ADMIN_INITIAL_PASSWORD", password);
+      const password = validateBootstrapCredential(
+        "ADMIN_INITIAL_PASSWORD",
+        process.env.ADMIN_INITIAL_PASSWORD
+      );
       const hash = Bun.password.hashSync(password);
       const adminResult = db.run(
         "INSERT INTO users (username, password_hash, display_name, role, password_changed_at) VALUES (?, ?, ?, ?, datetime('now'))",

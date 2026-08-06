@@ -209,10 +209,12 @@ export async function loginAs(appUrl, username, password) {
  * Returns { appUrl, db, dbPath, server, cleanup }
  */
 export async function setupTest() {
-  // Ensure encryption key is set before importing server code
-  if (!process.env.ENCRYPTION_KEY) {
+  // Ensure encryption key is valid before importing server code
+  if (!/^[0-9a-f]{64}$/i.test(process.env.ENCRYPTION_KEY || "")) {
     process.env.ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
   }
+  process.env.OWNER_INITIAL_PASSWORD = TEST_OWNER_INITIAL_PASSWORD;
+  process.env.ADMIN_INITIAL_PASSWORD = TEST_ADMIN_INITIAL_PASSWORD;
   process.env.SHIMMERSTOCK_TEST = "1";
 
   const { db, dbPath } = createTestDb();

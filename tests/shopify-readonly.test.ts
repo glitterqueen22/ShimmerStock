@@ -21,10 +21,12 @@
  * 16. Granted-scope verification rejects extra unapproved scopes (least privilege)
  */
 
-// Must be set before any server module import — crypto-utils.js validates it eagerly
-process.env.ENCRYPTION_KEY =
-  process.env.ENCRYPTION_KEY ||
-  "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+// Must be set before any server module import — crypto-utils.js validates it eagerly.
+// Tests may run with a temporary non-hex key value from the environment; normalize it.
+const TEST_ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+if (!/^[0-9a-f]{64}$/i.test(process.env.ENCRYPTION_KEY || "")) {
+  process.env.ENCRYPTION_KEY = TEST_ENCRYPTION_KEY;
+}
 
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import {
@@ -919,6 +921,25 @@ describe("Provider registry — credential containment", () => {
 
     // Must throw — registry was never initialized
     expect(() => getProvider()).toThrow("Provider registry not initialised");
+  });
+
+  it("throws when getProvider() is called with db but no business before initRegistry()", async () => {
+    const { initDb } = await import("../server/db.js");
+    const { getProvider } = await import(
+      "../server/providers/registry.js?uninit-check-db-only"
+    );
+
+    const tmpPath = `/tmp/shimmerstock-uninit-db-only-${crypto.randomUUID()}.db`;
+    const db = initDbWithTestCreds(initDb, tmpPath);
+
+    try {
+      expect(() => getProvider(undefined, db)).toThrow(
+        "Provider registry not initialised"
+      );
+    } finally {
+      db.close();
+      try { require("fs").unlinkSync(tmpPath); } catch (_) { /* ok */ }
+    }
   });
 });
 

@@ -6,7 +6,15 @@
  */
 import { describe, expect, it, beforeAll } from "bun:test";
 
+const VALID_TEST_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
 describe("Boot safety — ENCRYPTION_KEY required", () => {
+  beforeAll(() => {
+    if (!/^[0-9a-f]{64}$/i.test(process.env.ENCRYPTION_KEY || "")) {
+      process.env.ENCRYPTION_KEY = VALID_TEST_KEY;
+    }
+  });
+
   it("crypto-utils throws when ENCRYPTION_KEY is absent", async () => {
     // Save current key
     const savedKey = process.env.ENCRYPTION_KEY;
@@ -105,9 +113,9 @@ describe("Bootstrap credential — fail-closed validation", () => {
 
   beforeAll(async () => {
     // Ensure encryption key is present (crypto-utils eagerly validates it)
-    if (!process.env.ENCRYPTION_KEY) {
+    if (!/^[0-9a-f]{64}$/i.test(process.env.ENCRYPTION_KEY || "")) {
       process.env.ENCRYPTION_KEY =
-        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        VALID_TEST_KEY;
     }
     const mod = await import(`../server/db.js?boot-safety-${Date.now()}`);
     initDb = mod.initDb;
@@ -187,6 +195,37 @@ describe("Bootstrap credential — fail-closed validation", () => {
         },
         () => {
           expect(() => initDb(tmpPath)).toThrow("ADMIN_INITIAL_PASSWORD");
+        }
+      );
+    } finally {
+      cleanupDb(tmpPath);
+    }
+  });
+
+  it("placeholder OWNER_INITIAL_PASSWORD is rejected case-insensitively", () => {
+    const tmpPath = `/tmp/ss-boot-owner-placeholder-case-${crypto.randomUUID()}.db`;
+    try {
+      withSyncEnv(
+        { OWNER_INITIAL_PASSWORD: "PaSsWoRd", ADMIN_INITIAL_PASSWORD: undefined },
+        () => {
+          expect(() => initDb(tmpPath)).toThrow("OWNER_INITIAL_PASSWORD");
+        }
+      );
+    } finally {
+      cleanupDb(tmpPath);
+    }
+  });
+
+  it("rejects bootstrap credentials with leading or trailing whitespace", () => {
+    const tmpPath = `/tmp/ss-boot-whitespace-${crypto.randomUUID()}.db`;
+    try {
+      withSyncEnv(
+        {
+          OWNER_INITIAL_PASSWORD: " StrongOwnerPass!2025",
+          ADMIN_INITIAL_PASSWORD: "StrongAdminPass!2025",
+        },
+        () => {
+          expect(() => initDb(tmpPath)).toThrow("OWNER_INITIAL_PASSWORD");
         }
       );
     } finally {

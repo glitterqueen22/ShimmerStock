@@ -1,0 +1,26 @@
+[1mdiff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml[m
+[1mindex 4e56b8a..33e4719 100644[m
+[1m--- a/.github/workflows/ci.yml[m
+[1m+++ b/.github/workflows/ci.yml[m
+[36m@@ -30,7 +30,7 @@[m [mjobs:[m
+         run: node scripts/check-gateway-bypass.mjs --check[m
+ [m
+       - name: Type check[m
+[31m-        run: bun run typecheck[m
+[32m+[m[32m        run: tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.tests.json[m
+         timeout-minutes: 5[m
+ [m
+       - name: Build check[m
+[1mdiff --git a/package.json b/package.json[m
+[1mindex e29c1b2..6c1da87 100644[m
+[1m--- a/package.json[m
+[1m+++ b/package.json[m
+[36m@@ -7,7 +7,7 @@[m
+     "start": "bun run build && bun run server/index.js",[m
+     "dev": "bun run server/index.js",[m
+     "test": "bun test",[m
+[31m-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",[m
+[32m+[m[32m    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.tests.json",[m
+     "check:safety": "node scripts/redact-secret-report.mjs --check && node scripts/check-gateway-bypass.mjs --check",[m
+     "seed": "bun run server/seed.js",[m
+     "seed:reset": "bun run server/seed.js --reset"[m

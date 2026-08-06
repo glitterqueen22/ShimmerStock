@@ -41,22 +41,18 @@ export function initRegistry() {
  * @returns {import("./interface.js").default}
  */
 export function getProvider(businessId, db) {
-  // If no DB or businessId, return singleton
-  if (!db || !businessId) {
-    if (!_singletonProvider) {
-      throw new Error(
-        "Provider registry not initialised — call initRegistry() at startup"
-      );
-    }
-    return _singletonProvider;
-  }
-
-  // Require explicit initialization before multi-tenant resolution.
-  // getProvider() must not silently succeed when initRegistry() was never called.
   if (!_initialized) {
     throw new Error(
       "Provider registry not initialised — call initRegistry() at startup"
     );
+  }
+
+  // If no DB or businessId, return singleton
+  if (!db || !businessId) {
+    if (!_singletonProvider) {
+      throw new Error("Provider registry is in an invalid state");
+    }
+    return _singletonProvider;
   }
 
   // Check cache first
