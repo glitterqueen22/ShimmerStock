@@ -21,7 +21,7 @@ function computeActive(
   return active ?? activeId ?? activeTab ?? (tabs[0]?.id ?? tabs[0]?.key ?? "tab-0");
 }
 
-function tabId(tab: { id?: string; key?: string }, index: number): string {
+function tabId(tab: { id?: string; key?: string; label?: string }, index: number): string {
   return tab.id ?? tab.key ?? `tab-${index}`;
 }
 
