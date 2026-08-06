@@ -6,10 +6,15 @@
  * compatibility; prefer `getProvider()` from server/providers/registry.js for
  * new code.
  *
+ * Legacy direct API calls here are routed through the centralized gateway
+ * (server/providers/shopify-gateway.js) to enforce read-only mode.
+ *
  * @deprecated Use `getProvider(businessId)` from "./providers/registry.js" instead.
  */
 
 import ShopifyProvider from "./providers/shopify.js";
+import { gatewayFetch } from "./providers/shopify-gateway.js";
+import { isCanonicalShopDomain } from "./providers/shopify-domain.js";
 
 const _provider = new ShopifyProvider();
 const _status = _provider.getStatus();
@@ -42,28 +47,19 @@ export async function fetchProducts() {
  * @deprecated Use provider.pushInventory() instead.
  */
 export async function getInventoryInfo(variantId) {
-  // This is now handled internally by pushInventory.
-  // For backward compat, we make the same API calls the old code did.
-  const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || "glitzyglitterexpress.com";
+  // All calls routed through the centralized gateway — read-only mode enforced.
+  const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || "";
   const API_TOKEN = process.env.SHOPIFY_API_TOKEN || "";
-  const API_VERSION = "2024-01";
+  const mode = _provider.getStatus().mode;
 
-  if (!API_TOKEN) return null;
-
-  const baseUrl = `https://${STORE_DOMAIN}/admin/api/${API_VERSION}`;
-  const headers = {
-    "X-Shopify-Access-Token": API_TOKEN,
-    "Content-Type": "application/json",
-  };
+  if (!API_TOKEN || !isCanonicalShopDomain(STORE_DOMAIN)) return null;
 
   try {
-    const variantRes = await fetch(`${baseUrl}/variants/${variantId}.json`, { headers });
-    const variant = await variantRes.json();
+    const variant = await gatewayFetch(mode, STORE_DOMAIN, API_TOKEN, "GET", `/variants/${variantId}.json`);
     const inventoryItemId = variant.variant?.inventory_item_id;
     if (!inventoryItemId) return null;
 
-    const locRes = await fetch(`${baseUrl}/locations.json`, { headers });
-    const locations = await locRes.json();
+    const locations = await gatewayFetch(mode, STORE_DOMAIN, API_TOKEN, "GET", "/locations.json");
     const firstLocation = locations.locations?.[0];
     if (!firstLocation) return null;
 
@@ -77,40 +73,24 @@ export async function getInventoryInfo(variantId) {
  * @deprecated Use provider.pushInventory() instead.
  */
 export async function updateInventory(inventoryItemId, locationId, quantity) {
-  const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || "glitzyglitterexpress.com";
+  const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || "";
   const API_TOKEN = process.env.SHOPIFY_API_TOKEN || "";
-  const API_VERSION = "2024-01";
+  const mode = _provider.getStatus().mode;
 
-  if (!API_TOKEN) {
+  if (!API_TOKEN || !isCanonicalShopDomain(STORE_DOMAIN)) {
     console.log(`[shopify] Skipping inventory update (not configured): item=${inventoryItemId}, qty=${quantity}`);
     return;
   }
 
-  if (process.env.SHOPIFY_READ_ONLY === "true") {
-    console.log(`[shopify] Read-only mode — skipping inventory push: item=${inventoryItemId}, qty=${quantity}`);
-    return;
-  }
-
-  const url = `https://${STORE_DOMAIN}/admin/api/${API_VERSION}/inventory_levels/set.json`;
-  const headers = {
-    "X-Shopify-Access-Token": API_TOKEN,
-    "Content-Type": "application/json",
-  };
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
+  // All write calls routed through the centralized gateway — blocked in read-only mode.
+  // Deprecated helper must fail closed without throwing to callers.
+  try {
+    await gatewayFetch(mode, STORE_DOMAIN, API_TOKEN, "POST", "/inventory_levels/set.json", {
       location_id: locationId,
       inventory_item_id: inventoryItemId,
       available: quantity,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Shopify POST /inventory_levels/set.json failed (${res.status}): ${text}`);
+    });
+  } catch (err) {
+    console.warn(`[shopify] Inventory update skipped: ${err?.message || "request blocked"}`);
   }
-
-  return res.json();
 }

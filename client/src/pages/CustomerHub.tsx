@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { PageHeader, Tabs, Badge, Button, Modal, SearchBar, EmptyState, Skeleton, ErrorBanner, useToast } from '../components/ui';
-import { apiGet, apiPost, apiPut, apiDelete, sanitizeError } from '../lib/api';
+import { PageHeader, Tabs, Button, Modal, EmptyState, Skeleton, useToast } from '../components/ui';
+import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api';
 import Novi from '../components/Novi';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -49,16 +49,6 @@ interface ReturnRefund {
   customer_email: string;
   source: string;
   notes: string | null;
-  created_at: string;
-}
-
-interface CustomerNote {
-  id: number;
-  customer_email: string;
-  order_id: number | null;
-  note: string;
-  note_type: string;
-  created_by_name: string | null;
   created_at: string;
 }
 
@@ -285,7 +275,7 @@ export default function CustomerHub() {
 
   // ── Store Credit ────────────────────────────────────────────────
   const [storeCredit, setStoreCredit] = useState<CustomerStoreCredit | null>(null);
-  const [creditLoading, setCreditLoading] = useState(false);
+  const [, setCreditLoading] = useState(false);
 
   // ── Create Return/Refund Modal ────────────────────────────────────
   const [createReturnModalOpen, setCreateReturnModalOpen] = useState(false);
@@ -294,7 +284,6 @@ export default function CustomerHub() {
   const [createReturnReason, setCreateReturnReason] = useState('');
   const [createReturnAmount, setCreateReturnAmount] = useState('');
   const [createReturnSaving, setCreateReturnSaving] = useState(false);
-  const [prefillOrderId, setPrefillOrderId] = useState<number | null>(null);
 
   // ── Inbox ───────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -315,7 +304,6 @@ export default function CustomerHub() {
   const [customerContext, setCustomerContext] = useState<any>(null);
   const [contextLoading, setContextLoading] = useState(false);
   const [showContext, setShowContext] = useState(false);
-  const [searchHasOpenConvs, setSearchHasOpenConvs] = useState<Record<string, number>>({});
 
   // ── Load data on mount ───────────────────────────────────────────
   useEffect(() => {

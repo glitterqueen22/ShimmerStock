@@ -19,6 +19,10 @@ import { initDb } from "../../server/db.js";
 import * as store from "../../server/store.js";
 import { hashPassword } from "../../server/auth.js";
 import fs from "fs";
+import {
+  TEST_OWNER_INITIAL_PASSWORD,
+  TEST_ADMIN_INITIAL_PASSWORD,
+} from "./bootstrap-creds.js";
 
 // ── Schema helpers ────────────────────────────────────────────────────────
 
@@ -29,7 +33,28 @@ import fs from "fs";
  */
 export function createTestDb() {
   const dbPath = `/tmp/shimmerstock-test-${crypto.randomUUID()}.db`;
-  const db = initDb(dbPath);
+  // Supply explicit test-only bootstrap credentials so production validation passes.
+  // These credentials are used only for the seeded accounts; seedFixtures() wipes
+  // and replaces them immediately after, so the values never reach production.
+  const savedOwner = process.env.OWNER_INITIAL_PASSWORD;
+  const savedAdmin = process.env.ADMIN_INITIAL_PASSWORD;
+  process.env.OWNER_INITIAL_PASSWORD = TEST_OWNER_INITIAL_PASSWORD;
+  process.env.ADMIN_INITIAL_PASSWORD = TEST_ADMIN_INITIAL_PASSWORD;
+  let db;
+  try {
+    db = initDb(dbPath);
+  } finally {
+    if (savedOwner !== undefined) {
+      process.env.OWNER_INITIAL_PASSWORD = savedOwner;
+    } else {
+      delete process.env.OWNER_INITIAL_PASSWORD;
+    }
+    if (savedAdmin !== undefined) {
+      process.env.ADMIN_INITIAL_PASSWORD = savedAdmin;
+    } else {
+      delete process.env.ADMIN_INITIAL_PASSWORD;
+    }
+  }
   seedFixtures(db);
   return { db, dbPath };
 }
@@ -184,10 +209,12 @@ export async function loginAs(appUrl, username, password) {
  * Returns { appUrl, db, dbPath, server, cleanup }
  */
 export async function setupTest() {
-  // Ensure encryption key is set before importing server code
-  if (!process.env.ENCRYPTION_KEY) {
+  // Ensure encryption key is valid before importing server code
+  if (!/^[0-9a-f]{64}$/i.test(process.env.ENCRYPTION_KEY || "")) {
     process.env.ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
   }
+  process.env.OWNER_INITIAL_PASSWORD = TEST_OWNER_INITIAL_PASSWORD;
+  process.env.ADMIN_INITIAL_PASSWORD = TEST_ADMIN_INITIAL_PASSWORD;
   process.env.SHIMMERSTOCK_TEST = "1";
 
   const { db, dbPath } = createTestDb();

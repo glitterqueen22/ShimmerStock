@@ -25,7 +25,7 @@
 ### Finding 1 — Real ENCRYPTION_KEY in `.env` 🔴 HIGH
 
 - **File:** `.env` (not tracked in git, excluded by `.gitignore`)
-- **Line:** `ENCRYPTION_KEY=72a8d72b81fb5001f0c8dd144d36ed762c5447b45f3007803d0a9317c89926f5`
+- **Line:** `ENCRYPTION_KEY=[REDACTED — rotate immediately if exposed]`
 - **Severity:** HIGH
 - **Detail:** This is the live AES-256-GCM encryption key used to encrypt/decrypt Shopify OAuth access tokens stored in the database. While `.env` is properly gitignored, this key exists on disk in plaintext. Anyone with filesystem access to the server can read it. Additionally, this key has been hardcoded in the sandbox environment rather than injected from a secrets manager.
 - **Recommendation:** Rotate immediately if this key has ever been exposed outside the sandbox. In production, inject via a secrets manager (environment-level, not `.env` file). See key-rotation-procedure.md.
@@ -33,15 +33,15 @@
 ### Finding 2 — Real ADMIN_INITIAL_PASSWORD in `.env` 🔴 HIGH
 
 - **File:** `.env` (not tracked in git)
-- **Line:** `ADMIN_INITIAL_PASSWORD=shimmerstock2024`
+- **Line:** `ADMIN_INITIAL_PASSWORD=[REDACTED — change immediately]`
 - **Severity:** HIGH
-- **Detail:** This is the password for the `admin` user. The password `shimmerstock2024` is weak (predictable pattern: project name + year) and shared between admin and owner. It has existed since initial setup.
+- **Detail:** This is the password for the `admin` user. The password `[REDACTED — change immediately]` is weak (predictable pattern: project name + year) and shared between admin and owner. It has existed since initial setup.
 - **Recommendation:** Change immediately via the app's password change flow. Do not reuse across accounts. See key-rotation-procedure.md.
 
 ### Finding 3 — Real OWNER_INITIAL_PASSWORD in `.env` 🔴 HIGH
 
 - **File:** `.env` (not tracked in git)
-- **Line:** `OWNER_INITIAL_PASSWORD=shimmerstock2024`
+- **Line:** `OWNER_INITIAL_PASSWORD=[REDACTED — change immediately]`
 - **Severity:** HIGH
 - **Detail:** Same weak password as admin, for the `owner` user. Shared credentials between admin and owner accounts defeat the purpose of role separation.
 - **Recommendation:** Change immediately. Use distinct passwords for admin and owner. See key-rotation-procedure.md.
@@ -94,7 +94,7 @@ The following were specifically searched for and **not found** anywhere in the c
 ## Verification Notes
 
 - `.env` is properly listed in `.gitignore` and is **not tracked** by git (`git ls-files .env` returns empty).
-- No git commit in the 6-commit history contains the current `ENCRYPTION_KEY` or `shimmerstock2024` passwords.
+- No git commit in the 6-commit history contains the current `ENCRYPTION_KEY` or `[REDACTED — change immediately]` passwords.
 - The P0.2 credential rotation commit (5318d6b) successfully removed the hardcoded fallback encryption key from `crypto-utils.js`.
 - Shopify credential placeholders (`SHOPIFY_CLIENT_SECRET`, `SHOPIFY_API_TOKEN`) in source code are only used as form field labels/references, not as actual values.
 

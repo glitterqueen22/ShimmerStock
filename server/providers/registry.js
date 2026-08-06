@@ -14,6 +14,9 @@ import ShopifyProvider from "./shopify.js";
 /** @type {import("./interface.js").default|null} */
 let _singletonProvider = null;
 
+/** Whether initRegistry() has been called. */
+let _initialized = false;
+
 /** @type {Map<number, import("./interface.js").default>} */
 const _businessCache = new Map();
 
@@ -22,6 +25,7 @@ const _businessCache = new Map();
  */
 export function initRegistry() {
   _singletonProvider = new ShopifyProvider();
+  _initialized = true;
   console.log("[registry] Singleton Shopify provider initialised");
 }
 
@@ -37,12 +41,16 @@ export function initRegistry() {
  * @returns {import("./interface.js").default}
  */
 export function getProvider(businessId, db) {
+  if (!_initialized) {
+    throw new Error(
+      "Provider registry not initialised — call initRegistry() at startup"
+    );
+  }
+
   // If no DB or businessId, return singleton
   if (!db || !businessId) {
     if (!_singletonProvider) {
-      throw new Error(
-        "Provider registry not initialised — call initRegistry() at startup"
-      );
+      throw new Error("Provider registry is in an invalid state");
     }
     return _singletonProvider;
   }
@@ -59,13 +67,11 @@ export function getProvider(businessId, db) {
     return multiTenantProvider;
   }
 
-  // Fall back to singleton
-  if (!_singletonProvider) {
-    throw new Error(
-      "Provider registry not initialised — call initRegistry() at startup"
-    );
-  }
-  return _singletonProvider;
+  // No credentials found for this business.
+  // Do NOT fall back to the singleton — it may hold another tenant's or a global live credential.
+  // Return an unconfigured provider so callers receive a clean "not connected" status.
+  console.log(`[registry] No credentials for business ${businessId} — returning unconfigured provider`);
+  return new ShopifyProvider({ shopDomain: "none", accessToken: "" });
 }
 
 /**

@@ -51,7 +51,7 @@ describe("Tenant isolation — Products", () => {
   it("GET /api/products — user A sees only Business A products", async () => {
     const res = await authGet("/api/products", tokenA);
     expect(res.status).toBe(200);
-    const products = await res.json();
+    const products = await res.json() as any;
     expect(Array.isArray(products)).toBe(true);
     // Should only see products belonging to business 1
     for (const p of products) {
@@ -63,7 +63,7 @@ describe("Tenant isolation — Products", () => {
   it("GET /api/products — user B sees only Business B products", async () => {
     const res = await authGet("/api/products", tokenB);
     expect(res.status).toBe(200);
-    const products = await res.json();
+    const products = await res.json() as any;
     for (const p of products) {
       expect(p.name).toMatch(/Product B/);
       expect(p.name).not.toMatch(/Product A/);
@@ -76,7 +76,7 @@ describe("Tenant isolation — Products", () => {
     // Should return 404 (not found) — not the product data
     expect([403, 404]).toContain(res.status);
     if (res.status === 200) {
-      const data = await res.json();
+      const data = await res.json() as any;
       // This would be a tenant isolation failure — flag it
       expect(data.name).toBeUndefined(); // force failure if we get data
     }
@@ -97,7 +97,7 @@ describe("Tenant isolation — Orders", () => {
   it("user A sees only Business A orders", async () => {
     const res = await authGet("/api/orders", tokenA);
     expect(res.status).toBe(200);
-    const orders = await res.json();
+    const orders = await res.json() as any;
     for (const o of orders) {
       // Business A order is #1001
       expect(o.customer_name || "").not.toMatch(/Customer B/);
@@ -109,7 +109,7 @@ describe("Tenant isolation — Orders", () => {
     // We need to find its ID. Let's just get all orders as user B first
     const resB = await authGet("/api/orders", tokenB);
     expect(resB.status).toBe(200);
-    const ordersB = await resB.json();
+    const ordersB = await resB.json() as any;
     expect(ordersB.length).toBeGreaterThan(0);
     const orderBId = ordersB[0].id;
 
@@ -123,7 +123,7 @@ describe("Tenant isolation — Inventory / Movements", () => {
   it("user A sees only Business A movements", async () => {
     const res = await authGet("/api/movements", tokenA);
     expect(res.status).toBe(200);
-    const movements = await res.json();
+    const movements = await res.json() as any;
     // All movements should be for business A products (id 1-3)
     for (const m of movements) {
       expect(m.product_id).toBeLessThan(4); // Business A product IDs are 1-3
@@ -135,7 +135,7 @@ describe("Tenant isolation — Users", () => {
   it("user A sees only Business A users", async () => {
     const res = await authGet("/api/users", tokenA);
     expect(res.status).toBe(200);
-    const users = await res.json();
+    const users = await res.json() as any;
     for (const u of users) {
       expect(u.username).not.toMatch(/_b$/);
     }
@@ -144,7 +144,7 @@ describe("Tenant isolation — Users", () => {
   it("user B sees only Business B users", async () => {
     const res = await authGet("/api/users", tokenB);
     expect(res.status).toBe(200);
-    const users = await res.json();
+    const users = await res.json() as any;
     for (const u of users) {
       expect(u.username).not.toMatch(/_a$/);
     }
@@ -156,7 +156,7 @@ describe("Tenant isolation — Forged business_id override", () => {
     // User A tries to pass business_id=2 in the query
     const res = await authGet("/api/products?business_id=2", tokenA);
     expect(res.status).toBe(200);
-    const products = await res.json();
+    const products = await res.json() as any;
     // Should still only see business A products
     for (const p of products) {
       expect(p.name).toMatch(/Product A/);
@@ -171,11 +171,11 @@ describe("Tenant isolation — Forged business_id override", () => {
     });
     // Should create in business A, or reject
     if (res.status === 201) {
-      const product = await res.json();
+      await res.json(); // consume body; cross-tenant isolation verified below
       // If created, it must be in business A, not B
       // Verify by fetching as user B — user B should NOT see it
       const resB = await authGet("/api/products", tokenB);
-      const productsB = await resB.json();
+      const productsB = await resB.json() as any;
       const found = productsB.find((p: any) => p.sku === "SKU-CROSS");
       expect(found).toBeUndefined();
     }

@@ -5,43 +5,98 @@
  *   SHOPIFY_CLIENT_ID     — from Shopify Partner dashboard (app setup)
  *   SHOPIFY_CLIENT_SECRET — from Shopify Partner dashboard
  *   ENCRYPTION_KEY        — 32-byte hex string for token encryption
- *                            (generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
- *   SHIMMERSTOCK_URL      — public URL for redirect_uri (e.g. https://shimmerstock.ctonew.app)
+ *   SHIMMERSTOCK_URL      — public URL for redirect_uri
  *
  * Routes:
  *   GET  /api/shopify/auth             — initiate OAuth (requires auth)
  *   GET  /api/shopify/auth/callback    — OAuth callback (no auth — Shopify redirect)
  *   POST /api/shopify/disconnect       — disconnect Shopify (requires auth)
  *   GET  /api/shopify/status           — connection status (requires auth)
+ *
+ * Security:
+ *   - State is a random opaque token; only its SHA-256 hash is stored server-side.
+ *   - State is bound to: userId, businessId, sessionId, expectedShop, expiry.
+ *   - State is consumed atomically (one-time use).
+ *   - No Shopify write or webhook mutation occurs during OAuth connect.
+ *   - Granted scopes are verified before the token is activated.
+ *   - Any write_* scope in the granted set causes immediate rejection.
+ *   - Missing required read scopes cause immediate rejection.
+ *   - Token and authorization headers are never logged.
  */
 
 import crypto from "crypto";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { requireAuth } from "./auth.js";
-import { encryptToken, decryptToken } from "./crypto-utils.js";
+import { encryptToken } from "./crypto-utils.js";
 import { getProvider, invalidateProviderCache } from "./providers/registry.js";
+import { canonicalizeShopDomain, isCanonicalShopDomain } from "./providers/shopify-domain.js";
+import { gatewayFetch } from "./providers/shopify-gateway.js";
+
+// ── Rate limiters for OAuth endpoints ──────────────────────────────────────
+
+/** Rate limit for OAuth initiation: 10 requests per IP per 5 minutes. */
+const oauthInitLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many OAuth requests — please wait and try again" },
+  keyGenerator: (req) => ipKeyGenerator(req),
+});
+
+/** Rate limit for OAuth callback: 20 requests per IP per 5 minutes. */
+const oauthCallbackLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many OAuth callback requests — please wait and try again" },
+  keyGenerator: (req) => ipKeyGenerator(req),
+});
 
 
-const SHOPIFY_SCOPES = [
-  "read_orders",
-  "read_products",
-  "write_inventory",
-  "read_locations",
-  "read_fulfillments",
-  "write_fulfillments",
-  "read_customers",
-  "read_checkouts",
-].join(",");
+// ── P0 OAuth scope policy ────────────────────────────────────────────────────
+// Exactly these four read scopes — no more, no fewer.
+
+const REQUIRED_SCOPES = ["read_orders", "read_products", "read_inventory", "read_locations"];
+const SHOPIFY_SCOPES = REQUIRED_SCOPES.join(",");
+
+// P0 policy: the approved set is exactly REQUIRED_SCOPES — no additional scopes.
+// read_all_orders is NOT approved for P0; it belongs in a separate owner-approved scope milestone.
+const APPROVED_SCOPES = new Set(REQUIRED_SCOPES);
 
 const API_VERSION = "2024-01";
+
+// ── OAuth state TTL ────────────────────────────────────────────────────────
+const STATE_TTL_SECONDS = 600; // 10 minutes
+
+// ── Canonical shop domain validation ──────────────────────────────────────
+
+export { canonicalizeShopDomain };
+
+/**
+ * Validate that a shop string is a canonical *.myshopify.com domain.
+ * Always normalizes to lowercase before testing.
+ * Rejects anything that is not exactly one subdomain label followed by .myshopify.com.
+ *
+ * @param {string} shop
+ * @returns {boolean}
+ */
+function isValidShopDomain(shop) {
+  return isCanonicalShopDomain(shop);
+}
+
+// ── HMAC validation ───────────────────────────────────────────────────────
 
 /**
  * Validate an HMAC parameter from Shopify callback.
  * Shopify signs the query string using the client secret.
+ * Excludes 'hmac' and legacy 'signature' from the signed parameter set.
  */
 function validateHmac(query, secret) {
-  // Remove the hmac parameter and build the message
   const params = { ...query };
   delete params.hmac;
+  delete params.signature; // legacy Shopify parameter — excluded from signing
 
   const orderedParams = Object.keys(params)
     .sort()
@@ -59,7 +114,6 @@ function validateHmac(query, secret) {
   const receivedHmac = query.hmac;
   if (typeof receivedHmac !== "string") return false;
 
-  // Constant-time comparison
   try {
     return crypto.timingSafeEqual(
       Buffer.from(expectedHmac, "hex"),
@@ -70,12 +124,22 @@ function validateHmac(query, secret) {
   }
 }
 
+// ── Token exchange ────────────────────────────────────────────────────────
+
 /**
  * Exchange a Shopify OAuth code for an access token.
+ * Never logs the token or client secret values.
  */
 async function exchangeCodeForToken(shopDomain, code) {
-  const url = `https://${shopDomain}/admin/oauth/access_token`;
-  console.log(`[shopify-oauth] Exchanging code for token: ${shopDomain}`);
+  const normalizedShopDomain = canonicalizeShopDomain(shopDomain);
+  // Defense-in-depth: assert canonical Shopify domain before constructing the URL.
+  // The shopDomain should already have been validated by isValidShopDomain() in the caller,
+  // but we re-validate here to prevent any accidental code path that skips that check.
+  if (!isCanonicalShopDomain(normalizedShopDomain)) {
+    throw new Error("Invalid shop domain — must be a canonical *.myshopify.com domain");
+  }
+  const url = `https://${normalizedShopDomain}/admin/oauth/access_token`;
+  console.log(`[shopify-oauth] Exchanging code for token: ${normalizedShopDomain}`);
 
   const res = await fetch(url, {
     method: "POST",
@@ -89,7 +153,7 @@ async function exchangeCodeForToken(shopDomain, code) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Token exchange failed (${res.status}): ${text}`);
+    throw new Error(`Token exchange failed (${res.status})`);
   }
 
   return res.json();
@@ -97,216 +161,359 @@ async function exchangeCodeForToken(shopDomain, code) {
 
 /**
  * Fetch shop information from Shopify Admin API.
+ * Never logs the access token.
  */
 async function fetchShopInfo(shopDomain, accessToken) {
-  const url = `https://${shopDomain}/admin/api/${API_VERSION}/shop.json`;
-  console.log(`[shopify-oauth] Fetching shop info: ${shopDomain}`);
+  console.log(`[shopify-oauth] Verifying shop identity: ${shopDomain}`);
+  // Route through centralized gateway — GET is always allowed, token never logged.
+  return gatewayFetch("readonly", shopDomain, accessToken, "GET", "/shop.json");
+}
 
-  const res = await fetch(url, {
-    headers: {
-      "X-Shopify-Access-Token": accessToken,
-      "Content-Type": "application/json",
-    },
-  });
+// ── Scope verification ────────────────────────────────────────────────────
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Shop info fetch failed (${res.status}): ${text}`);
+/**
+ * Verify granted scopes against P0 policy:
+ *  - No write_* scope is permitted.
+ *  - Granted scopes must exactly match APPROVED_SCOPES (same as REQUIRED_SCOPES for P0).
+ *  - All REQUIRED_SCOPES must be present.
+ *
+ * Exported for unit testing.
+ *
+ * @param {string} grantedScopeString — comma-separated scope string from Shopify
+ * @returns {{ ok: boolean, error?: string, verifiedScopes: string[] }}
+ */
+export function verifyGrantedScopes(grantedScopeString) {
+  const grantedList = (grantedScopeString || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // Reject any write scope
+  const writeScopesFound = grantedList.filter((s) => s.startsWith("write_"));
+  if (writeScopesFound.length > 0) {
+    return {
+      ok: false,
+      error: `Connection rejected: Shopify granted write scopes that are not permitted: ${writeScopesFound.join(", ")}`,
+      verifiedScopes: [],
+    };
   }
 
-  return res.json();
+  // Reject any scope that is not in the approved P0 set (least privilege).
+  const extraScopes = grantedList.filter((s) => !APPROVED_SCOPES.has(s));
+  if (extraScopes.length > 0) {
+    return {
+      ok: false,
+      error: `Connection rejected: Shopify granted unapproved scopes: ${extraScopes.join(", ")}`,
+      verifiedScopes: [],
+    };
+  }
+
+  // Check all required scopes are present
+  const missing = REQUIRED_SCOPES.filter((req) => !grantedList.includes(req));
+
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      error: `Connection rejected: missing required scopes: ${missing.join(", ")}`,
+      verifiedScopes: [],
+    };
+  }
+
+  return { ok: true, verifiedScopes: grantedList };
+}
+
+// ── State management ──────────────────────────────────────────────────────
+
+/**
+ * Create and persist a new OAuth state record.
+ * Returns the opaque state token (to be placed in the URL).
+ *
+ * @param {import("bun:sqlite").Database} db
+ * @param {number} userId
+ * @param {number} businessId
+ * @param {number|null} sessionId
+ * @param {string} expectedShop
+ * @returns {string} opaque state token
+ */
+function createOAuthState(db, userId, businessId, sessionId, expectedShop) {
+  const stateToken = crypto.randomBytes(32).toString("hex");
+  const stateHash = crypto.createHash("sha256").update(stateToken).digest("hex");
+  const expiresAt = new Date(Date.now() + STATE_TTL_SECONDS * 1000).toISOString();
+
+  db.run(
+    `INSERT INTO shopify_oauth_state (state_hash, user_id, business_id, session_id, expected_shop, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [stateHash, userId, businessId, sessionId ?? null, expectedShop, expiresAt]
+  );
+
+  return stateToken;
 }
 
 /**
- * Register webhooks with Shopify for a connected store.
+ * Validate and atomically consume an OAuth state token.
+ *
+ * Checks:
+ *  - State hash exists in DB
+ *  - Not already consumed (used_at IS NULL)
+ *  - Not expired (expires_at > now)
+ *  - expectedShop matches the shop in the callback
+ *  - businessId matches (caller must also verify userId binding if needed)
+ *
+ * @param {import("bun:sqlite").Database} db
+ * @param {string} stateToken
+ * @param {string} callbackShop
+ * @returns {{ ok: boolean, error?: string, record?: object }}
  */
-async function registerWebhooks(shopDomain, accessToken) {
-  const webhookTopics = [
-    { topic: "orders/create", address: `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/webhooks/orders-create` },
-    { topic: "orders/updated", address: `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/webhooks/orders-updated` },
-    { topic: "orders/cancelled", address: `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/webhooks/orders-cancelled` },
-    { topic: "products/update", address: `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/webhooks/products-update` },
-    { topic: "inventory_levels/update", address: `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/webhooks/inventory-update` },
-    { topic: "app/uninstalled", address: `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/webhooks/app-uninstalled` },
-  ];
+function consumeOAuthState(db, stateToken, callbackShop) {
+  if (!stateToken || typeof stateToken !== "string") {
+    return { ok: false, error: "Missing state token" };
+  }
 
-  const webhookIds = [];
+  const normalizedCallbackShop = canonicalizeShopDomain(callbackShop);
+  if (!normalizedCallbackShop) {
+    return { ok: false, error: "Invalid callback shop" };
+  }
 
-  for (const wh of webhookTopics) {
-    try {
-      const url = `https://${shopDomain}/admin/api/${API_VERSION}/webhooks.json`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "X-Shopify-Access-Token": accessToken,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          webhook: {
-            topic: wh.topic,
-            address: wh.address,
-            format: "json",
-          },
-        }),
-      });
+  const stateHash = crypto.createHash("sha256").update(stateToken).digest("hex");
+  const record = db
+    .query("SELECT * FROM shopify_oauth_state WHERE state_hash = ?")
+    .get(stateHash);
 
-      if (res.ok) {
-        const data = await res.json();
-        const webhookId = data.webhook?.id;
-        if (webhookId) {
-          webhookIds.push(`${wh.topic}:${webhookId}`);
-          console.log(`[shopify-oauth] Webhook registered: ${wh.topic} → ${webhookId}`);
-        }
-      } else {
-        const text = await res.text();
-        console.warn(`[shopify-oauth] Webhook registration failed for ${wh.topic}: ${text}`);
-      }
-    } catch (err) {
-      console.warn(`[shopify-oauth] Webhook registration error for ${wh.topic}:`, err.message);
+  if (!record) {
+    return { ok: false, error: "Unknown or replayed state — request rejected" };
+  }
+
+  if (record.used_at !== null) {
+    return { ok: false, error: "State already consumed — replay rejected" };
+  }
+
+  const now = new Date();
+  const expiresAt = new Date(record.expires_at);
+  if (expiresAt < now) {
+    return { ok: false, error: "State expired — please restart the OAuth flow" };
+  }
+
+  const normalizedExpectedShop = canonicalizeShopDomain(record.expected_shop || "");
+  if (!normalizedExpectedShop || normalizedExpectedShop !== normalizedCallbackShop) {
+    return {
+      ok: false,
+      error: `Shop mismatch: expected ${record.expected_shop}, got ${normalizedCallbackShop}`,
+    };
+  }
+
+  // Validate that the initiating session is still valid and still belongs to the
+  // expected user (guards against session invalidation between initiation and callback).
+  if (record.session_id) {
+    const session = db
+      .query(
+        "SELECT user_id FROM sessions WHERE id = ? AND expires_at > datetime('now')"
+      )
+      .get(record.session_id);
+
+    if (!session) {
+      return { ok: false, error: "Session mismatch — initiating session is no longer valid" };
+    }
+
+    if (session.user_id !== record.user_id) {
+      return { ok: false, error: "User mismatch — session user does not match state user" };
     }
   }
 
-  return webhookIds.join(",");
+  // Validate that the business still belongs to the initiating user.
+  if (record.business_id && record.user_id) {
+    const bizLink = db
+      .query(
+        "SELECT 1 FROM user_businesses WHERE user_id = ? AND business_id = ? AND is_active = 1"
+      )
+      .get(record.user_id, record.business_id);
+
+    if (!bizLink) {
+      return { ok: false, error: "Business mismatch — user is no longer associated with this business" };
+    }
+  }
+
+  // Final atomic consume against the source of truth.
+  // Rechecks all critical bindings in SQL so stale in-memory reads cannot pass.
+  const result = db.run(
+    `UPDATE shopify_oauth_state
+     SET used_at = datetime('now')
+     WHERE state_hash = ?
+       AND used_at IS NULL
+       AND expires_at > datetime('now')
+       AND lower(expected_shop) = lower(?)
+       AND (? IS NULL OR user_id = ?)
+       AND (? IS NULL OR business_id = ?)
+       AND (? IS NULL OR session_id = ?)
+       AND (
+         session_id IS NULL OR EXISTS (
+           SELECT 1
+           FROM sessions s
+           WHERE s.id = shopify_oauth_state.session_id
+             AND s.expires_at > datetime('now')
+             AND s.user_id = shopify_oauth_state.user_id
+         )
+       )
+       AND (
+         business_id IS NULL OR user_id IS NULL OR EXISTS (
+           SELECT 1
+           FROM user_businesses ub
+           WHERE ub.user_id = shopify_oauth_state.user_id
+             AND ub.business_id = shopify_oauth_state.business_id
+             AND ub.is_active = 1
+         )
+       )`,
+    [
+      stateHash,
+      normalizedCallbackShop,
+      record.user_id ?? null,
+      record.user_id ?? null,
+      record.business_id ?? null,
+      record.business_id ?? null,
+      record.session_id ?? null,
+      record.session_id ?? null,
+    ]
+  );
+
+  if (result.changes !== 1) {
+    return { ok: false, error: "State validation failed during final consume — restart the OAuth flow" };
+  }
+
+  return { ok: true, record };
 }
+
+// ── Route mounting ────────────────────────────────────────────────────────
 
 export function mountShopifyOauthRoutes(app, db) {
   // ── Initiate OAuth ────────────────────────────────────────────────────
 
-  // Token-from-query fallback for browser redirects (window.location.href can't set headers)
-  app.get("/api/shopify/auth", (req, res, next) => {
-    const token = req.query.token;
-    if (token) {
-      const session = db.query("SELECT ub.business_id FROM sessions s JOIN user_businesses ub ON s.user_id = ub.user_id AND ub.is_active = 1 WHERE s.token = ? AND s.expires_at > datetime('now')").get(token);
-      if (session) {
-        req.businessId = session.business_id;
-        return next();
-      }
-      // Token expired or invalid — redirect to login
-      const shop = req.query.shop || "";
-      const loginUrl = `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/login?redirect=/commerce${shop ? `&shop=${encodeURIComponent(shop)}` : ""}`;
-      return res.redirect(loginUrl);
-    }
-    requireAuth(db, "shopify.read")(req, res, next);
-  }, (req, res) => {
+  app.get("/api/shopify/auth", oauthInitLimiter, requireAuth(db, "shopify.read"), (req, res) => {
     try {
+      const userId = req.user?.id;
       const businessId = req.businessId;
-      const shop = req.query.shop;
+      const sessionId = req.sessionId ?? null;
+      // Canonicalize to lowercase at the input boundary
+      const shop = canonicalizeShopDomain(req.query.shop);
 
       if (!shop) {
         return res.status(400).json({ error: "Missing 'shop' query parameter (e.g. ?shop=mystore.myshopify.com)" });
+      }
+
+      if (!isValidShopDomain(shop)) {
+        return res.status(400).json({ error: "Invalid shop domain — must be a canonical *.myshopify.com domain" });
       }
 
       if (!(process.env.SHOPIFY_CLIENT_ID || "")) {
         return res.status(500).json({ error: "Shopify OAuth is not configured — set SHOPIFY_CLIENT_ID" });
       }
 
-      // Generate state with businessId + nonce for CSRF protection
-      const nonce = crypto.randomBytes(16).toString("hex");
-      const state = Buffer.from(JSON.stringify({ businessId, nonce })).toString("base64");
+      if (!userId || !businessId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
 
-      // Build OAuth URL
+      // Create opaque state bound to user + business + session + shop
+      const stateToken = createOAuthState(db, userId, businessId, sessionId, shop);
+
       const authUrl = new URL(`https://${shop}/admin/oauth/authorize`);
       authUrl.searchParams.set("client_id", process.env.SHOPIFY_CLIENT_ID || "");
       authUrl.searchParams.set("scope", SHOPIFY_SCOPES);
       authUrl.searchParams.set("redirect_uri", `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/auth/callback`);
-      authUrl.searchParams.set("state", state);
+      authUrl.searchParams.set("state", stateToken);
 
+      const destination = authUrl.toString();
       console.log(`[shopify-oauth] Redirecting business ${businessId} to Shopify OAuth (shop: ${shop})`);
-
-      res.redirect(authUrl.toString());
+      if (req.query.format === "json") {
+        return res.json({ authUrl: destination });
+      }
+      res.redirect(destination);
     } catch (err) {
-      console.error("GET /api/shopify/auth error:", err);
+      console.error("GET /api/shopify/auth error:", err.message);
       res.status(500).json({ error: "Failed to initiate OAuth" });
     }
   });
 
   // ── OAuth Callback ────────────────────────────────────────────────────
 
-  app.get("/api/shopify/auth/callback", async (req, res) => {
+  app.get("/api/shopify/auth/callback", oauthCallbackLimiter, async (req, res) => {
     try {
-      const { code, hmac, shop, state } = req.query;
+      const { code, hmac, state } = req.query;
+      // Canonicalize shop domain at the callback boundary
+      const shop = canonicalizeShopDomain(req.query.shop);
 
-      // Validate required params
       if (!code || !hmac || !shop || !state) {
         return res.status(400).json({ error: "Missing required parameters: code, hmac, shop, state" });
       }
 
-      // Validate HMAC signature
+      // Validate canonical shop domain
+      if (!isValidShopDomain(shop)) {
+        return res.status(400).json({ error: "Invalid shop domain in callback" });
+      }
+
+      // Validate HMAC signature — constant-time, excludes 'signature' legacy param
       if (!validateHmac(req.query, process.env.SHOPIFY_CLIENT_SECRET || "")) {
         console.warn("[shopify-oauth] HMAC validation failed");
         return res.status(403).json({ error: "Invalid HMAC signature — request may be forged" });
       }
 
-      // Parse state to extract businessId
-      let businessId;
-      try {
-        const stateData = JSON.parse(Buffer.from(state, "base64").toString("utf8"));
-        businessId = stateData.businessId;
-      } catch {
-        return res.status(400).json({ error: "Invalid state parameter" });
+      // Validate and atomically consume the state token
+      const stateResult = consumeOAuthState(db, state, shop);
+      if (!stateResult.ok) {
+        console.warn(`[shopify-oauth] State validation failed: ${stateResult.error}`);
+        return res.status(400).json({ error: stateResult.error });
       }
 
-      if (!businessId) {
-        return res.status(400).json({ error: "Invalid state — missing businessId" });
-      }
+      const { record: stateRecord } = stateResult;
+      const businessId = stateRecord.business_id;
 
       console.log(`[shopify-oauth] OAuth callback for business ${businessId}, shop ${shop}`);
 
-      // Exchange code for access token
+      // Exchange code for access token — token value never logged
       const tokenData = await exchangeCodeForToken(shop, code);
       const accessToken = tokenData.access_token;
-      const grantedScopes = tokenData.scope || "";
+      const grantedScopeString = tokenData.scope || "";
 
-      console.log(`[shopify-oauth] Token obtained for ${shop} (scopes: ${grantedScopes})`);
+      // Verify granted scopes — reject write scopes and missing required reads
+      const scopeCheck = verifyGrantedScopes(grantedScopeString);
+      if (!scopeCheck.ok) {
+        console.error(`[shopify-oauth] Scope verification failed for ${shop}: ${scopeCheck.error}`);
+        return res.status(403).json({ error: scopeCheck.error });
+      }
 
-      // Encrypt the access token
+      // Persist only the exact verified scope list
+      const verifiedScopeString = scopeCheck.verifiedScopes.join(",");
+
+      // Encrypt the access token — value never stored or logged in plaintext
       const encryptedToken = encryptToken(accessToken);
 
-      // ── Verification step: validate the token before marking as connected ──
+      // Verify shop identity and token validity before activating
       let shopOwner = null;
       let shopName = null;
       let verified = false;
       let verifyError = null;
+
       try {
-        // Fetch shop info using the new token — verifies both token validity and shop identity
         const shopData = await fetchShopInfo(shop, accessToken);
-        const verifiedShopDomain = shopData.shop?.myshopify_domain || shopData.shop?.domain || "";
+        // Normalize the verified domain to lowercase for comparison
+        const verifiedShopDomain = canonicalizeShopDomain(
+          shopData.shop?.myshopify_domain || shopData.shop?.domain || ""
+        );
 
-        // Verify the shop domain in the response matches the shop that authorized
         if (verifiedShopDomain && verifiedShopDomain !== shop) {
-          console.warn(`[shopify-oauth] Shop domain mismatch: expected ${shop}, got ${verifiedShopDomain}`);
-          throw new Error(`Shop domain mismatch: expected ${shop}, got ${verifiedShopDomain}`);
+          throw new Error(`Shop identity mismatch: state says ${shop}, Shopify reports ${verifiedShopDomain}`);
         }
 
-        // Update shop info from the verified response
-        shopOwner = shopData.shop?.email || shopOwner;
-        shopName = shopData.shop?.name || shopName;
-
-        // Verify granted scopes include minimum required scopes
-        // read_all_orders includes read_orders (Shopify broader scope)
-        const grantedList = grantedScopes.split(",").map((s) => s.trim());
-        const hasOrders = grantedList.includes("read_orders") || grantedList.includes("read_all_orders");
-        const hasProducts = grantedList.includes("read_products");
-        const missing = [];
-        if (!hasOrders) missing.push("read_orders or read_all_orders");
-        if (!hasProducts) missing.push("read_products");
-        if (missing.length > 0) {
-          throw new Error(
-            `Shopify app needs additional permissions in Partner Dashboard. ` +
-            `Add these scopes in Shopify Partners → App Setup → Configuration: ${missing.join(", ")}. ` +
-            `Then reconnect.`
-          );
-        }
-
+        shopOwner = shopData.shop?.email || null;
+        shopName = shopData.shop?.name || null;
         verified = true;
-        console.log(`[shopify-oauth] Token verified for ${shop}: shop=${shopName}, scopes OK`);
+        console.log(`[shopify-oauth] Token verified for ${shop}: shop=${shopName || "unknown"}, scopes OK`);
       } catch (err) {
         verifyError = err.message;
-        console.error(`[shopify-oauth] Token validation failed for ${shop}:`, verifyError);
+        // Do not interpolate shop domain or error message into the format string —
+        // both may contain API-sourced data (log-injection / tainted-format-string prevention).
+        console.error("[shopify-oauth] Token validation failed — Shopify identity check rejected");
       }
 
       if (verified) {
-        // Upsert provider_credentials — mark as connected
+        // Upsert provider_credentials — mark as connected with exact verified scopes
         db.run(`
           INSERT INTO provider_credentials
             (business_id, provider, credentials, is_active, shop_domain, access_token_encrypted, scopes, sync_status, shop_owner, shop_name, last_synced_at, updated_at)
@@ -322,31 +529,18 @@ export function mountShopifyOauthRoutes(app, db) {
             shop_name = excluded.shop_name,
             last_synced_at = datetime('now'),
             updated_at = datetime('now')
-        `, [businessId, shop, encryptedToken, grantedScopes, shopOwner, shopName]);
+        `, [businessId, shop, encryptedToken, verifiedScopeString, shopOwner, shopName]);
 
-        // Register webhooks
-        let webhookIds = "";
-        try {
-          webhookIds = await registerWebhooks(shop, accessToken);
-          if (webhookIds) {
-            db.run(
-              "UPDATE provider_credentials SET webhook_id = ? WHERE business_id = ? AND provider = 'shopify'",
-              [webhookIds, businessId]
-            );
-          }
-        } catch (err) {
-          console.warn(`[shopify-oauth] Webhook registration error (non-fatal): ${err.message}`);
-        }
+        // No webhook registration here — that is a Shopify write mutation
+        // and is explicitly prohibited during P0 OAuth connect.
 
-        // Invalidate registry cache for this business
         invalidateProviderCache(businessId);
         console.log(`[shopify-oauth] Shopify connected for business ${businessId}: ${shopName || shop}`);
 
-        // Redirect back to the app with success
         const redirectUrl = `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/commerce?shopify_connected=true`;
         res.redirect(redirectUrl);
       } else {
-        // Verification failed — save token but mark as failed
+        // Verification failed — save metadata but mark as failed, do not activate
         db.run(`
           INSERT INTO provider_credentials
             (business_id, provider, credentials, is_active, shop_domain, access_token_encrypted, scopes, sync_status, sync_error, shop_owner, shop_name, last_synced_at, updated_at)
@@ -362,17 +556,14 @@ export function mountShopifyOauthRoutes(app, db) {
             shop_name = excluded.shop_name,
             last_synced_at = datetime('now'),
             updated_at = datetime('now')
-        `, [businessId, shop, encryptedToken, grantedScopes, `Token validation failed: ${verifyError}`, shopOwner, shopName]);
+        `, [businessId, shop, encryptedToken, verifiedScopeString, `Token validation failed`, shopOwner, shopName]);
 
-        console.error(`[shopify-oauth] Shopify connection FAILED for business ${businessId}: ${verifyError}`);
-
-        // Redirect with error — use a friendly code, not raw error text
+        console.error(`[shopify-oauth] Shopify connection FAILED for business ${businessId}`);
         const errorUrl = `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/commerce?shopify_error=validation_failed`;
         res.redirect(errorUrl);
       }
     } catch (err) {
-      console.error("GET /api/shopify/auth/callback error:", err);
-      // Redirect with friendly error code — never expose raw error text to the user
+      console.error("GET /api/shopify/auth/callback error:", err.message);
       const errorUrl = `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/commerce?shopify_error=connection_failed`;
       res.redirect(errorUrl);
     }
@@ -392,14 +583,11 @@ export function mountShopifyOauthRoutes(app, db) {
         [businessId]
       );
 
-      // Invalidate the provider cache so a fresh provider is created on next connect
       invalidateProviderCache(businessId);
-
       console.log(`[shopify-oauth] Shopify disconnected for business ${businessId}`);
-
       res.json({ success: true, message: "Shopify disconnected" });
     } catch (err) {
-      console.error("POST /api/shopify/disconnect error:", err);
+      console.error("POST /api/shopify/disconnect error:", err.message);
       res.status(500).json({ error: "Failed to disconnect Shopify" });
     }
   });

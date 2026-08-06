@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { apiPost, apiGet } from "../lib/api";
+import { apiPost } from "../lib/api";
 import { Button } from "../components/ui";
 import Novi from "../components/Novi";
 import type { NoviExpression } from "../components/Novi";
@@ -123,7 +123,7 @@ export default function Onboarding() {
   const [messages, setMessages] = useState<Array<{ sender: "novi" | "user"; text: string; expression?: NoviExpression }>>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [analysis, setAnalysis] = useState<Analysis>({});
+  const [, setAnalysis] = useState<Analysis>({});
   const [proposal, setProposal] = useState<OnboardingProposal | null>(null);
   const [selectedHQs, setSelectedHQs] = useState<string[]>([]);
   const [selectedIndustryId, setSelectedIndustryId] = useState<string | null>(null);

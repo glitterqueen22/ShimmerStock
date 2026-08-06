@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { apiGet, apiPost, apiDelete } from "../lib/api";
-import { PageHeader, Button, Tabs, Modal, ConfirmModal, Skeleton, EmptyState, ErrorBanner, useToast, SearchBar } from "../components/ui";
+import { PageHeader, Button, Tabs, ConfirmModal, Skeleton, EmptyState, ErrorBanner, useToast, SearchBar } from "../components/ui";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -840,7 +840,7 @@ export default function Calculation() {
       <ConfirmModal
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
-        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+        onConfirm={() => { if (confirmDelete) { return handleDelete(confirmDelete); } }}
         title="Delete Formula"
         message={`Delete "${confirmDelete?.name}"? This cannot be undone.`}
         confirmLabel="Delete"

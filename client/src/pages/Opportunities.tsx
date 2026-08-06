@@ -7,7 +7,6 @@ import {
   Tabs,
   ConfirmModal,
   EmptyState,
-  ErrorBanner,
   Dropdown,
 } from "../components/ui";
 import type { DropdownItem } from "../components/ui/Dropdown";
@@ -182,11 +181,11 @@ export default function Opportunities() {
     }
   }
 
-  function handleAction(id: string) {
+  function handleAction(_id: string) {
     // Navigate handled by OpportunityCard's actionRoute
   }
 
-  function handleNoviAssist(id: string, prompt: string) {
+  function handleNoviAssist(_id: string, prompt: string) {
     navigate(`/bestie?prompt=${encodeURIComponent(prompt)}`);
   }
 
@@ -216,10 +215,6 @@ export default function Opportunities() {
     postAction(id, "dismiss");
   }
 
-  function handleUnsnooze(id: string) {
-    // Re-snooze with now (effectively unsnoozes)
-    postAction(id, "snooze", { snooze_until: new Date().toISOString() });
-  }
 
   async function handleRefresh() {
     await fetchOpportunities();
@@ -422,7 +417,7 @@ export default function Opportunities() {
       <ConfirmModal
         open={!!confirmComplete}
         onClose={() => setConfirmComplete(null)}
-        onConfirm={() => confirmComplete && handleComplete(confirmComplete)}
+        onConfirm={() => { if (confirmComplete) { handleComplete(confirmComplete); } }}
         title="Complete Opportunity"
         message="Mark this opportunity as complete? It will move to the Completed tab."
         confirmLabel="Complete"
@@ -434,7 +429,7 @@ export default function Opportunities() {
       <ConfirmModal
         open={!!confirmDismiss}
         onClose={() => setConfirmDismiss(null)}
-        onConfirm={() => confirmDismiss && handleDismiss(confirmDismiss)}
+        onConfirm={() => { if (confirmDismiss) { handleDismiss(confirmDismiss); } }}
         title="Dismiss Opportunity"
         message="Dismiss this opportunity? You won't see it again."
         confirmLabel="Dismiss"

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../lib/api";
-import { PageHeader, Skeleton, ErrorBanner, Badge, Button } from "../components/ui";
+import { PageHeader, Skeleton, ErrorBanner, Badge } from "../components/ui";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -121,13 +121,6 @@ function timeAgo(iso: string): string {
 }
 
 // ── Urgency helpers ─────────────────────────────────────────────────
-
-function getUrgency(stockCount: number): { level: "now" | "soon" | "ok"; color: string; bg: string } {
-  if (stockCount === 0) return { level: "now", color: "text-red-600", bg: "bg-red-50 border-red-200" };
-  if (stockCount <= 2) return { level: "now", color: "text-red-600", bg: "bg-red-50 border-red-200" };
-  if (stockCount <= 5) return { level: "soon", color: "text-amber-600", bg: "bg-amber-50 border-amber-200" };
-  return { level: "ok", color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" };
-}
 
 // ── Page Component ──────────────────────────────────────────────────
 
@@ -283,7 +276,6 @@ export default function HQ() {
             <div className="divide-y divide-rose-50 max-h-[360px] overflow-y-auto">
               {/* Low Stock — red urgency */}
               {data.needsAttention.lowStock.map((item) => {
-                const urgency = getUrgency(item.stock_count);
                 return (
                   <button
                     key={`stock-${item.id}`}

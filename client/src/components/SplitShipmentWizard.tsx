@@ -24,10 +24,6 @@ interface SplitSuggestion {
   message: string;
 }
 
-interface SplitItem {
-  orderItemId: number;
-  quantity: number;
-}
 
 type HandleRemaining = 'hold' | 'notify' | 'refund' | 'store_credit' | 'wait';
 
@@ -51,7 +47,7 @@ interface Props {
 type Step = 'select' | 'handle' | 'confirm';
 
 export default function SplitShipmentWizard({ orderId, orderNumber, open, onClose, onSuccess }: Props) {
-  const toast = useToast();
+  const { toast } = useToast();
   const [step, setStep] = useState<Step>('select');
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<OrderItem[]>([]);
@@ -85,15 +81,7 @@ export default function SplitShipmentWizard({ orderId, orderNumber, open, onClos
   }, [open, orderId]);
 
   // Compute which items are backordered (stock < qty)
-  const getItemStockState = (item: OrderItem) => {
-    // We don't have stock_count from the suggestion response for each item individually,
-    // but the readyItems/backorderedItems distinction was made by the server.
-    // For the UI, check the suggestion from server. Since we merged all items,
-    // we'll fetch the suggestion again or use a local heuristic.
-    // Actually, let's just refetch items with product info.
-    return null; // Will be determined differently
-  };
-
+  
   // API-based stock check: compare item quantity with products
   const [itemStock, setItemStock] = useState<Record<number, number>>({});
 
@@ -168,7 +156,7 @@ export default function SplitShipmentWizard({ orderId, orderNumber, open, onClos
       }
 
       const data = await res.json();
-      toast.success?.(`Shipment split created! ${data.shipments?.length || 0} shipment(s) ready.`);
+      toast(`Shipment split created! ${data.shipments?.length || 0} shipment(s) ready.`, "success");
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -224,7 +212,7 @@ export default function SplitShipmentWizard({ orderId, orderNumber, open, onClos
   };
 
   return (
-    <Modal onClose={onClose} title={`Split Shipment — Order #${orderNumber}`} size="lg">
+    <Modal open onClose={onClose} title={`Split Shipment — Order #${orderNumber}`} size="lg">
       <div className="space-y-5 max-h-[65vh] overflow-y-auto pr-1">
         {/* Novi header */}
         <div className="bg-rose-50 rounded-xl p-4 border border-rose-100 flex items-start gap-3">

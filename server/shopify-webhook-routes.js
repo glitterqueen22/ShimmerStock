@@ -126,14 +126,15 @@ export function mountShopifyWebhookRoutes(app, db) {
       } catch (err) {
         console.error(`[shopify-webhook] Error processing ${topic}:`, err.message);
         db.run("UPDATE shopify_webhook_deliveries SET error = ? WHERE id = ?", [err.message, deliveryId]);
+        // Return 500 so Shopify retries the delivery — do not return false success
+        return res.status(500).json({ error: "Webhook processing failed — will retry" });
       }
 
-      // Always return 200 to Shopify
       res.status(200).json({ success: true });
     } catch (err) {
       console.error("[shopify-webhook] Unexpected error:", err.message);
-      // Return 200 even on error to prevent retries
-      res.status(200).json({ success: false, error: err.message });
+      // Return 500 so Shopify retries the delivery
+      res.status(500).json({ error: "Unexpected error — will retry" });
     }
   });
 

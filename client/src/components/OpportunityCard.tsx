@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Button, Dropdown } from "./ui";
-import type { DropdownItem } from "./ui/Dropdown";
 
 // ── Types ───────────────────────────────────────────────────────────
 

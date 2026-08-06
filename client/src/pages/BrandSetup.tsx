@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
 import { apiPost, apiGet, apiPut } from "../lib/api";
 import { Button } from "../components/ui";
 import Novi from "../components/Novi";
@@ -81,7 +80,6 @@ const TEMPLATE_ICONS: Record<string, string> = {
 // ── Component ───────────────────────────────────────────────────────────
 
 export default function BrandSetup() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -111,14 +109,12 @@ export default function BrandSetup() {
   // Editing
   const [selectedTemplate, setSelectedTemplate] = useState<GeneratedTemplate | null>(null);
   const [editInstruction, setEditInstruction] = useState("");
-  const [editResponse, setEditResponse] = useState("");
+  const [, setEditResponse] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editMessages, setEditMessages] = useState<Array<{ sender: "novi" | "user"; text: string }>>([]);
 
   // Novi expression
   const [noviExpression, setNoviExpression] = useState<NoviExpression>("calm");
-
-  const displayName = user?.display_name || "there";
 
   // ── Load styles on mount ─────────────────────────────────────────
   useEffect(() => {

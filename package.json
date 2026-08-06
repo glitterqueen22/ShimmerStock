@@ -7,12 +7,15 @@
     "start": "bun run build && bun run server/index.js",
     "dev": "bun run server/index.js",
     "test": "bun test",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.tests.json",
+    "check:safety": "node scripts/redact-secret-report.mjs --check && node scripts/check-gateway-bypass.mjs --check",
     "seed": "bun run server/seed.js",
     "seed:reset": "bun run server/seed.js --reset"
   },
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^4.21.0",
+    "express-rate-limit": "^8.6.1",
     "html5-qrcode": "^2.3.8",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -20,6 +23,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
+    "@types/bun": "^1.3.14",
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.0",

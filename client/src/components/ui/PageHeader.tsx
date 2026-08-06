@@ -12,6 +12,10 @@ export interface PageHeaderProps {
   title: string;
   /** Optional muted description below the title */
   description?: string;
+  /** Backwards-compatible alias for description */
+  subtitle?: string;
+  /** Optional icon to display beside the title */
+  icon?: React.ReactNode;
   /** Actions to display on the right side (buttons, etc.) */
   actions?: React.ReactNode;
   /** Breadcrumbs shown above the title */
@@ -26,14 +30,17 @@ export interface PageHeaderProps {
 export function PageHeader({
   title,
   description,
+  subtitle,
+  icon,
   actions,
   breadcrumbs,
   novi,
   className = '',
 }: PageHeaderProps) {
+  const bodyDescription = description ?? subtitle;
+
   return (
     <div className={`${className}`}>
-      {/* Breadcrumbs */}
       {breadcrumbs && breadcrumbs.length > 0 && (
         <nav className="flex items-center gap-1.5 mb-2 text-sm text-neutral-500" aria-label="Breadcrumb">
           {breadcrumbs.map((crumb, i) => (
@@ -54,14 +61,14 @@ export function PageHeader({
         </nav>
       )}
 
-      {/* Title + Actions row */}
       <div className="flex items-start sm:items-center justify-between gap-4 flex-wrap">
         <div className="min-w-0 flex items-center gap-3">
           {novi && <span className="flex-shrink-0">{novi}</span>}
+          {icon && <span className="flex-shrink-0 text-2xl leading-none">{icon}</span>}
           <div>
             <h1 className="text-2xl font-bold text-neutral-900">{title}</h1>
-            {description && (
-              <p className="mt-1 text-sm text-neutral-500">{description}</p>
+            {bodyDescription && (
+              <p className="mt-1 text-sm text-neutral-500">{bodyDescription}</p>
             )}
           </div>
         </div>

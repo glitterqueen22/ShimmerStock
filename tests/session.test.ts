@@ -27,7 +27,7 @@ describe("Session expiry", () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = await res.json() as any;
     expect(data.username).toBe("owner_a");
   });
 
@@ -54,7 +54,7 @@ describe("Session expiry", () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(res2.status).toBe(401);
-    const data2 = await res2.json();
+    const data2 = await res2.json() as any;
     expect(data2.error).toMatch(/expired/i);
   });
 

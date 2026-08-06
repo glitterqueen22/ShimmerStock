@@ -1,6 +1,5 @@
 import { Database } from "bun:sqlite";
 import path from "path";
-import crypto from "node:crypto";
 
 const DB_PATH = path.join(import.meta.dirname, "..", "shimmerstock.db");
 
@@ -98,11 +97,69 @@ const DEFAULT_PERMISSIONS = {
 };
 
 /**
- * Generate a secure random password for seeding.
- * Uses 16 random bytes encoded as base64url (21 chars, ~95 bits entropy).
+ * Known placeholder / default passwords that must be rejected for bootstrap accounts.
  */
-function generateSecurePassword() {
-  return crypto.randomBytes(16).toString("base64url");
+const KNOWN_PLACEHOLDER_PASSWORDS = new Set([
+  "admin", "password", "password123", "changeme", "change-me", "change_me",
+  "secret", "123456", "admin123", "owner", "initial", "bootstrap",
+  "changeme!", "change_me!", "replace_me", "default",
+]);
+
+/**
+ * Minimum length enforced for bootstrap credentials (matches change-password policy).
+ */
+const BOOTSTRAP_PASSWORD_MIN_LENGTH = 12;
+
+/**
+ * Validate a bootstrap credential supplied through an environment variable.
+ *
+ * Throws a configuration error (without exposing the value) if the credential
+ * is absent, empty, matches a known placeholder, or is too short.
+ * Never generates a fallback password — callers must provide a valid value.
+ */
+function validateBootstrapCredential(envVarName, value) {
+  if (typeof value !== "string") {
+    throw new Error(
+      `Bootstrap configuration error: ${envVarName} is required to create the initial seeded account but is not set. ` +
+      `Set a strong, unique password in the ${envVarName} environment variable before starting the server on a fresh database.`
+    );
+  }
+
+  const normalizedValue = value.trim();
+
+  if (normalizedValue === "") {
+    throw new Error(
+      `Bootstrap configuration error: ${envVarName} is required to create the initial seeded account but is not set. ` +
+      `Set a strong, unique password in the ${envVarName} environment variable before starting the server on a fresh database.`
+    );
+  }
+
+  if (normalizedValue !== value) {
+    throw new Error(
+      `Bootstrap configuration error: ${envVarName} cannot contain leading or trailing whitespace. ` +
+      `Set the exact credential value without surrounding spaces.`
+    );
+  }
+
+  const normalizedLower = normalizedValue.toLowerCase();
+
+  if (
+    KNOWN_PLACEHOLDER_PASSWORDS.has(normalizedLower)
+  ) {
+    throw new Error(
+      `Bootstrap configuration error: ${envVarName} is set to a known placeholder value. ` +
+      `Replace it with a unique, strong password before starting the server.`
+    );
+  }
+
+  if (normalizedValue.length < BOOTSTRAP_PASSWORD_MIN_LENGTH) {
+    throw new Error(
+      `Bootstrap configuration error: ${envVarName} must be at least ${BOOTSTRAP_PASSWORD_MIN_LENGTH} characters. ` +
+      `Set a stronger password in the ${envVarName} environment variable.`
+    );
+  }
+
+  return normalizedValue;
 }
 
 export function initDb(dbPath) {
@@ -615,7 +672,10 @@ export function initDb(dbPath) {
     );
 
     // Create owner user (no business_id — uses user_businesses junction)
-    const ownerPassword = process.env.OWNER_INITIAL_PASSWORD || generateSecurePassword();
+    const ownerPassword = validateBootstrapCredential(
+      "OWNER_INITIAL_PASSWORD",
+      process.env.OWNER_INITIAL_PASSWORD
+    );
     const ownerHash = Bun.password.hashSync(ownerPassword);
     const ownerResult = db.run(
       "INSERT INTO users (username, password_hash, display_name, role, password_changed_at) VALUES (?, ?, ?, ?, datetime('now'))",
@@ -646,7 +706,7 @@ export function initDb(dbPath) {
 
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("  🏢 Business 'Glitzy Glitter Express' created.");
-    console.log(`  🔐 Owner login: owner / ${ownerPassword}`);
+    console.log("  🔐 Owner account created securely. Remove OWNER_INITIAL_PASSWORD from the environment after securing access.");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   }
 
@@ -654,7 +714,10 @@ export function initDb(dbPath) {
 
   const existingUsers = db.query("SELECT COUNT(*) as count FROM users").get();
   if (existingUsers.count === 0) {
-    const password = process.env.ADMIN_INITIAL_PASSWORD || generateSecurePassword();
+    const password = validateBootstrapCredential(
+      "ADMIN_INITIAL_PASSWORD",
+      process.env.ADMIN_INITIAL_PASSWORD
+    );
     const hash = Bun.password.hashSync(password);
     // password_changed_at is left NULL so first login triggers mustChangePassword
     const adminResult = db.run(
@@ -670,16 +733,17 @@ export function initDb(dbPath) {
     );
 
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("  🔐 Admin user seeded:");
-    console.log("     Username: admin");
-    console.log(`     Password: ${password}`);
+    console.log("  🔐 Admin account created securely. Remove ADMIN_INITIAL_PASSWORD from the environment after securing access.");
     console.log("  ⚠️  You will be prompted to change this password on first login!");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   } else {
     // Ensure admin user exists (for migration case: business created but admin user missing)
     const existingAdmin = db.query("SELECT id FROM users WHERE username = ?").get("admin");
     if (!existingAdmin) {
-      const password = process.env.ADMIN_INITIAL_PASSWORD || generateSecurePassword();
+      const password = validateBootstrapCredential(
+        "ADMIN_INITIAL_PASSWORD",
+        process.env.ADMIN_INITIAL_PASSWORD
+      );
       const hash = Bun.password.hashSync(password);
       const adminResult = db.run(
         "INSERT INTO users (username, password_hash, display_name, role, password_changed_at) VALUES (?, ?, ?, ?, datetime('now'))",
@@ -694,9 +758,7 @@ export function initDb(dbPath) {
       );
 
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("  🔐 Admin user seeded (migration):");
-      console.log("     Username: admin");
-      console.log(`     Password: ${password}`);
+      console.log("  🔐 Admin account created securely (migration). Remove ADMIN_INITIAL_PASSWORD from the environment after securing access.");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
@@ -1637,6 +1699,26 @@ export function initDb(dbPath) {
   }
 
   console.log("Shopify OAuth: provider_credentials migration complete");
+
+  // ── Shopify OAuth State table — CSRF / replay protection ─────────────
+  // Stores server-side hashes of opaque state tokens for OAuth callbacks.
+  // Each row is single-use and expires after a short TTL.
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS shopify_oauth_state (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      state_hash TEXT NOT NULL UNIQUE,
+      user_id INTEGER NOT NULL,
+      business_id INTEGER NOT NULL,
+      session_id INTEGER,
+      expected_shop TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT DEFAULT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  console.log("Shopify OAuth: shopify_oauth_state table ready");
 
   // ── Shopify Webhook Deliveries table ─────────────────────────────
 

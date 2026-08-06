@@ -122,9 +122,10 @@ export default function Scan() {
 
   useEffect(() => {
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
-        scannerRef.current.clear().catch(() => {});
+      const scanner = scannerRef.current;
+      if (scanner) {
+        void scanner.stop().catch(() => {});
+        void Promise.resolve(scanner.clear()).catch(() => {});
       }
     };
   }, []);

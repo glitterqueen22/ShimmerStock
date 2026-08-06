@@ -1,23 +1,19 @@
-import React from 'react';
-
-// ── Skeleton Props ───────────────────────────────────────────────
 export interface SkeletonProps {
-  /** Shape variant */
   variant?: 'card' | 'table-row' | 'text' | 'block';
-  /** For text variant: number of lines to show */
   lines?: number;
-  /** Additional CSS classes for sizing */
   className?: string;
+  height?: string;
+  width?: string;
 }
 
-// ── Skeleton Component ───────────────────────────────────────────
-export function Skeleton({ variant = 'text', lines = 3, className = '' }: SkeletonProps) {
+export function Skeleton({ variant = 'text', lines = 3, className = '', height, width }: SkeletonProps) {
+  const resolvedVariant = variant === 'text' && (height || width) ? 'block' : variant;
   const base = 'animate-pulse bg-neutral-100 rounded';
+  const style = { height, width } as const;
 
-  // ── Card skeleton — matches SPACING.card + RADIUS.card ─────────
-  if (variant === 'card') {
+  if (resolvedVariant === 'card') {
     return (
-      <div className={`p-5 rounded-2xl bg-white border border-neutral-100 ${className}`}>
+      <div className={`p-5 rounded-2xl bg-white border border-neutral-100 ${className}`} style={style}>
         <div className={`h-5 w-2/3 ${base} mb-3`} />
         <div className={`h-4 w-full ${base} mb-2`} />
         <div className={`h-4 w-4/5 ${base} mb-4`} />
@@ -26,10 +22,9 @@ export function Skeleton({ variant = 'text', lines = 3, className = '' }: Skelet
     );
   }
 
-  // ── Table row skeleton — mimics a data row ─────────────────────
-  if (variant === 'table-row') {
+  if (resolvedVariant === 'table-row') {
     return (
-      <div className={`flex items-center gap-4 py-3 px-4 border-b border-neutral-100 ${className}`}>
+      <div className={`flex items-center gap-4 py-3 px-4 border-b border-neutral-100 ${className}`} style={style}>
         <div className={`h-4 w-1/4 ${base}`} />
         <div className={`h-4 w-1/6 ${base}`} />
         <div className={`h-4 w-1/6 ${base}`} />
@@ -39,11 +34,10 @@ export function Skeleton({ variant = 'text', lines = 3, className = '' }: Skelet
     );
   }
 
-  // ── Text skeleton — several lines of varying width ─────────────
-  if (variant === 'text') {
+  if (resolvedVariant === 'text') {
     const widths = ['w-full', 'w-4/5', 'w-2/3', 'w-5/6', 'w-3/4'];
     return (
-      <div className={`space-y-2 ${className}`}>
+      <div className={`space-y-2 ${className}`} style={style}>
         {Array.from({ length: lines }).map((_, i) => (
           <div key={i} className={`h-4 ${widths[i % widths.length]} ${base}`} />
         ))}
@@ -51,8 +45,7 @@ export function Skeleton({ variant = 'text', lines = 3, className = '' }: Skelet
     );
   }
 
-  // ── Block skeleton — arbitrary sized rectangle ─────────────────
-  return <div className={`${base} ${className || 'h-20 w-full'}`} />;
+  return <div className={`${base} ${className || 'h-20 w-full'}`} style={style} />;
 }
 
 export default Skeleton;

@@ -147,12 +147,6 @@ const COLORS = {
   shadowDeep: "#3B0764",
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
-
 // ── Accessory Renderer ───────────────────────────────────────────────
 
 const ACCESSORY_COLORS = {
@@ -383,7 +377,7 @@ export default function Novi({
   const cfg = EXPRESSION_CONFIG[expression];
   const prevExprRef = useRef<NoviExpression>(expression);
   const prevAccessoryRef = useRef<NoviAccessory | undefined>(accessory);
-  const [transitioning, setTransitioning] = useState(false);
+  const [, setTransitioning] = useState(false);
   const [accessoryKey, setAccessoryKey] = useState(0);
   const [blinkState, setBlinkState] = useState<"open" | "closed">("open");
   const blinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

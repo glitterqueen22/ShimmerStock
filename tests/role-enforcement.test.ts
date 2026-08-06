@@ -71,7 +71,7 @@ describe("Role enforcement — User management (privileged)", () => {
       role: "viewer",
     });
     expect(createRes.status).toBe(201);
-    const created = await createRes.json();
+    const created = await createRes.json() as any;
 
     const deleteRes = await authReq("DELETE", `/api/users/${created.id}`, tokenOwner);
     // Owner should be able to delete a user they created
@@ -92,7 +92,7 @@ describe("Role enforcement — Product deletion (privileged)", () => {
       sku: "SKU-TEMP-DEL",
     });
     expect(createRes.status).toBe(201);
-    const created = await createRes.json();
+    const created = await createRes.json() as any;
 
     const deleteRes = await authReq("DELETE", `/api/products/${created.id}`, tokenOwner);
     expect(deleteRes.status).toBe(200);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { apiGet, apiPost, apiPut, apiDelete } from "../lib/api";
-import { PageHeader, Button, Badge, Tabs, Modal, ConfirmModal, Skeleton, EmptyState, ErrorBanner, SearchBar, useToast } from "../components/ui";
+import { PageHeader, Button, Badge, Tabs, Modal, ConfirmModal, ProgressBar, Skeleton, EmptyState, ErrorBanner, useToast } from "../components/ui";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -169,7 +169,6 @@ export default function Purchasing() {
   const [loadingPO, setLoadingPO] = useState(false);
   const [createPOModal, setCreatePOModal] = useState(false);
   const [savingPO, setSavingPO] = useState(false);
-  const [receivingPO, setReceivingPO] = useState(false);
 
   // Pre-selected supplier for PO modal (replaces setTimeout hack)
   const [preselectedSupplierId, setPreselectedSupplierId] = useState<number | null>(null);
@@ -435,10 +434,6 @@ export default function Purchasing() {
     } catch { setReceiveHistory([]); }
   }
 
-  function quickReceiveAll(poId: number) {
-    setReceivingPOId(poId);
-    setConfirmReceivePO(poId);
-  }
 
   function openCreatePOFromRec(rec?: Recommendation) {
     setPreselectedSupplierId(rec?.supplier_id ?? null);
@@ -718,7 +713,7 @@ export default function Purchasing() {
                     </div>
                     <div className="flex gap-2">
                       {selectedPO.status === "draft" && <Button variant="primary" size="sm" onClick={() => handleOrderPO(selectedPO.id)}>Mark Ordered</Button>}
-                      {selectedPO.status === "ordered" && <Button variant="primary" size="sm" onClick={() => setConfirmReceivePO(selectedPO.id)} loading={receivingPO}>Receive</Button>}
+                      {selectedPO.status === "ordered" && <Button variant="primary" size="sm" onClick={() => setConfirmReceivePO(selectedPO.id)} loading={savingReceive}>Receive</Button>}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1022,7 +1017,7 @@ export default function Purchasing() {
       <ConfirmModal
         open={!!confirmDeleteSupplier}
         onClose={() => setConfirmDeleteSupplier(null)}
-        onConfirm={() => confirmDeleteSupplier && handleDeleteSupplier(confirmDeleteSupplier)}
+        onConfirm={() => { if (confirmDeleteSupplier) { return handleDeleteSupplier(confirmDeleteSupplier); } }}
         title="Delete Supplier"
         message="Delete this supplier and all product links?"
         confirmLabel="Delete"
@@ -1031,7 +1026,7 @@ export default function Purchasing() {
       <ConfirmModal
         open={!!confirmReceivePO}
         onClose={() => setConfirmReceivePO(null)}
-        onConfirm={() => confirmReceivePO && handleReceivePO(confirmReceivePO)}
+        onConfirm={() => { if (confirmReceivePO) { return handleReceivePO(confirmReceivePO); } }}
         title="Receive PO"
         message="Mark this PO as received? This will increment inventory for all items."
         confirmLabel="Receive"

@@ -51,7 +51,19 @@ import { mountShopifyOauthRoutes } from "./shopify-oauth-routes.js";
 import { mountShopifyWebhookRoutes } from "./shopify-webhook-routes.js";
 
 const app = express();
-const PORT = 3000;
+
+// Validate PORT from environment — default to 3000 if not set.
+const _rawPort = process.env.PORT;
+const PORT = _rawPort
+  ? (() => {
+      const p = parseInt(_rawPort, 10);
+      if (!Number.isInteger(p) || p < 1 || p > 65535) {
+        console.error(`[startup] Invalid PORT value: "${_rawPort}" — must be an integer between 1 and 65535. Defaulting to 3000.`);
+        return 3000;
+      }
+      return p;
+    })()
+  : 3000;
 
 
 // Initialize database
@@ -682,13 +694,18 @@ app.post("/api/shopify/sync-mode", requireAuth(db, "shopify.write_inventory"), a
     const provider = getProvider(req.businessId, db);
     const oldMode = provider.getStatus().mode;
 
-    // Update sync mode via the provider (keeps env in sync internally)
+    // Update sync mode via the provider (may be silently blocked by SHOPIFY_READ_ONLY / SHOPIFY_ALLOW_WRITE_MODE)
     await provider.setMode(mode);
 
-    // Persist sync_mode to the database so it survives restarts
+    // Read back the mode that was ACTUALLY applied — it may differ from the requested mode if
+    // server-side policy (SHOPIFY_READ_ONLY, SHOPIFY_ALLOW_WRITE_MODE) blocked the change.
+    const appliedStatus = provider.getStatus();
+    const appliedMode = appliedStatus.mode;
+
+    // Persist the ACTUAL applied mode (not the requested mode)
     db.run(
       "UPDATE provider_credentials SET sync_mode = ?, updated_at = datetime('now') WHERE business_id = ? AND provider = 'shopify'",
-      [mode, req.businessId]
+      [appliedMode, req.businessId]
     );
 
     // Invalidate the provider cache so the next request picks up the new mode
@@ -702,14 +719,14 @@ app.post("/api/shopify/sync-mode", requireAuth(db, "shopify.write_inventory"), a
       entityType: "settings",
       entityId: null,
       previousValue: { mode: oldMode },
-      newValue: { mode },
+      newValue: { mode: appliedMode },
       source: "manual",
       deviceInfo: getDeviceInfo(req),
     });
 
-    console.log(`[shopify] Sync mode changed to: ${mode} (by ${req.user.username})`);
+    console.log(`[shopify] Sync mode requested: ${mode}, applied: ${appliedMode} (by ${req.user.username})`);
 
-    res.json({ mode, canWrite: mode === "full" });
+    res.json({ mode: appliedMode, canWrite: appliedStatus.canWrite });
   } catch (err) {
     console.error("POST /api/shopify/sync-mode error:", err);
     res.status(500).json({ error: "Failed to update sync mode" });

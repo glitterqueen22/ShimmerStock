@@ -3,7 +3,7 @@ import React from 'react';
 // ── Button Props ─────────────────────────────────────────────────
 export interface ButtonProps {
   /** Visual style variant */
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'icon';
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'icon' | 'outline';
   /** Size */
   size?: 'sm' | 'md' | 'lg';
   /** Disabled state */
@@ -32,6 +32,8 @@ const variantClasses: Record<NonNullable<ButtonProps['variant']>, string> = {
     'bg-transparent text-rose-600 hover:bg-rose-50 transition-colors',
   icon:
     'bg-transparent text-rose-600 hover:bg-rose-50 transition-colors inline-flex items-center justify-center min-w-[44px] min-h-[44px]',
+  outline:
+    'bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-50 transition-colors',
 };
 
 const sizeClasses: Record<NonNullable<ButtonProps['size']>, string> = {
