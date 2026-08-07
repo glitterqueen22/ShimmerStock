@@ -1070,3 +1070,87 @@ describe("Legacy shopify.js — fail closed on missing/non-canonical domain", ()
     }
   });
 });
+
+// ── API version and centralization tests ─────────────────────────────────────
+
+describe("Shopify Admin API version — 2026-07 pilot preflight", () => {
+  it("gateway exports SHOPIFY_API_VERSION = '2026-07'", async () => {
+    // Import without query-string so TypeScript resolves the exported type
+    const { SHOPIFY_API_VERSION } = await import("../server/providers/shopify-gateway.js");
+    expect(SHOPIFY_API_VERSION).toBe("2026-07");
+  });
+
+  it("API version is not 2024-01 anywhere in gateway source", async () => {
+    const src = await Bun.file("server/providers/shopify-gateway.js").text();
+    expect(src).not.toContain('"2024-01"');
+    expect(src).not.toContain("'2024-01'");
+  });
+
+  it("API version is not 2024-01 anywhere in oauth-routes source", async () => {
+    const src = await Bun.file("server/shopify-oauth-routes.js").text();
+    expect(src).not.toContain('"2024-01"');
+    expect(src).not.toContain("'2024-01'");
+  });
+
+  it("gateway source contains exactly one version string definition", async () => {
+    const src = await Bun.file("server/providers/shopify-gateway.js").text();
+    // Count how many times any version pattern appears as a string literal
+    const versionLiterals = (src.match(/"20\d\d-\d\d"/g) || []);
+    // Only one literal — the SHOPIFY_API_VERSION assignment
+    expect(versionLiterals.length).toBe(1);
+    expect(versionLiterals[0]).toBe('"2026-07"');
+  });
+
+  it("oauth-routes does NOT declare its own API_VERSION constant", async () => {
+    const src = await Bun.file("server/shopify-oauth-routes.js").text();
+    // No local const or let API_VERSION assignment
+    expect(src).not.toMatch(/const\s+API_VERSION\s*=/);
+    expect(src).not.toMatch(/let\s+API_VERSION\s*=/);
+  });
+
+  it("oauth-routes imports SHOPIFY_API_VERSION from gateway", async () => {
+    const src = await Bun.file("server/shopify-oauth-routes.js").text();
+    expect(src).toContain("SHOPIFY_API_VERSION");
+    expect(src).toContain("shopify-gateway");
+  });
+
+  it("approved OAuth scopes are still exactly the four read-only scopes", async () => {
+    const src = await Bun.file("server/shopify-oauth-routes.js").text();
+    const match = src.match(/const REQUIRED_SCOPES\s*=\s*\[([\s\S]*?)\]/);
+    expect(match).toBeTruthy();
+    const block = match![1];
+    expect(block).toContain("read_orders");
+    expect(block).toContain("read_products");
+    expect(block).toContain("read_inventory");
+    expect(block).toContain("read_locations");
+    // No write scopes
+    expect(block).not.toContain("write_");
+    // No unapproved extra scopes
+    expect(block).not.toContain("read_all_orders");
+    expect(block).not.toContain("read_customers");
+    expect(block).not.toContain("read_fulfillments");
+  });
+
+  it("REST write methods are still blocked at gateway level", async () => {
+    const { gatewayFetch } = await import("../server/providers/shopify-gateway.js?write-block-v2");
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      await expect(
+        gatewayFetch("readonly", "test.myshopify.com", "tok", method, "/products.json")
+      ).rejects.toThrow();
+    }
+  });
+
+  it("GraphQL mutations still blocked in readonly mode", async () => {
+    const { gatewayGraphQL } = await import("../server/providers/shopify-gateway.js?gql-block-v2");
+    await expect(
+      gatewayGraphQL("readonly", "test.myshopify.com", "tok", "mutation { productUpdate(input: {}) { product { id } } }")
+    ).rejects.toThrow();
+  });
+
+  it("ambiguous GraphQL fails closed", async () => {
+    const { gatewayGraphQL } = await import("../server/providers/shopify-gateway.js?gql-ambiguous-v2");
+    await expect(
+      gatewayGraphQL("readonly", "test.myshopify.com", "tok", "{ shop { name } } some extra garbage")
+    ).rejects.toThrow();
+  });
+});
