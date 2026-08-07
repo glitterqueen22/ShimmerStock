@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShimmerStock | The commerce operating system for product businesses</title>
-  <meta name="description" content="Run the business behind your brand without 12 tabs, 5 apps, and constant guessing. Inventory, orders, production, purchasing, fulfillment, customer care, teams, and Novi in one workspace.">
+  <title>ShimmerStock | The Commerce Operating System for Product Businesses</title>
+  <meta name="description" content="Your storefront sells the product. ShimmerStock runs everything behind it — inventory, orders, purchasing, production, fulfillment, customer care, teams, and Novi. One workspace for growing product businesses.">
   <meta property="og:title" content="ShimmerStock | The commerce operating system for product businesses">
   <meta property="og:description" content="One command center for product businesses. Built for Shopify-powered teams in private early access.">
   <meta property="og:image" content="/novi-character.png">
@@ -326,23 +326,22 @@
             </div>
             <div class="novi-focus">
               <div class="novi-brief" data-novi-view>
-                <div class="novi-priority-list" role="tablist" aria-label="Novi morning brief priorities">
-                  <button class="novi-priority is-active" type="button" role="tab" aria-selected="true" data-novi-target="fulfillment"><span class="novi-pill"></span><div><strong>Fulfillment</strong><span>14 orders need your attention</span></div><span class="status status-live">Review</span></button>
-                  <button class="novi-priority" type="button" role="tab" aria-selected="false" data-novi-target="inventory"><span class="novi-pill"></span><div><strong>Inventory</strong><span>Vanilla base may run out in 6 days</span></div><span class="status status-early">Preview</span></button>
-                  <button class="novi-priority" type="button" role="tab" aria-selected="false" data-novi-target="customers"><span class="novi-pill"></span><div><strong>Customers</strong><span>3 conversations need a reply</span></div><span class="status status-demo">Review</span></button>
-                  <button class="novi-priority" type="button" role="tab" aria-selected="false" data-novi-target="trend"><span class="novi-pill"></span><div><strong>Trend</strong><span>Formula 26 demand is up 28%</span></div><span class="status status-beta">Preview</span></button>
-                  <button class="novi-priority" type="button" role="tab" aria-selected="false" data-novi-target="purchase"><span class="novi-pill"></span><div><strong>Purchasing</strong><span>Your suggested purchase order is ready</span></div><span class="status status-live">Review</span></button>
+                <div class="novi-demo-priorities" role="tablist" aria-label="Novi morning brief priorities" style="border-right:0; padding:0; gap:0.55rem;">
+                  <button class="novi-priority-btn is-active" type="button" role="tab" aria-selected="true"  data-novi-target="fulfillment"><span class="novi-priority-icon fulfillment" aria-hidden="true">📦</span><span><span class="novi-priority-label">Fulfillment</span><span class="novi-priority-summary">14 orders need your attention</span></span><span class="status status-live">Review</span></button>
+                  <button class="novi-priority-btn"            type="button" role="tab" aria-selected="false" data-novi-target="inventory" ><span class="novi-priority-icon inventory"   aria-hidden="true">⚠️</span><span><span class="novi-priority-label">Inventory</span><span class="novi-priority-summary">Vanilla Base may run out in 6 days</span></span><span class="status status-early">Flag</span></button>
+                  <button class="novi-priority-btn"            type="button" role="tab" aria-selected="false" data-novi-target="customers"><span class="novi-priority-icon customers"   aria-hidden="true">💬</span><span><span class="novi-priority-label">Customers</span><span class="novi-priority-summary">3 conversations need a reply</span></span><span class="status status-demo">Review</span></button>
+                  <button class="novi-priority-btn"            type="button" role="tab" aria-selected="false" data-novi-target="trend"     ><span class="novi-priority-icon demand"     aria-hidden="true">📈</span><span><span class="novi-priority-label">Trend</span><span class="novi-priority-summary">Formula 26 demand is up 28%</span></span><span class="status status-beta">Watch</span></button>
+                  <button class="novi-priority-btn"            type="button" role="tab" aria-selected="false" data-novi-target="purchase" ><span class="novi-priority-icon purchasing"  aria-hidden="true">🛒</span><span><span class="novi-priority-label">Purchasing</span><span class="novi-priority-summary">Suggested PO is ready to review</span></span><span class="status status-live">Preview</span></button>
                 </div>
-                <div class="novi-detail" data-novi-detail>
-                  <div>
-                    <span class="status status-live" data-novi-detail-badge>Review</span>
-                    <h3 data-novi-detail-title>14 orders need your attention</h3>
-                    <p class="small" data-novi-detail-copy>Open the fulfillment queue, clear the label reprint, and keep the packing line moving.</p>
+                <div class="novi-detail" data-novi-detail style="padding:0.8rem 0 0;">
+                  <div class="novi-voice-bubble" style="margin-bottom:0.7rem;">
+                    <span class="novi-voice-label" data-novi-detail-badge>Review</span>
+                    <p data-novi-detail-copy style="font-style:italic; font-size:0.93rem;">Open the fulfillment queue, clear the label reprint, and keep the packing line moving.</p>
                   </div>
-                  <div class="novi-detail-grid" data-novi-detail-list>
-                    <div class="novi-detail-row"><strong>Queued</strong><span>14 orders</span></div>
-                    <div class="novi-detail-row"><strong>Priority</strong><span>Pack lane</span></div>
-                    <div class="novi-detail-row"><strong>Next step</strong><span>Review pick list</span></div>
+                  <div class="novi-data-rows" data-novi-detail-list>
+                    <div class="novi-data-row"><strong>Queued</strong><span>14 orders</span></div>
+                    <div class="novi-data-row"><strong>Priority</strong><span>Pack lane</span></div>
+                    <div class="novi-data-row"><strong>Next step</strong><span>Review pick list</span></div>
                   </div>
                 </div>
               </div>
@@ -857,7 +856,7 @@
           </div>
           <div class="calc-results" style="margin-top:1rem;">
             <p>Estimated monthly stack cost: <strong id="stack-cost">$295/mo</strong></p>
-            <p>Example ShimmerStock plan: <strong id="stack-plan">$149/mo</strong></p>
+            <p>Example ShimmerStock plan: <strong id="stack-plan">$99/mo</strong></p>
             <p>Potential consolidation savings: <strong id="stack-savings">$146/mo</strong></p>
             <p class="small">Example stack values are prefilled for planning clarity.</p>
           </div>

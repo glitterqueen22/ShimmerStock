@@ -631,13 +631,17 @@
         button.setAttribute("aria-selected", active ? "true" : "false");
       });
       if (detailBadge) {
-        detailBadge.className = `status ${state.badge.className}`;
+        // support both the old .status class pattern and the new .novi-voice-label pattern
+        if (detailBadge.classList.contains("status")) {
+          detailBadge.className = `status ${state.badge.className}`;
+        }
         detailBadge.textContent = state.badge.label;
       }
       if (detailTitle) detailTitle.textContent = state.title;
       if (detailCopy) detailCopy.textContent = state.copy;
       if (detailList) {
-        detailList.innerHTML = state.rows.map(([left, right]) => `<div class="novi-detail-row"><strong>${left}</strong><span>${right}</span></div>`).join("");
+        // use .novi-data-row divs to match flagship component structure
+        detailList.innerHTML = state.rows.map(([left, right]) => `<div class="novi-data-row"><strong>${left}</strong><span>${right}</span></div>`).join("");
       }
     }
 

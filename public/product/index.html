@@ -3,61 +3,176 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Product Platform Overview | ShimmerStock</title>
-  <meta name="description" content="See how ShimmerStock brings inventory, orders, production, purchasing, fulfillment, customer care, partners, and Novi into one workspace.">
-  <meta property="og:title" content="Product Platform Overview | ShimmerStock">
-  <meta property="og:description" content="One command center for the business behind your brand.">
-  <meta property="og:image" content="/novi-character.png">
-  <meta name="twitter:card" content="summary_large_image">
+  <title>The Platform | ShimmerStock</title>
+  <meta name="description" content="ShimmerStock is one commerce operating system for product businesses. Inventory, orders, purchasing, production, fulfillment, customer care, teams, and Novi — connected.">
   <link rel="canonical" href="/product">
+  <meta property="og:title" content="The Platform | ShimmerStock">
+  <meta property="og:description" content="Six operating motions. One connected workspace. Every part of your product business, finally in one place.">
   <link rel="stylesheet" href="/assets/marketing.css">
 </head>
 <body>
   <div data-marketing-header></div>
-
   <main id="main-content">
-    <section class="section">
-      <div class="container split">
-        <div>
-          <span class="eyebrow">PLATFORM OVERVIEW</span>
-          <h1 style="margin-top:0.8rem;">Everything behind your storefront in one command center.</h1>
-          <p class="lead" style="margin-top:0.8rem;">ShimmerStock aligns workflows that usually live in disconnected tools so teams can move from question to action faster.</p>
+
+    <section class="section section-hero">
+      <div class="container-wide">
+        <div style="max-width:720px; margin-bottom:1.2rem;">
+          <span class="eyebrow">THE COMMERCE OPERATING SYSTEM</span>
+          <h1 style="margin-top:0.9rem;">One workspace for everything behind your storefront.</h1>
+          <p class="lead" style="margin-top:0.9rem;">Your storefront handles the sale. ShimmerStock handles everything the sale triggers — inventory deduction, production planning, fulfillment queue, customer history, purchasing signals, and Novi watching it all.</p>
           <div class="btn-row">
             <a class="btn btn-primary" href="/early-access">Join Early Access</a>
-            <a class="btn btn-secondary" href="/product/orders">See It in Action</a>
+            <a class="btn btn-secondary" href="#day-timeline">See a Day Inside</a>
+          </div>
+          <div class="chip-list">
+            <span data-status="early"></span>
+            <span class="status status-demo">Illustrative workspace</span>
           </div>
         </div>
 
-        <aside class="ui-frame" aria-label="Illustrative platform cockpit">
-          <div class="ui-frame-head">
-            <strong>Operator cockpit</strong>
-            <span class="small">Illustrative demo</span>
+        <div class="workflow-gallery">
+          <article class="workflow-tile">
+            <div class="workflow-head"><strong>Sell</strong><span class="status status-live">Orders</span></div>
+            <p>Orders, revenue, and queue pressure in one view. Every channel, every priority, in one place.</p>
+            <div class="workflow-mini"><ul class="mini-list"><li><span>New orders</span><span>32</span></li><li><span>Revenue today</span><span>$4.8k</span></li><li><span>Exceptions</span><span>3</span></li></ul></div>
+          </article>
+          <article class="workflow-tile">
+            <div class="workflow-head"><strong>Stock</strong><span class="status status-early">Inventory</span></div>
+            <p>Inventory, bins, reorder signals, and supplier timing — before shortages become urgent.</p>
+            <div class="workflow-graphic"><div class="workflow-bar"><span style="width:72%"></span></div><div class="workflow-bar"><span style="width:44%;background:linear-gradient(90deg,var(--gold),#c8a464)"></span></div><div class="workflow-bar"><span style="width:88%;background:linear-gradient(90deg,var(--green),#7fa38b)"></span></div></div>
+          </article>
+          <article class="workflow-tile">
+            <div class="workflow-head"><strong>Make</strong><span class="status status-beta">Production</span></div>
+            <p>Batch production tied to demand, component inventory, and purchasing lead times.</p>
+            <div class="workflow-mini"><ul class="mini-list"><li><span>Batch #52 in progress</span><span>Active</span></li><li><span>Formula 26</span><span>+28%</span></li><li><span>Materials reserved</span><span>Ready</span></li></ul></div>
+          </article>
+          <article class="workflow-tile">
+            <div class="workflow-head"><strong>Ship</strong><span class="status status-live">Fulfillment</span></div>
+            <p>Pick, pack, and fulfillment progress with clearer handoffs and fewer dropped orders.</p>
+            <div class="workflow-mini"><ul class="mini-list"><li><span>Ready to pick</span><span>18</span></li><li><span>Packing now</span><span>9</span></li><li><span>Shipped today</span><span>41</span></li></ul></div>
+          </article>
+          <article class="workflow-tile">
+            <div class="workflow-head"><strong>Care</strong><span class="status status-demo">Customer Care</span></div>
+            <p>Customer replies anchored in order and operations context. No more switching between tabs.</p>
+            <div class="workflow-graphic"><div class="workflow-bar"><span style="width:64%"></span></div><div class="workflow-bar"><span style="width:38%;background:linear-gradient(90deg,#8a5a1d,#b27a2a)"></span></div></div>
+          </article>
+          <article class="workflow-tile">
+            <div class="workflow-head"><strong>Grow</strong><span class="status status-planned">Novi + Partners</span></div>
+            <p>Novi guidance, partner workflow visibility, and signal-driven growth priorities.</p>
+            <div class="workflow-mini"><ul class="mini-list"><li><span>Partner lift</span><span>+17%</span></li><li><span>Cross-sell signal</span><span>Strong</span></li><li><span>Novi brief</span><span>Ready</span></li></ul></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tight band" id="day-timeline">
+      <div class="container">
+        <span class="eyebrow">A DAY INSIDE SHIMMERSTOCK</span>
+        <h2 style="margin-top:0.8rem; max-width:26ch;">From Novi's morning brief to the end of the fulfillment queue.</h2>
+        <p class="lead" style="margin-top:0.8rem; max-width:60ch;">This is what a typical operational day looks like when everything is connected. Not six separate tools. One workspace.</p>
+        <div class="day-timeline" style="margin-top:1.5rem; max-width:780px;">
+          <div class="day-event"><div class="day-time-col"><span class="day-time">8:00</span><span class="day-dot"></span></div><div class="day-content"><div class="day-content-inner"><span class="day-module-tag novi">Novi</span><h4>Morning Brief</h4><p>Novi surfaces 3 things that matter today: 14 orders ready to ship, a Vanilla Base runway risk, and a customer conversation that's been waiting 18 hours.</p></div></div></div>
+          <div class="day-event"><div class="day-time-col"><span class="day-time">8:15</span><span class="day-dot"></span></div><div class="day-content"><div class="day-content-inner"><span class="day-module-tag ship">Ship</span><h4>Review fulfillment exceptions</h4><p>Open the fulfillment queue. Order #8197 needs a label reprint. Clear it. The pack lane can now move uninterrupted.<div class="day-novi-note"><span class="novi-glyph">N</span><span>Novi flagged this before the team arrived. No manual check needed.</span></div></p></div></div></div>
+          <div class="day-event"><div class="day-time-col"><span class="day-time">9:00</span><span class="day-dot"></span></div><div class="day-content"><div class="day-content-inner"><span class="day-module-tag stock">Stock</span><h4>Receive incoming inventory</h4><p>An inbound PO from your fragrance oil supplier arrives. Receive it against the purchase order. Inventory counts update. Committed stock recalculates.</p></div></div></div>
+          <div class="day-event"><div class="day-time-col"><span class="day-time">10:30</span><span class="day-dot"></span></div><div class="day-content"><div class="day-content-inner"><span class="day-module-tag make">Make</span><h4>Start the production batch</h4><p>Production Batch #52 kicks off. Component inventory auto-reserves against the batch recipe. The team works the queue. You can see progress without asking anyone.<div class="day-novi-note"><span class="novi-glyph">N</span><span>Novi noted that Formula 26 demand is up 28% — she'd suggest bumping the next batch by 40 units. Your decision.</span></div></p></div></div></div>
+          <div class="day-event"><div class="day-time-col"><span class="day-time">1:00</span><span class="day-dot"></span></div><div class="day-content"><div class="day-content-inner"><span class="day-module-tag stock">Stock</span><h4>Review the purchase recommendation</h4><p>Novi has prepared a draft PO for Vanilla Base: 12 kg, ~$148, 9-day lead time. You review the numbers, the logic, the trade-offs. You approve. Nothing was sent until you said yes.</p></div></div></div>
+          <div class="day-event"><div class="day-time-col"><span class="day-time">2:30</span><span class="day-dot"></span></div><div class="day-content"><div class="day-content-inner"><span class="day-module-tag care">Care</span><h4>Customer issue — with full context</h4><p>A customer emails about a delayed order. You open the conversation. The full order history, fulfillment status, and tracking are already there. Your first reply is an actual answer.<div class="day-novi-note"><span class="novi-glyph">N</span><span>Novi surfaced this conversation because it had been waiting 18 hours. It was already in the morning brief.</span></div></p></div></div></div>
+          <div class="day-event"><div class="day-time-col"><span class="day-time">4:30</span><span class="day-dot"></span></div><div class="day-content"><div class="day-content-inner"><span class="day-module-tag novi">Novi</span><h4>Tomorrow's priorities</h4><p>Before you close the day, Novi shows you what's ahead: a production batch that needs scheduling, two supplier POs to review, and a wholesale order wave coming Thursday.</p></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tight">
+      <div class="container-wide">
+        <span class="eyebrow">MODULES</span>
+        <h2 style="margin-top:0.8rem;">Every piece of the operating system.</h2>
+        <p class="lead" style="margin-top:0.8rem;">Click any module to see the workflow, connections, and Novi's role. Every status label reflects current reality.</p>
+        <div class="engine-grid" style="margin-top:1.2rem;" id="engine-grid" role="list">
+          <article class="engine-card" role="listitem" data-engine="orders"     tabindex="0" aria-expanded="false" style="cursor:pointer;"><div class="engine-card-header"><div style="display:flex;align-items:center;gap:0.7rem;"><span class="engine-icon sell" aria-hidden="true">🛒</span><h3 style="font-size:1rem;">Orders &amp; Fulfillment</h3></div><span class="status status-live">Live</span></div><div class="engine-card-body"><p style="font-size:0.88rem;">Order intake from Shopify and manual channels, fulfillment queue, pick/pack/ship, tracking.</p><div class="engine-modules"><span class="engine-module-chip">Order queue</span><span class="engine-module-chip">Pick &amp; pack</span><span class="engine-module-chip">Fulfillment</span><span class="engine-module-chip">Exceptions</span></div></div></article>
+          <article class="engine-card" role="listitem" data-engine="inventory"  tabindex="0" aria-expanded="false" style="cursor:pointer;"><div class="engine-card-header"><div style="display:flex;align-items:center;gap:0.7rem;"><span class="engine-icon stock" aria-hidden="true">📦</span><h3 style="font-size:1rem;">Inventory &amp; Warehouse</h3></div><span class="status status-early">Early Access</span></div><div class="engine-card-body"><p style="font-size:0.88rem;">Multi-location inventory, bins, receiving, reorder signals, stock adjustments.</p><div class="engine-modules"><span class="engine-module-chip">Multi-location</span><span class="engine-module-chip">Bins</span><span class="engine-module-chip">Receiving</span><span class="engine-module-chip">Reorder signals</span></div></div></article>
+          <article class="engine-card" role="listitem" data-engine="production" tabindex="0" aria-expanded="false" style="cursor:pointer;"><div class="engine-card-header"><div style="display:flex;align-items:center;gap:0.7rem;"><span class="engine-icon make" aria-hidden="true">🔧</span><h3 style="font-size:1rem;">Production &amp; Purchasing</h3></div><span class="status status-beta">Beta</span></div><div class="engine-card-body"><p style="font-size:0.88rem;">Batch production, BOM, formula costing, purchase order creation and management.</p><div class="engine-modules"><span class="engine-module-chip">Batch production</span><span class="engine-module-chip">BOM</span><span class="engine-module-chip">Purchase orders</span><span class="engine-module-chip">Formula costs</span></div></div></article>
+          <article class="engine-card" role="listitem" data-engine="care"       tabindex="0" aria-expanded="false" style="cursor:pointer;"><div class="engine-card-header"><div style="display:flex;align-items:center;gap:0.7rem;"><span class="engine-icon care" aria-hidden="true">💬</span><h3 style="font-size:1rem;">Customer Care</h3></div><span class="status status-demo">Demo</span></div><div class="engine-card-body"><p style="font-size:0.88rem;">Order-linked customer conversations, full context, ticket resolution with operational awareness.</p><div class="engine-modules"><span class="engine-module-chip">Order context</span><span class="engine-module-chip">Ticket queue</span><span class="engine-module-chip">History</span></div></div></article>
+          <article class="engine-card" role="listitem" data-engine="partners"   tabindex="0" aria-expanded="false" style="cursor:pointer;"><div class="engine-card-header"><div style="display:flex;align-items:center;gap:0.7rem;"><span class="engine-icon grow" aria-hidden="true">🤝</span><h3 style="font-size:1rem;">Partners &amp; Affiliates</h3></div><span class="status status-early">Early Access</span></div><div class="engine-card-body"><p style="font-size:0.88rem;">Affiliate programs, brand rep management, wholesale accounts, commission tracking.</p><div class="engine-modules"><span class="engine-module-chip">Programs</span><span class="engine-module-chip">Commissions</span><span class="engine-module-chip">Attribution</span></div></div></article>
+          <article class="engine-card" role="listitem" data-engine="novi"       tabindex="0" aria-expanded="false" style="cursor:pointer;"><div class="engine-card-header"><div style="display:flex;align-items:center;gap:0.7rem;"><span class="engine-icon sell" aria-hidden="true">✨</span><h3 style="font-size:1rem;">Novi Intelligence</h3></div><span class="status status-early">Early Access</span></div><div class="engine-card-body"><p style="font-size:0.88rem;">Morning brief, exception detection, purchase recommendations, demand signals, preview + approve workflow.</p><div class="engine-modules"><span class="engine-module-chip">Morning brief</span><span class="engine-module-chip">Signals</span><span class="engine-module-chip">Recommendations</span></div></div></article>
+        </div>
+        <!-- Engine detail panel — revealed on card click -->
+        <div id="engine-detail-panel" hidden aria-live="polite" style="margin-top:1rem; border:1px solid rgba(203,184,221,0.72); border-radius:22px; background:linear-gradient(135deg,rgba(255,255,255,0.96),rgba(251,246,255,0.96)); padding:1.2rem; box-shadow:var(--shadow-md);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;margin-bottom:1rem; flex-wrap:wrap;">
+            <strong id="edp-title" style="font-family:'Iowan Old Style',serif;font-size:1.18rem;"></strong>
+            <button id="edp-close" aria-label="Close engine detail" style="background:none;border:1px solid var(--line);border-radius:8px;padding:0.3rem 0.6rem;cursor:pointer;font-size:0.82rem;color:var(--muted);">Close ×</button>
           </div>
-          <div class="ui-frame-body">
-            <div class="ui-grid two">
-              <div class="ui-stat"><strong>146</strong><p class="small">Orders in queue</p></div>
-              <div class="ui-stat"><strong>9</strong><p class="small">Exceptions to resolve</p></div>
-              <div class="ui-stat"><strong>2,730</strong><p class="small">Units on hand</p></div>
-              <div class="ui-stat"><strong>4</strong><p class="small">POs in draft</p></div>
-            </div>
+          <div style="display:grid;gap:0.75rem;">
+            <div class="novi-data-row" id="edp-problem"><strong>Problem it solves</strong><span></span></div>
+            <div class="novi-data-row" id="edp-workflow"><strong>Core workflow</strong><span></span></div>
+            <div class="novi-data-row" id="edp-connects"><strong>Connects to</strong><span></span></div>
+            <div class="novi-data-row" id="edp-exception"><strong>Exception example</strong><span></span></div>
           </div>
-        </aside>
+          <div class="novi-voice-bubble" style="margin-top:0.9rem;" id="edp-novi-wrap">
+            <span class="novi-voice-label">Novi says</span>
+            <p id="edp-novi"></p>
+          </div>
+        </div>
       </div>
     </section>
 
     <section class="section section-tight band">
-      <div class="container card-grid">
-        <article class="card"><h3>Inventory &amp; Warehouse</h3><p>Stock on hand, committed stock, incoming stock, and reorder signals.</p><a class="btn btn-secondary" href="/product/inventory">Explore</a></article>
-        <article class="card"><h3>Orders &amp; Fulfillment</h3><p>Order queue health, hold reasons, and clear pick/pack progression.</p><a class="btn btn-secondary" href="/product/orders">Explore</a></article>
-        <article class="card"><h3>Production &amp; Purchasing</h3><p>Batches, components, formula demand, and purchasing context.</p><a class="btn btn-secondary" href="/product/production">Explore</a></article>
-        <article class="card"><h3>Customer Care</h3><p>Order-linked support context for faster and clearer replies.</p><a class="btn btn-secondary" href="/product/customer-care">Explore</a></article>
-        <article class="card"><h3>Partners &amp; Affiliates</h3><p>Partner relationships and attribution workflow visibility.</p><a class="btn btn-secondary" href="/product/partners">Explore</a></article>
-        <article class="card"><h3>Novi</h3><p>Morning brief, exception detection, and preview-before-approve guidance.</p><a class="btn btn-secondary" href="/product/novi">Explore</a></article>
+      <div class="container" style="text-align:center;">
+        <span class="eyebrow">EARLY ACCESS</span>
+        <h2 style="margin-top:0.8rem; max-width:26ch; margin-left:auto; margin-right:auto;">Stop opening five apps to answer one question.</h2>
+        <div class="btn-row" style="justify-content:center; margin-top:1.2rem;">
+          <a class="btn btn-primary" href="/early-access">Join Early Access</a>
+          <a class="btn btn-secondary" href="/product/novi">Meet Novi</a>
+        </div>
       </div>
     </section>
-  </main>
 
+  </main>
   <div data-marketing-footer></div>
   <script src="/assets/marketing.js" defer></script>
-</body>
-</html>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const engines = {
+        orders:     { title:'Orders & Fulfillment',     problem:'No single view of open orders, exceptions, and fulfillment pressure.', workflow:'Orders arrive → queue → pick → pack → ship, with every status visible.', connects:'Inventory (reserve), Customer Care (linked tickets), Novi (exception alerts)', exception:'Order #8197 blocked — label reprint required before pack lane can proceed.', novi:'14 orders ready. Order #8197 needs a label reprint or it holds up the pack lane.', status:'Live' },
+        inventory:  { title:'Inventory & Warehouse',    problem:'Stock counts in one tool, orders in another — no real-time view of committed vs available.', workflow:'Receive → bin → commit against orders → reorder when signals fire.', connects:'Orders (commit stock), Production (component demand), Purchasing (reorder)', exception:'Vanilla Base: 4.2 kg on hand, 9-day lead time, 6-day runway. Reorder window closing.', novi:'Vanilla Base may run out in 6 days. I can draft the reorder for your review.', status:'Early Access' },
+        production: { title:'Production & Purchasing',  problem:'Batch schedules and purchase orders live in separate spreadsheets and email threads.', workflow:'Demand signal → draft PO → approve → receive → batch planned → execute.', connects:'Inventory (component deduction), Orders (demand input), Novi (recommendations)', exception:'Batch #53 can\'t start — Aroma Bead supplier PO not confirmed. Lead time: 7 days.', novi:'Formula 26 demand is up 28%. The current batch plan doesn\'t cover this pace. I\'d adjust before scheduling.', status:'Beta' },
+        care:       { title:'Customer Care',             problem:'Customer questions answered without access to order status, fulfillment state, or inventory context.', workflow:'Customer message → linked order context → reply with full operational picture.', connects:'Orders (history + status), Fulfillment (tracking), Inventory (stock context)', exception:'Customer emailed twice about Order #7924. Delayed ship. Full order context is available.', novi:'3 conversations need a reply. Order #7924 has waited 18 hours — I\'ve surfaced the order context.', status:'Demo' },
+        partners:   { title:'Partners & Affiliates',    problem:'Affiliate commissions tracked in spreadsheets; rep performance invisible in real time.', workflow:'Program setup → rep applies → attribution tracks → commissions calculated → paid.', connects:'Orders (attribution), Inventory (rep inventory access), Customers (rep customer view)', exception:'Brand rep order attribution missing for 4 orders. Manual review needed.', novi:'Partner lift is up 17% this week. One rep is driving disproportionate volume — worth reviewing their attribution settings.', status:'Early Access' },
+        novi:       { title:'Novi Intelligence',         problem:'Critical operational signals scattered across apps; nothing surfaces what actually matters.', workflow:'Signals collected → prioritized → morning brief assembled → recommendations prepared for approval.', connects:'All engines — Novi reads across Orders, Inventory, Production, Care, and Partners.', exception:'Novi flags a conflict: production batch schedule and a supplier delay both affecting the same orders.', novi:'Here\'s what I\'d handle first today. Nothing gets acted on until you say yes.', status:'Early Access' }
+      };
+      const panel = document.getElementById('engine-detail-panel');
+      const cards = document.querySelectorAll('[data-engine]');
+      let active = null;
+
+      function show(key) {
+        const e = engines[key];
+        if (!e) return;
+        if (active) {
+          document.querySelector(`[data-engine="${active}"]`)?.setAttribute('aria-expanded', 'false');
+          document.querySelector(`[data-engine="${active}"]`)?.style.setProperty('border-color', '');
+        }
+        active = key;
+        const card = document.querySelector(`[data-engine="${key}"]`);
+        if (card) { card.setAttribute('aria-expanded', 'true'); card.style.borderColor = 'rgba(91,63,140,0.38)'; }
+        document.getElementById('edp-title').textContent = e.title;
+        document.getElementById('edp-problem').querySelector('span').textContent = e.problem;
+        document.getElementById('edp-workflow').querySelector('span').textContent = e.workflow;
+        document.getElementById('edp-connects').querySelector('span').textContent = e.connects;
+        document.getElementById('edp-exception').querySelector('span').textContent = e.exception;
+        document.getElementById('edp-novi').textContent = e.novi;
+        panel.hidden = false;
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      function close() {
+        if (active) { document.querySelector(`[data-engine="${active}"]`)?.setAttribute('aria-expanded','false'); document.querySelector(`[data-engine="${active}"]`)?.style.setProperty('border-color',''); active = null; }
+        panel.hidden = true;
+      }
+
+      cards.forEach(card => {
+        card.addEventListener('click', () => { card.getAttribute('aria-expanded') === 'true' ? close() : show(card.dataset.engine); });
+        card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); } if (e.key === 'Escape') close(); });
+      });
+
+      document.getElementById('edp-close').addEventListener('click', close);
+    });
+  </script>

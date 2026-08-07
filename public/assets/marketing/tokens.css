@@ -1,0 +1,31 @@
+/* ============================================================
+   SHIMMERSTOCK DESIGN TOKENS — Phase 2 additions
+   Extends main.css. Imported before main.css so main.css wins
+   for any shared tokens (correct cascade).
+   Only variables NOT already defined in main.css live here.
+   ============================================================ */
+
+:root {
+  /* Extended palette — new in Phase 2 */
+  --plum-deep:    #2d1b4e;
+  --violet-mist:  #f0ecfd;
+  --green-mid:    #6aad86;
+  --cream:        #fffaf2;
+  --cream-warm:   #fff7ee;
+
+  /* Atmospheric glows */
+  --violet-glow: rgba(91, 63, 140, 0.12);
+  --green-glow:  rgba(79, 138, 104, 0.10);
+
+  /* Radius and shadow additions */
+  --radius-xl: 36px;
+  --shadow-lg: 0 28px 64px rgba(91, 63, 140, 0.18);
+
+  /* Spacing shorthand used in phase2.css */
+  --section-space-tight: calc(var(--section-space) * 0.72);
+
+  /* Motion tokens */
+  --transition-fast:     120ms ease;
+  --transition-standard: 160ms ease;
+  --transition-slow:     280ms ease;
+}
