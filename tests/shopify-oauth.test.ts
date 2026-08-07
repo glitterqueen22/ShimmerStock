@@ -47,6 +47,8 @@ describe("Shopify OAuth Flow", () => {
 
     const url = new URL(location!);
     expect(url.searchParams.get("client_id")).toBe("test_client_id");
+    expect(url.searchParams.get("redirect_uri")).toBe("http://localhost:3000/api/shopify/auth/callback");
+    expect(url.searchParams.get("client_secret")).toBeNull();
 
     // State should be an opaque hex token, not a base64 JSON object
     const state = url.searchParams.get("state");
@@ -63,14 +65,63 @@ describe("Shopify OAuth Flow", () => {
 
     // Verify exact P0 scopes are requested
     const scopes = url.searchParams.get("scope");
-    expect(scopes).toContain("read_orders");
-    expect(scopes).toContain("read_products");
-    expect(scopes).toContain("read_inventory");
-    expect(scopes).toContain("read_locations");
+    expect(scopes).toBe("read_orders,read_products,read_inventory,read_locations");
     expect(scopes).not.toContain("write_");
     expect(scopes).not.toContain("read_fulfillments");
     expect(scopes).not.toContain("read_customers");
     expect(scopes).not.toContain("read_checkouts");
+  });
+
+  it("uses the released callback URI when SHIMMERSTOCK_PUBLIC_URL is set", async () => {
+    const env = await setupTest({
+      env: {
+        SHOPIFY_CLIENT_ID: "release_client_id_1234567890",
+        SHOPIFY_CLIENT_SECRET: "release_client_secret_1234567890",
+        SHIMMERSTOCK_PUBLIC_URL: "https://shimmerstock-production.up.railway.app",
+      },
+    });
+
+    try {
+      const releaseToken = await loginAs(env.appUrl, "owner_a", "test1234");
+      const res = await fetch(`${env.appUrl}/api/shopify/auth?shop=craft-supply-test.myshopify.com`, {
+        redirect: "manual",
+        headers: { Authorization: `Bearer ${releaseToken}` },
+      });
+
+      expect(res.status).toBe(302);
+      const location = res.headers.get("location") || "";
+      const url = new URL(location);
+      expect(url.searchParams.get("client_id")).toBe("release_client_id_1234567890");
+      expect(url.searchParams.get("redirect_uri")).toBe("https://shimmerstock-production.up.railway.app/api/shopify/auth/callback");
+      expect(url.searchParams.get("scope")).toBe("read_orders,read_products,read_inventory,read_locations");
+      expect(url.searchParams.has("client_secret")).toBe(false);
+    } finally {
+      await env.cleanup();
+    }
+  });
+
+  it("fails before redirect when SHOPIFY_CLIENT_ID is missing even if a legacy key is present", async () => {
+    const env = await setupTest({
+      env: {
+        SHOPIFY_CLIENT_ID: undefined,
+        SHOPIFY_API_KEY: "legacy_stale_key_should_not_win",
+        SHOPIFY_CLIENT_SECRET: "release_client_secret_1234567890",
+      },
+    });
+
+    try {
+      const missingToken = await loginAs(env.appUrl, "owner_a", "test1234");
+      const res = await fetch(`${env.appUrl}/api/shopify/auth?shop=craft-supply-test.myshopify.com`, {
+        redirect: "manual",
+        headers: { Authorization: `Bearer ${missingToken}` },
+      });
+
+      expect(res.status).toBe(500);
+      const data = await res.json() as any;
+      expect(data.error).toContain("Shopify OAuth is not configured");
+    } finally {
+      await env.cleanup();
+    }
   });
 
   it("returns JSON auth URL when requested via format=json", async () => {
@@ -357,9 +408,11 @@ describe("Shopify OAuth Flow", () => {
     const qs = new URLSearchParams({ ...query, hmac }).toString();
 
     const originalFetch = global.fetch;
+    let tokenExchangeBody = "";
     (global as any).fetch = mock(async (input: any, init?: any) => {
       const urlStr = input.toString();
       if (urlStr.includes("/admin/oauth/access_token")) {
+        tokenExchangeBody = String(init?.body || "");
         return new Response(JSON.stringify({
           access_token: "shpat_12345",
           scope: "read_orders,read_products,read_inventory,read_locations"
@@ -388,6 +441,10 @@ describe("Shopify OAuth Flow", () => {
       expect(row.sync_status).toBe("connected");
       expect(row.scopes).toBe("read_orders,read_products,read_inventory,read_locations");
       expect(row.access_token_encrypted).not.toBe("shpat_12345");
+      const tokenPayload = JSON.parse(tokenExchangeBody) as { client_id: string; client_secret: string; code: string };
+      expect(tokenPayload.client_id).toBe("test_client_id");
+      expect(tokenPayload.client_secret).toBe("test_client_secret");
+      expect(tokenPayload.code).toBe("test_code");
 
       // Verify state is consumed
       const stateHash = crypto.createHash("sha256").update(state).digest("hex");

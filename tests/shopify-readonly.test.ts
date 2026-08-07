@@ -787,25 +787,20 @@ describe("Shopify OAuth — granted scope verification", () => {
   });
 
   it("SHOPIFY_SCOPES contains exactly the P0 read-only scopes", async () => {
-    const src = await Bun.file("server/shopify-oauth-routes.js").text();
+    const src = await Bun.file("server/shopify-oauth-config.js").text();
 
-    const match = src.match(/const REQUIRED_SCOPES\s*=\s*\[([\s\S]*?)\]/);
+    const match = src.match(/export const SHOPIFY_OAUTH_REQUIRED_SCOPES = Object\.freeze\(\[/);
     expect(match).toBeTruthy();
-    const scopesBlock = match![1];
 
-    // No write scope must appear
-    expect(scopesBlock).not.toContain("write_");
-
-    // Extra unapproved read scopes must not appear
-    expect(scopesBlock).not.toContain("read_fulfillments");
-    expect(scopesBlock).not.toContain("read_customers");
-    expect(scopesBlock).not.toContain("read_checkouts");
-
-    // Required P0 scopes must all be present
-    expect(scopesBlock).toContain("read_orders");
-    expect(scopesBlock).toContain("read_products");
-    expect(scopesBlock).toContain("read_inventory");
-    expect(scopesBlock).toContain("read_locations");
+    expect(src).toContain("SHOPIFY_OAUTH_REQUIRED_SCOPES = Object.freeze([");
+    expect(src).toContain("read_orders");
+    expect(src).toContain("read_products");
+    expect(src).toContain("read_inventory");
+    expect(src).toContain("read_locations");
+    expect(src).not.toContain("write_");
+    expect(src).not.toContain("read_all_orders");
+    expect(src).not.toContain("read_customers");
+    expect(src).not.toContain("read_fulfillments");
   });
 
   it("no webhook registration mutation during OAuth connect", async () => {
@@ -1115,20 +1110,18 @@ describe("Shopify Admin API version — 2026-07 pilot preflight", () => {
   });
 
   it("approved OAuth scopes are still exactly the four read-only scopes", async () => {
-    const src = await Bun.file("server/shopify-oauth-routes.js").text();
-    const match = src.match(/const REQUIRED_SCOPES\s*=\s*\[([\s\S]*?)\]/);
+    const src = await Bun.file("server/shopify-oauth-config.js").text();
+    const match = src.match(/export const SHOPIFY_OAUTH_REQUIRED_SCOPES = Object\.freeze\(\[/);
     expect(match).toBeTruthy();
-    const block = match![1];
-    expect(block).toContain("read_orders");
-    expect(block).toContain("read_products");
-    expect(block).toContain("read_inventory");
-    expect(block).toContain("read_locations");
-    // No write scopes
-    expect(block).not.toContain("write_");
-    // No unapproved extra scopes
-    expect(block).not.toContain("read_all_orders");
-    expect(block).not.toContain("read_customers");
-    expect(block).not.toContain("read_fulfillments");
+    expect(src).toContain("SHOPIFY_OAUTH_REQUIRED_SCOPES = Object.freeze([");
+    expect(src).toContain("read_orders");
+    expect(src).toContain("read_products");
+    expect(src).toContain("read_inventory");
+    expect(src).toContain("read_locations");
+    expect(src).not.toContain("write_");
+    expect(src).not.toContain("read_all_orders");
+    expect(src).not.toContain("read_customers");
+    expect(src).not.toContain("read_fulfillments");
   });
 
   it("REST write methods are still blocked at gateway level", async () => {

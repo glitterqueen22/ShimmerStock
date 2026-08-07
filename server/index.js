@@ -224,6 +224,8 @@ if (runtimeConfig.corsAllowedOrigin) {
   }));
 }
 
+app.locals.shopifyOauthAppUrl = getPublicSiteOrigin() || runtimeConfig.appUrl;
+
 // Initialize provider registry (CommerceProvider abstraction)
 initRegistry();
 
