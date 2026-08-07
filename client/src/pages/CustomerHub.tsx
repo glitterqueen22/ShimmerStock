@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { PageHeader, Tabs, Button, Modal, EmptyState, Skeleton, useToast } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../lib/api';
 import Novi from '../components/Novi';
-
+import { useTerms } from '../context/IndustryContext';
 // ── Types ──────────────────────────────────────────────────────────
 interface StoreCreditEntry {
   id: number;
@@ -211,6 +211,7 @@ export default function CustomerHub() {
   const [activeTab, setActiveTab] = useState('inbox');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const terms = useTerms();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Customer Search ──────────────────────────────────────────────
@@ -1077,9 +1078,9 @@ export default function CustomerHub() {
                   )}
                 </div>
 
-                {/* Customer Context Sidebar */}
+                {/* Customer Context Sidebar — profile + Novi recommendation */}
                 {showContext && (
-                  <div className="w-48 flex-shrink-0 border-l border-rose-100 bg-rose-50/20 p-3 overflow-y-auto hidden lg:block">
+                  <div className="w-56 flex-shrink-0 border-l border-rose-100 bg-rose-50/20 p-3 overflow-y-auto hidden lg:block space-y-3">
                     {contextLoading ? (
                       <p className="text-xs text-neutral-400">Loading...</p>
                     ) : customerContext ? (
@@ -1097,6 +1098,14 @@ export default function CustomerHub() {
                       </div>
                     ) : (
                       <p className="text-xs text-neutral-400">No data available</p>
+                    )}
+
+                    {/* Novi context panel — Demo */}
+                    {selectedConversation && (
+                      <NoviCustomerContext
+                        conversation={selectedConversation}
+                        customerContext={customerContext}
+                      />
                     )}
                   </div>
                 )}
@@ -1758,8 +1767,8 @@ export default function CustomerHub() {
   return (
     <div>
       <PageHeader
-        title="Customer Hub"
-        description="Search customers, manage returns & refunds, approvals, email templates, order timelines, and packing proof."
+        title={`${terms.customer} Hub`}
+        description={`Search ${terms.customer.toLowerCase()}s, manage returns & refunds, approvals, email templates, order timelines, and packing proof.`}
         novi={<Novi size="sm" accessory="customer-service" />}
       />
 
@@ -2040,6 +2049,60 @@ export default function CustomerHub() {
           </Button>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+// ── Novi Customer Context Panel ───────────────────────────────────────
+
+function NoviCustomerContext({ conversation, customerContext }: {
+  conversation: any;
+  customerContext: any | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  if (dismissed) return null;
+
+  const orderCount = customerContext?.order_count ?? 0;
+  const returnCount = customerContext?.returns?.length ?? 0;
+
+  const recommendation = (() => {
+    if (!customerContext) return { title: "Loading customer context…", reasoning: null, action: null, actionLabel: null };
+    if (returnCount > 0 && conversation.priority === "urgent")
+      return { title: `${returnCount} return${returnCount > 1 ? "s" : ""} on record + urgent priority.`, reasoning: "Return history + urgent flag suggests careful handling. Review the full order timeline before replying.", action: "Review the order history and understand the issue fully.", actionLabel: "Review customer history" };
+    if (orderCount === 0)
+      return { title: "First contact from this customer.", reasoning: "No previous orders found — this may be a first-time buyer or prospect.", action: "Understand their question fully before escalating.", actionLabel: null };
+    if (orderCount >= 3)
+      return { title: `Loyal customer — ${orderCount} orders.`, reasoning: `This customer has ordered ${orderCount} times. Their experience directly affects retention.`, action: "Prioritize a personal, helpful reply.", actionLabel: "Review customer history" };
+    return { title: `${orderCount} previous order${orderCount !== 1 ? "s" : ""} on record.`, reasoning: "Check current order and fulfillment status before replying.", action: "Verify order status first.", actionLabel: "Open order" };
+  })();
+
+  return (
+    <div className="rounded-xl border border-violet-200 bg-violet-50 p-2.5">
+      <div className="flex items-start gap-1.5">
+        <Novi expression={conversation.priority === "urgent" ? "concerned" : "thinking"} size="sm" animated={false} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-1">
+            <p className="text-[10px] font-bold text-violet-600 uppercase tracking-wide">Novi</p>
+            <span className="text-[9px] text-violet-400 bg-violet-100 px-1.5 rounded font-medium">Demo</span>
+          </div>
+          <p className="text-[11px] font-semibold text-neutral-800 mt-0.5 leading-tight">{recommendation.title}</p>
+          {expanded && recommendation.reasoning && (
+            <div className="mt-1.5 space-y-1 border-t border-violet-100 pt-1.5">
+              <p className="text-[10px] text-neutral-500 italic">Why: {recommendation.reasoning}</p>
+              {recommendation.action && <p className="text-[10px] text-neutral-700 font-medium">→ {recommendation.action}</p>}
+              <p className="text-[10px] text-violet-400 italic mt-1">Note: Automatic email, refund, replacement, and store credit are not enabled in this phase.</p>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <button onClick={() => setExpanded(e => !e)} className="text-[10px] text-violet-500 hover:text-violet-700 transition-colors">
+              {expanded ? "Less" : "Show me why"}
+            </button>
+            <button onClick={() => setDismissed(true)} className="text-[10px] text-neutral-400 hover:text-neutral-600 transition-colors ml-auto">Dismiss</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

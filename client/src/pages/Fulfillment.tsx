@@ -5,6 +5,9 @@ import PrintModal, { type PrintData } from './PrintableLabel';
 import SplitShipmentWizard from '../components/SplitShipmentWizard';
 import OperationsCenter from '../components/OperationsCenter';
 import { apiFetch } from '../lib/api';
+import NoviEngineInsight from '../components/novi/NoviEngineInsight';
+import { getDemoInsights } from '../lib/businessDna';
+import { useTerms } from '../context/IndustryContext';
 
 // ── Types ────────────────────────────────────────────────────────
 interface PendingOrder {
@@ -492,6 +495,7 @@ function TemplatePreview({ type, config }: { type: string; config: TemplateConfi
 
 export default function Fulfillment() {
   const { toast } = useToast();
+  const terms = useTerms();
   const [tab, setTab] = useState('pending');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1072,9 +1076,11 @@ export default function Fulfillment() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <PageHeader
-        title="Fulfillment HQ"
-        subtitle="How do I get products to customers quickly, accurately, and cost-effectively?"
+        title={`${terms.fulfillment} HQ`}
+        subtitle={`How do I get ${terms.products.toLowerCase()} to ${terms.customer.toLowerCase()}s quickly, accurately, and cost-effectively?`}
       />
+
+      <NoviEngineInsight insights={getDemoInsights('craft_supplies', 'fulfillment')} />
 
       {/* Novi Summary */}
       {summary && (
@@ -1134,7 +1140,7 @@ export default function Fulfillment() {
         <div className="space-y-4">
           {error && <ErrorBanner message={error} />}
           {pendingOrders.length === 0 ? (
-            <EmptyState icon="📦" title="All caught up!" description="No orders are waiting to be shipped." action={<Button onClick={fetchAll}>Refresh</Button>} />
+            <EmptyState icon="📦" title={`All caught up!`} description={`No ${terms.order.toLowerCase()}s are waiting to be shipped.`} action={<Button onClick={fetchAll}>Refresh</Button>} />
           ) : (
             <>
               {selectedOrders.size > 0 && (

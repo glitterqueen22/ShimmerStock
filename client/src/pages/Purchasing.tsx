@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { apiGet, apiPost, apiPut, apiDelete } from "../lib/api";
 import { PageHeader, Button, Badge, Tabs, Modal, ConfirmModal, ProgressBar, Skeleton, EmptyState, ErrorBanner, useToast } from "../components/ui";
+import NoviEngineInsight from "../components/novi/NoviEngineInsight";
+import { getDemoInsights } from "../lib/businessDna";
+import { useTerms } from "../context/IndustryContext";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -463,9 +466,14 @@ export default function Purchasing() {
 
   // ── Render ─────────────────────────────────────────────────────────
 
+  const noviInsights = getDemoInsights("craft_supplies", "purchasing");
+  const terms = useTerms();
+
   return (
     <div className="space-y-6">
-      <PageHeader title="📦 Purchasing" description="Suppliers, purchase orders & reorder intelligence" />
+      <PageHeader title={`📦 ${terms.purchasing}`} description={`${terms.supplier}s, purchase orders & reorder intelligence`} />
+
+      <NoviEngineInsight insights={noviInsights} />
 
       {error && <ErrorBanner message={error} onRetry={() => setError(null)} />}
 

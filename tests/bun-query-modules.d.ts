@@ -30,3 +30,5 @@ declare module '../server/shopify-oauth-routes.js?*' {
 declare module '../server/shopify.js?*' {
   export { isConfigured, canWrite, getSyncMode, fetchOrders, fetchProducts, getInventoryInfo, updateInventory } from '../server/shopify.js';
 }
+
+declare module '*.css';

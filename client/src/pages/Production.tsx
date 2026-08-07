@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { apiGet, apiPost, apiPut, apiDelete } from "../lib/api";
 import { PageHeader, Button, Badge, Tabs, Modal, ConfirmModal, Skeleton, EmptyState, ErrorBanner, SearchBar, useToast } from "../components/ui";
 import Novi from "../components/Novi";
+import NoviEngineInsight from "../components/novi/NoviEngineInsight";
+import { getDemoInsights } from "../lib/businessDna";
+import { useTerms } from "../context/IndustryContext";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -314,9 +317,14 @@ export default function Production() {
 
   // ── Render ─────────────────────────────────────────────────────────
 
+  const noviInsights = getDemoInsights("craft_supplies", "production");
+  const terms = useTerms();
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Production" novi={<Novi size="sm" accessory="production" />} actions={<Button onClick={openCreateBom}>+ New BOM</Button>} />
+      <PageHeader title={terms.production} novi={<Novi size="sm" accessory="production" />} actions={<Button onClick={openCreateBom}>+ New BOM</Button>} />
+
+      <NoviEngineInsight insights={noviInsights} />
 
       <Tabs tabs={tabConfig} active={tab} onChange={setTab} />
 

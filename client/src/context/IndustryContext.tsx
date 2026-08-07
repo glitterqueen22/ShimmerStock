@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiFetch } from "../lib/api";
+import { getTerms as getDnaTerms, type BusinessTypeId } from "../lib/businessDna";
 
 // ── Types ────────────────────────────────────────────────────────────
 interface IndustryConfig {
@@ -192,4 +193,15 @@ export function useIndustry() {
     throw new Error("useIndustry must be used within an IndustryProvider");
   }
   return ctx;
+}
+
+/**
+ * Returns Business DNA terminology for the current industry.
+ * Falls back to craft_supplies defaults when no industry is configured.
+ */
+export function useTerms() {
+  const { industry } = useIndustry();
+  // Map server industry id to businessDna type id
+  const typeId = (industry?.id ?? "craft_supplies") as BusinessTypeId;
+  return useMemo(() => getDnaTerms(typeId), [typeId]);
 }

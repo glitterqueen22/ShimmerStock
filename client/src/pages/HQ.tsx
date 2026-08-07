@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
 import { PageHeader, Skeleton, ErrorBanner, Badge } from "../components/ui";
+import Novi from "../components/Novi";
+import { getDemoInsights, type DemoInsight } from "../lib/businessDna";
+import FirstDayChecklist from "../components/FirstDayChecklist";
+import { filterInsightsByWorkspaceState } from "../lib/workspaceState";
+import { useTerms } from "../context/IndustryContext";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -126,6 +132,8 @@ function timeAgo(iso: string): string {
 
 export default function HQ() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const terms = useTerms();
   const [data, setData] = useState<HQData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -182,264 +190,242 @@ export default function HQ() {
     data.needsAttention.overduePOs.length +
     data.needsAttention.unfulfilledOrders.length;
 
+  // Demo insights gated through workspace state — empty_real gets no fake alerts
+  const allDemoInsights = getDemoInsights("craft_supplies");
+  // TODO: wire to real workspace state from API; using "demo" as default for beta
+  const workspaceState = (data.whatHappened.todayStats.orders > 0 || data.needsAttention.lowStock.length > 0) ? "real" as const : "demo" as const;
+  const demoInsights = workspaceState === "real" ? [] : filterInsightsByWorkspaceState(allDemoInsights, "demo");
+  const urgentCount = demoInsights.filter(i => i.severity === "urgent" || i.severity === "warning").length;
+  const celebration = demoInsights.find(i => i.severity === "celebration");
+  const noviExpression = urgentCount > 1 ? "concerned" as const : urgentCount === 1 ? "thinking" as const : "happy" as const;
+
   return (
     <div className="space-y-6">
       {/* ── Header ──────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3">
-        <PageHeader title="HQ Dashboard" description="Your business at a glance" />
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <PageHeader title="Command Center" description={`Your ${terms.products.toLowerCase()} operations at a glance`} />
         {totalAttention > 0 && (
-          <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-50 text-red-600 text-xs font-semibold rounded-full border border-red-200 mt-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 text-xs font-semibold rounded-full border border-red-200">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             {totalAttention} need{totalAttention !== 1 ? "" : "s"} attention
           </span>
         )}
       </div>
 
-      {/* ── Quick Stats Row ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 border border-rose-100 p-4">
-          <p className="text-xs font-medium text-rose-400 uppercase tracking-wide">📋 Orders today</p>
-          <p className="text-3xl font-bold text-neutral-900 mt-1">{data.whatHappened.todayStats.orders}</p>
+      {/* ── SECTION 1: NOVI MORNING BRIEF ─────────────────────── */}
+      <section aria-label="Novi Morning Brief">
+        <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-purple-50 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-violet-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-violet-500 uppercase tracking-widest">Novi Morning Brief</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-600 border border-violet-200">Demo</span>
+            </div>
+            <button onClick={() => navigate("/novi")} className="text-xs font-medium text-violet-500 hover:text-violet-700 transition-colors">
+              All messages →
+            </button>
+          </div>
+          <div className="p-5 flex flex-col sm:flex-row gap-5">
+            <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
+              <Novi expression={noviExpression} size="lg" animated />
+              <span className="text-xs text-violet-400 font-medium">Novi</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-semibold text-neutral-900 mb-3">
+                {urgentCount === 0
+                  ? "Good morning. Operations look healthy — here's what's on my radar."
+                  : `Good morning. I found ${urgentCount} thing${urgentCount > 1 ? "s" : ""} that need your attention today.`}
+              </p>
+              <div className="space-y-2.5">
+                {demoInsights.filter(i => i.severity !== "celebration").slice(0, 4).map((insight, idx) => (
+                  <NoviInsightCard key={idx} insight={insight} onNavigate={navigate} />
+                ))}
+              </div>
+              {celebration && (
+                <div className="mt-3 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-2">
+                  <span aria-hidden>🎉</span>
+                  <p className="text-sm text-emerald-800">{celebration.summary}</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 border border-rose-100 p-4">
-          <p className="text-xs font-medium text-rose-400 uppercase tracking-wide">🏭 Production</p>
-          <p className="text-3xl font-bold text-neutral-900 mt-1">{data.whatHappened.todayStats.production}</p>
-        </div>
-        <div className="bg-white rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 border border-rose-100 p-4">
-          <p className="text-xs font-medium text-rose-400 uppercase tracking-wide">📷 Scans</p>
-          <p className="text-3xl font-bold text-neutral-900 mt-1">{data.whatHappened.todayStats.scans}</p>
-        </div>
-        <div className="bg-white rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 border border-rose-100 p-4">
-          <p className="text-xs font-medium text-rose-400 uppercase tracking-wide">📦 POs</p>
-          <p className="text-3xl font-bold text-neutral-900 mt-1">{data.whatHappened.todayStats.purchases}</p>
-        </div>
-      </div>
+      </section>
 
-      {/* ── Four-Question Grid ──────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* 1. What Happened */}
-        <div className="bg-white rounded-2xl shadow-sm border border-rose-100 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-          <div className="px-5 py-4 border-b border-rose-100 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-rose-400 uppercase tracking-wider">
-              📋 What Happened
-            </h2>
-            <button
-              onClick={() => navigate("/timeline")}
-              className="text-xs font-medium text-rose-500 hover:text-rose-600 transition-all duration-300"
-            >
+      {/* ── SECTION 2: FIRST DAY CHECKLIST ───────────────────── */}
+      <FirstDayChecklist
+        businessId={user?.business_id}
+        userId={user?.id}
+      />
+
+      {/* ── SECTION 3: TODAY ────────────────────────────────────── */}
+      <section aria-label="Today's queues">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Today</h2>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <TodayCard icon="📋" label={terms.order + 's'} count={data.whatHappened.todayStats.orders}
+            attention={data.needsAttention.unfulfilledOrders.length} link="/orders" onNavigate={navigate} />
+          <TodayCard icon="📦" label={terms.inventory} count={data.needsAttention.lowStock.length}
+            attention={data.needsAttention.lowStock.filter(i => i.stock_count === 0).length} link="/products" onNavigate={navigate} />
+          <TodayCard icon="🛒" label={terms.purchasing} count={data.whatHappened.todayStats.purchases}
+            attention={data.needsAttention.overduePOs.length} link="/purchasing" onNavigate={navigate} />
+          <TodayCard icon="🏭" label={terms.production} count={data.whatHappened.todayStats.production}
+            attention={data.needsAttention.pendingBatches.length} link="/production" onNavigate={navigate} />
+          <TodayCard icon="🚚" label={terms.fulfillment} count={data.needsAttention.unfulfilledOrders.length}
+            attention={0} link="/fulfillment" onNavigate={navigate} />
+          <TodayCard icon="💬" label="Customer Care" count={0}
+            attention={0} link="/customers" onNavigate={navigate} />
+        </div>
+      </section>
+
+      {/* ── SECTION 3: WHAT CHANGED + SNAPSHOT ─────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-neutral-100 flex items-center justify-between">
+            <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">What Changed</h2>
+            <button onClick={() => navigate("/timeline")} className="text-xs font-medium text-violet-500 hover:text-violet-700 transition-colors">
               Full timeline →
             </button>
           </div>
           {data.whatHappened.recentActivity.length === 0 ? (
             <div className="p-8 text-center">
-              <span className="text-3xl block mb-2">✨</span>
-              <p className="text-rose-300 text-sm">No recent activity yet</p>
+              <Novi expression="curious" size="sm" />
+              <p className="text-neutral-400 text-sm mt-3">Nothing yet — your first actions will appear here.</p>
             </div>
           ) : (
-            <div className="divide-y divide-rose-50 max-h-[360px] overflow-y-auto">
-              {data.whatHappened.recentActivity.map((event) => {
-                const engineName = event.engine?.name || "system";
-                return (
-                  <div
-                    key={event.id}
-                    className="flex items-start gap-3 px-5 py-3 hover:bg-rose-50/50 transition-all duration-300"
-                  >
-                    <span className="text-lg flex-shrink-0 mt-0.5">{event.engine?.icon || "🔧"}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-neutral-900 truncate">{event.description}</p>
-                      <p className="text-xs text-rose-400 mt-0.5">{timeAgo(event.timeAgo)}</p>
-                    </div>
-                    <Badge engine={engineName}>{event.engine?.label || "System"}</Badge>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* 2. What Needs Attention */}
-        <div className="bg-white rounded-2xl shadow-sm border border-rose-100 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-          <div className="px-5 py-4 border-b border-rose-100">
-            <h2 className="text-sm font-semibold text-rose-400 uppercase tracking-wider">
-              ⚠️ What Needs Attention
-            </h2>
-          </div>
-          {totalAttention === 0 ? (
-            <div className="p-8 text-center">
-              <span className="text-4xl block mb-3">✨</span>
-              <p className="text-emerald-700 font-semibold text-base">
-                Everything looks good!
-              </p>
-              <p className="text-rose-300 text-sm mt-1">No urgent items right now</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-rose-50 max-h-[360px] overflow-y-auto">
-              {/* Low Stock — red urgency */}
-              {data.needsAttention.lowStock.map((item) => {
-                return (
-                  <button
-                    key={`stock-${item.id}`}
-                    onClick={() => navigate("/products")}
-                    className="w-full flex items-center gap-3 px-5 py-3 hover:bg-rose-50/50 transition-all duration-300 text-left"
-                  >
-                    <span
-                      className={`flex-shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full text-white text-sm font-bold ${item.stock_count === 0 ? "bg-red-500" : "bg-amber-500"}`}
-                    >
-                      {item.stock_count}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-neutral-900 truncate">{item.name}</p>
-                      <p className="text-xs text-rose-400">{item.sku} · low stock</p>
-                    </div>
-                    <Badge urgency="now">🔴 now</Badge>
-                  </button>
-                );
-              })}
-
-              {/* Pending Batches */}
-              {data.needsAttention.pendingBatches.map((batch) => (
-                <button
-                  key={`batch-${batch.id}`}
-                  onClick={() => navigate("/production")}
-                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-rose-50/50 transition-all duration-300 text-left"
-                >
-                  <span className="flex-shrink-0 text-xl">🏭</span>
+            <div className="divide-y divide-neutral-50 max-h-72 overflow-y-auto">
+              {data.whatHappened.recentActivity.map((event) => (
+                <div key={event.id} className="flex items-start gap-3 px-5 py-3 hover:bg-neutral-50 transition-colors">
+                  <span className="text-base flex-shrink-0 mt-0.5">{event.engine?.icon || "🔧"}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-neutral-900 truncate">{batch.bom_name}</p>
-                    <p className="text-xs text-rose-400">
-                      Draft · {batch.output_quantity} {batch.output_unit || "units"} per run
-                    </p>
+                    <p className="text-sm text-neutral-800 truncate">{event.description}</p>
+                    <p className="text-xs text-neutral-400 mt-0.5">{timeAgo(event.timeAgo)}</p>
                   </div>
-                  <Badge engine="production">{batch.status}</Badge>
-                </button>
-              ))}
-
-              {/* Overdue POs */}
-              {data.needsAttention.overduePOs.map((po) => (
-                <button
-                  key={`po-${po.id}`}
-                  onClick={() => navigate("/purchasing")}
-                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-rose-50/50 transition-all duration-300 text-left"
-                >
-                  <span className="flex-shrink-0 text-xl">📦</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-neutral-900 truncate">
-                      PO #{po.id} · {po.supplier_name}
-                    </p>
-                    <p className="text-xs text-rose-400">
-                      Overdue · expected {po.expected_delivery}
-                    </p>
-                  </div>
-                  <Badge urgency="now">🔴 overdue</Badge>
-                </button>
-              ))}
-
-              {/* Unfulfilled Orders */}
-              {data.needsAttention.unfulfilledOrders.map((order) => (
-                <button
-                  key={`order-${order.id}`}
-                  onClick={() => navigate("/orders")}
-                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-rose-50/50 transition-all duration-300 text-left"
-                >
-                  <span className="flex-shrink-0 text-xl">📋</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-neutral-900 truncate">
-                      {order.order_number ? `Order #${order.order_number}` : `Order #${order.id}`}
-                    </p>
-                    <p className="text-xs text-rose-400">
-                      {order.customer_name || "Customer"} · {order.item_count} items · {order.scanned_items}/{order.item_count} scanned
-                    </p>
-                  </div>
-                  <Badge engine="commerce">pending</Badge>
-                </button>
+                  <Badge engine={event.engine?.name || "system"}>{event.engine?.label || "System"}</Badge>
+                </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* 3. What To Do Next */}
-        <div className="bg-white rounded-2xl shadow-sm border border-rose-100 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-          <div className="px-5 py-4 border-b border-rose-100">
-            <h2 className="text-sm font-semibold text-rose-400 uppercase tracking-wider">
-              ✅ What To Do Next
-            </h2>
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-neutral-100">
+            <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Business Snapshot</h2>
           </div>
-          {data.whatToDoNext.length === 0 ? (
-            <div className="p-8 text-center">
-              <span className="text-4xl block mb-3">🎉</span>
-              <p className="text-emerald-700 font-semibold text-base">
-                No pending actions — great job!
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-rose-50">
-              {data.whatToDoNext.map((rec, i) => {
-                return (
-                  <button
-                    key={i}
-                    onClick={() => navigate(rec.link)}
-                    className="w-full flex items-start gap-3 px-5 py-4 hover:bg-rose-50/50 transition-all duration-300 text-left group"
-                  >
-                    <span className="flex-shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-rose-100 text-rose-600 text-sm font-bold">
-                      {i + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-neutral-900 group-hover:text-rose-600 transition-colors">
-                        {rec.action}
-                      </p>
-                      <p className="text-xs text-rose-400 mt-0.5 line-clamp-2">{rec.reason}</p>
-                    </div>
-                    <Badge engine={rec.engine}>{rec.engine}</Badge>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* 4. Opportunities */}
-        <div className="bg-white rounded-2xl shadow-sm border border-rose-100 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-          <div className="px-5 py-4 border-b border-rose-100">
-            <h2 className="text-sm font-semibold text-rose-400 uppercase tracking-wider">
-              💡 Opportunities
-            </h2>
+          <div className="p-5 space-y-3">
+            <SnapshotRow icon="📋" label="Orders today" value={String(data.whatHappened.todayStats.orders)} />
+            <SnapshotRow icon="📦" label="Low-stock SKUs" value={String(data.needsAttention.lowStock.length)} alert={data.needsAttention.lowStock.length > 0} />
+            <SnapshotRow icon="🛒" label="Pending POs" value={String(data.whatHappened.todayStats.purchases)} />
+            <SnapshotRow icon="🏭" label="Production drafts" value={String(data.needsAttention.pendingBatches.length)} />
+            <SnapshotRow icon="🚚" label="Unfulfilled orders" value={String(data.needsAttention.unfulfilledOrders.length)} alert={data.needsAttention.unfulfilledOrders.length > 0} />
+            <SnapshotRow icon="📷" label="Scans today" value={String(data.whatHappened.todayStats.scans)} />
           </div>
-          {data.opportunities.length === 0 ? (
-            <div className="p-8 text-center">
-              <span className="text-4xl block mb-3">🌱</span>
-              <p className="text-rose-300 text-sm">
-                We'll find opportunities as your business grows
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-rose-50">
-              {data.opportunities.map((opp, i) => {
-                return (
-                  <button
-                    key={i}
-                    onClick={() => navigate("/opportunities")}
-                    className="w-full flex items-start gap-3 px-5 py-4 hover:bg-rose-50/50 transition-all duration-300 text-left"
-                  >
-                    <span className="flex-shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-rose-100 to-rose-200 text-rose-600 text-sm">
-                      💡
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-neutral-900">{opp.title}</p>
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
-                          {opp.impact}
-                        </span>
-                      </div>
-                      <p className="text-xs text-rose-400 mt-1">{opp.explanation}</p>
-                    </div>
-                    <Badge engine={opp.engine}>{opp.engine}</Badge>
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
       </div>
+
+      {/* ── SECTION 4: NEXT BEST ACTIONS ────────────────────────── */}
+      {(data.whatToDoNext.length > 0 || data.opportunities.length > 0) && (
+        <section aria-label="Next best actions">
+          <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">Next Best Actions</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {data.whatToDoNext.slice(0, 3).map((rec, i) => (
+              <button key={i} onClick={() => navigate(rec.link)}
+                className="text-left p-4 rounded-2xl border border-neutral-100 bg-white hover:border-violet-200 hover:shadow-md transition-all group">
+                <div className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-7 h-7 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-xs font-bold">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-neutral-900 group-hover:text-violet-700 transition-colors">{rec.action}</p>
+                    <p className="text-xs text-neutral-400 mt-1 line-clamp-2">{rec.reason}</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+            {data.opportunities.slice(0, 3).map((opp, i) => (
+              <button key={`opp-${i}`} onClick={() => navigate("/opportunities")}
+                className="text-left p-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 hover:border-emerald-300 hover:shadow-md transition-all group">
+                <div className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm">💡</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-neutral-900 group-hover:text-emerald-700 transition-colors">{opp.title}</p>
+                    <p className="text-xs text-neutral-400 mt-1 line-clamp-2">{opp.explanation}</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+// ── Sub-components ────────────────────────────────────────────────────
+
+function NoviInsightCard({ insight, onNavigate }: { insight: DemoInsight; onNavigate: (path: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const colors = {
+    urgent:      { bg: "bg-red-50", border: "border-red-200", icon: "🔴", badge: "bg-red-100 text-red-700" },
+    warning:     { bg: "bg-amber-50", border: "border-amber-200", icon: "⚠️", badge: "bg-amber-100 text-amber-700" },
+    celebration: { bg: "bg-emerald-50", border: "border-emerald-200", icon: "🎉", badge: "bg-emerald-100 text-emerald-700" },
+    info:        { bg: "bg-blue-50", border: "border-blue-200", icon: "ℹ️", badge: "bg-blue-100 text-blue-700" },
+  }[insight.severity] ?? { bg: "bg-blue-50", border: "border-blue-200", icon: "ℹ️", badge: "bg-blue-100 text-blue-700" };
+
+  return (
+    <div className={`rounded-xl border ${colors.border} ${colors.bg} p-3`}>
+      <div className="flex items-start gap-2">
+        <span className="flex-shrink-0 text-sm mt-0.5" aria-hidden>{colors.icon}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-semibold text-neutral-900 leading-tight">{insight.title}</p>
+            <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold ${colors.badge}`}>{insight.severity}</span>
+          </div>
+          <p className="text-xs text-neutral-600 mt-1">{insight.summary}</p>
+          {expanded && (
+            <div className="mt-2 space-y-1.5 border-t border-neutral-200 pt-2">
+              <p className="text-[11px] text-neutral-500 italic">Why: {insight.reasoning}</p>
+              <p className="text-[11px] text-neutral-700 font-medium">→ {insight.recommended_action}</p>
+            </div>
+          )}
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <button onClick={() => onNavigate(insight.action_link)}
+              className="px-2.5 py-1 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 transition-colors">
+              {insight.action_label}
+            </button>
+            <button onClick={() => setExpanded(e => !e)} className="text-xs text-violet-500 hover:text-violet-700 transition-colors">
+              {expanded ? "Less" : "Show me why"}
+            </button>
+            <span className="text-[10px] text-neutral-400 ml-auto">Demo · {insight.engine}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TodayCard({ icon, label, count, attention, link, onNavigate }: {
+  icon: string; label: string; count: number; attention: number; link: string; onNavigate: (p: string) => void;
+}) {
+  return (
+    <button onClick={() => onNavigate(link)}
+      className={`relative flex flex-col items-start p-4 rounded-2xl border transition-all hover:shadow-md hover:-translate-y-0.5 text-left w-full
+        ${attention > 0 ? "bg-red-50 border-red-200" : "bg-white border-neutral-100"}`}>
+      {attention > 0 && (
+        <span className="absolute top-2.5 right-2.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+          {attention}
+        </span>
+      )}
+      <span className="text-xl mb-1" aria-hidden>{icon}</span>
+      <p className="text-lg font-bold text-neutral-900">{count}</p>
+      <p className="text-xs text-neutral-500 font-medium">{label}</p>
+    </button>
+  );
+}
+
+function SnapshotRow({ icon, label, value, alert }: { icon: string; label: string; value: string; alert?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="flex items-center gap-1.5 text-xs text-neutral-500"><span aria-hidden>{icon}</span>{label}</span>
+      <span className={`text-sm font-semibold ${alert ? "text-red-600" : "text-neutral-900"}`}>{value}</span>
     </div>
   );
 }

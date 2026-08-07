@@ -5,6 +5,9 @@ import { useAuth } from "../contexts/AuthContext";
 import { PageHeader, Button, Badge, Skeleton, EmptyState, ErrorBanner, ProgressBar, Modal, ConfirmModal, useToast } from "../components/ui";
 import Novi from "../components/Novi";
 import OperationsCenter from "../components/OperationsCenter";
+import NoviEngineInsight from "../components/novi/NoviEngineInsight";
+import { getDemoInsights } from "../lib/businessDna";
+import { useTerms } from "../context/IndustryContext";
 // ── Types ─────────────────────────────────────────────────────────────
 
 interface OrderSummary {
@@ -946,9 +949,13 @@ export default function Orders() {
 
   // ── Order list view ─────────────────────────────────────────────────
 
+  const noviInsights = getDemoInsights("craft_supplies", "orders");
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const terms = useTerms();
+
   return (
     <div className="space-y-4">
-      <PageHeader title="Orders"
+      <PageHeader title={terms.order + 's'}
         novi={<Novi size="sm" accessory="marketing" />}
         actions={
           <div className="flex gap-2">
@@ -961,6 +968,8 @@ export default function Orders() {
           </div>
         }
       />
+
+      <NoviEngineInsight insights={noviInsights} />
 
       <SyncBanner />
       <DiffPanel />
