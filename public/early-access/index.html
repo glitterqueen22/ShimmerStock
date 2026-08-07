@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Early Access | ShimmerStock</title>
-  <meta name="description" content="Why early access exists, who it is for, what members receive, and how feedback shapes ShimmerStock.">
-  <link rel="canonical" href="https://shimmerstock.ctonew.app/early-access">
+  <title>Early Access Application | ShimmerStock</title>
+  <meta name="description" content="Apply for ShimmerStock Early Access. Tell us about your product business, operating model, and growth stage.">
+  <link rel="canonical" href="/early-access">
+  <meta property="og:title" content="Early Access Application | ShimmerStock">
+  <meta property="og:description" content="Apply for private Early Access to the commerce operating system for product businesses.">
   <link rel="stylesheet" href="/assets/marketing.css">
 </head>
 <body>
@@ -15,56 +17,148 @@
     <section class="section">
       <div class="container split">
         <div>
-          <span class="eyebrow">EARLY ACCESS</span>
-          <h1 style="margin-top:0.8rem;">Built with operators, not just for operators.</h1>
-          <p class="lead" style="margin-top:0.8rem;">Early access gives product-business teams a direct way to shape workflows before broader rollout.</p>
+          <span class="eyebrow">EARLY ACCESS APPLICATION</span>
+          <h1 style="margin-top:0.8rem;">Built with operators running real product businesses.</h1>
+          <p class="lead" style="margin-top:0.8rem;">Apply to join private Early Access for teams managing products, inventory, orders, purchasing, production, fulfillment, customer care, and operations.</p>
+          <p class="kicker" style="margin-top:0.9rem;">Shopify connection status: Early Access / Read-only Beta.</p>
           <div class="chip-list">
             <span data-status="early"></span>
             <span data-status="beta"></span>
             <span data-status="planned"></span>
           </div>
-          <div class="btn-row">
-            <a class="btn btn-primary" href="/early-access">Join Early Access</a>
-            <a class="btn btn-secondary" href="/product">See It in Action</a>
-          </div>
         </div>
 
-        <aside class="card">
-          <h3>Member focus</h3>
+        <aside class="notice">
+          <h3>Application focus</h3>
           <ul class="ia-list">
-            <li>Founders and teams running real product operations.</li>
-            <li>Businesses that want fewer disconnected tools.</li>
-            <li>Operators willing to provide structured feedback.</li>
+            <li>Physical-product businesses with active operations.</li>
+            <li>Teams replacing disconnected spreadsheets and tools.</li>
+            <li>Operators willing to share implementation feedback.</li>
           </ul>
-          <div class="price-notes">
-            <p class="small">Introductory base pricing remains locked while continuously subscribed.</p>
-          </div>
+          <p class="small" style="margin-top:0.8rem;">Draft for Early Access - subject to legal review.</p>
         </aside>
       </div>
     </section>
 
     <section class="section section-tight band">
-      <div class="container card-grid">
-        <article class="card">
-          <h3>What members receive</h3>
-          <ul class="ia-list">
-            <li>Direct product feedback loops.</li>
-            <li>First access to new workflows.</li>
-            <li>Clear status transparency by feature.</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3>What we do not do</h3>
-          <ul class="ia-list">
-            <li>No fake countdown timers.</li>
-            <li>No fake scarcity messaging.</li>
-            <li>No claims that planned features are live.</li>
-          </ul>
-        </article>
-        <article class="card">
-          <h3>Rollout expectations</h3>
-          <p>Some workflows remain labeled Beta, Early Access, Planned, or Demo while quality and safety checks continue.</p>
-        </article>
+      <div class="container card">
+        <h2>Apply for Early Access</h2>
+        <p class="small" style="margin-top:0.5rem;">Fields marked required must be completed before submission.</p>
+        <p id="early-access-message" class="small" aria-live="polite" style="margin-top:0.7rem;"></p>
+
+        <form class="form-stack" id="early-access-application-form" method="post" novalidate>
+          <label for="first_name">First name *
+            <input id="first_name" name="first_name" required autocomplete="given-name">
+          </label>
+
+          <label for="last_name">Last name *
+            <input id="last_name" name="last_name" required autocomplete="family-name">
+          </label>
+
+          <label for="email">Email *
+            <input id="email" name="email" type="email" required autocomplete="email" inputmode="email">
+          </label>
+
+          <label for="business_name">Business name *
+            <input id="business_name" name="business_name" required autocomplete="organization">
+          </label>
+
+          <label for="website_url">Website or Shopify store URL (optional)
+            <input id="website_url" name="website_url" type="url" placeholder="https://yourstore.com" autocomplete="url">
+          </label>
+
+          <label for="what_business_sells">What does your business sell? *
+            <textarea id="what_business_sells" name="what_business_sells" required rows="3"></textarea>
+          </label>
+
+          <label for="business_category">Business category *
+            <select id="business_category" name="business_category" required>
+              <option value="">Select a category</option>
+              <option value="craft_maker_supplies">Craft &amp; Maker Supplies</option>
+              <option value="ecommerce_brand">E-commerce / DTC Brand</option>
+              <option value="wholesale_b2b">Wholesale / B2B Supplier</option>
+              <option value="made_to_order_manufacturing">Made-to-Order / Light Manufacturing</option>
+              <option value="apparel_print">Apparel &amp; Print</option>
+              <option value="food_bakery">Food / Bakery</option>
+              <option value="candles_bath_body">Candles / Bath &amp; Body / Home Fragrance</option>
+              <option value="boutique_retail">Boutique / Retail</option>
+              <option value="subscription_boxes">Subscription Boxes</option>
+              <option value="freshie_business">Freshie Business</option>
+              <option value="other_product_business">Other Product Business</option>
+            </select>
+          </label>
+
+          <label for="current_commerce_platform">Current commerce platform *
+            <select id="current_commerce_platform" name="current_commerce_platform" required>
+              <option value="">Select a platform</option>
+              <option value="shopify">Shopify</option>
+              <option value="woocommerce">WooCommerce</option>
+              <option value="bigcommerce">BigCommerce</option>
+              <option value="squarespace">Squarespace</option>
+              <option value="etsy">Etsy</option>
+              <option value="amazon">Amazon</option>
+              <option value="custom">Custom / Other</option>
+            </select>
+          </label>
+
+          <label for="monthly_order_range">Approximate monthly order range *
+            <select id="monthly_order_range" name="monthly_order_range" required>
+              <option value="">Select order volume</option>
+              <option value="0_100">0-100 orders</option>
+              <option value="101_500">101-500 orders</option>
+              <option value="501_2000">501-2,000 orders</option>
+              <option value="2001_10000">2,001-10,000 orders</option>
+              <option value="10000_plus">10,000+ orders</option>
+            </select>
+          </label>
+
+          <label for="team_size">Team size *
+            <select id="team_size" name="team_size" required>
+              <option value="">Select team size</option>
+              <option value="solo">Solo operator</option>
+              <option value="2_5">2-5 people</option>
+              <option value="6_15">6-15 people</option>
+              <option value="16_50">16-50 people</option>
+              <option value="50_plus">50+ people</option>
+            </select>
+          </label>
+
+          <label for="biggest_operational_challenge">Biggest operational challenge *
+            <textarea id="biggest_operational_challenge" name="biggest_operational_challenge" required rows="4"></textarea>
+          </label>
+
+          <label for="plan_interest">Plan interest *
+            <select id="plan_interest" name="plan_interest" required>
+              <option value="">Select plan interest</option>
+              <option value="launch">Launch</option>
+              <option value="grow">Grow</option>
+              <option value="scale">Scale</option>
+              <option value="not_sure">Not sure</option>
+            </select>
+          </label>
+
+          <label for="fax_number" style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden;" aria-hidden="true">Do not fill this field
+            <input id="fax_number" name="fax_number" tabindex="-1" autocomplete="off">
+          </label>
+
+          <label for="consent">
+            <input id="consent" name="consent" type="checkbox" required>
+            I consent to receive Early Access communication from ShimmerStock. *
+          </label>
+
+          <label for="privacy_acknowledged">
+            <input id="privacy_acknowledged" name="privacy_acknowledged" type="checkbox" required>
+            I acknowledge the <a href="/privacy">Privacy Policy</a> and <a href="/early-access-terms">Early Access Terms</a>. *
+          </label>
+
+          <button class="btn btn-primary" type="submit" id="early-access-submit">Submit Early Access Application</button>
+        </form>
+
+        <section id="early-access-success" class="notice" hidden style="margin-top:1rem;">
+          <h3>YOU'RE ON THE LIST.</h3>
+          <p style="margin-top:0.6rem;">Novi will keep your seat warm. We'll reach out as the next Early Access group opens.</p>
+          <p class="small" style="margin-top:0.6rem;">For updates, you can also review <a href="/pricing">pricing</a> or <a href="/product">see ShimmerStock in action</a>.</p>
+        </section>
       </div>
     </section>
   </main>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security | ShimmerStock</title>
+  <meta name="description" content="Security posture summary for ShimmerStock Early Access.">
+  <link rel="canonical" href="/security">
+  <link rel="stylesheet" href="/assets/marketing.css">
+</head>
+<body>
+  <div data-marketing-header></div>
+  <main id="main-content">
+    <section class="section">
+      <div class="container-reading">
+        <span class="eyebrow">SECURITY</span>
+        <h1 style="margin-top:0.8rem;">Security Posture</h1>
+        <p class="lead" style="margin-top:0.8rem;">Draft for Early Access - subject to legal review.</p>
+        <div class="card" style="margin-top:1rem; display:grid; gap:0.8rem;">
+          <p><strong>Shopify scope posture:</strong> current Early Access connection is read-only beta and follows least-privilege scope controls.</p>
+          <p><strong>Credential handling:</strong> credential material is stored using encrypted mechanisms with access controls.</p>
+          <p><strong>Sessions:</strong> authenticated access uses secure HttpOnly session cookies.</p>
+          <p><strong>Tenant-aware architecture:</strong> business data access is tenant-scoped and role-gated.</p>
+          <p><strong>Role permissions:</strong> feature access is restricted through role-aware authorization checks.</p>
+          <p><strong>Private staging backups:</strong> staging backup workflows are handled in controlled private environments.</p>
+          <p><strong>Responsible reporting:</strong> report security issues to <a href="mailto:security@shimmerstock.com">security@shimmerstock.com</a>.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div data-marketing-footer></div>
+  <script src="/assets/marketing.js" defer></script>
+</body>
+</html>

@@ -15,28 +15,27 @@
       ["Inventory & Warehouse", "/product/inventory"],
       ["Orders & Fulfillment", "/product/orders"],
       ["Production", "/product/production"],
-      ["Purchasing", "/product/production#purchasing"],
+      ["Purchasing", "/product/production"],
       ["Customer Care", "/product/customer-care"],
       ["Partner & Affiliate HQ", "/product/partners"],
       ["Novi", "/product/novi"],
-      ["Team & Permissions", "/product/partners#team"]
+      ["Team & Permissions", "/product/partners"]
     ],
     solutions: [
-      ["Freshie Businesses", "/solutions/freshies"],
-      ["Apparel & T-Shirt Brands", "/solutions/apparel"],
-      ["Bakeries", "/solutions/bakery"],
-      ["Candle Makers", "/solutions/candles"],
-      ["Bath & Body", "/solutions/bath-body"],
-      ["Boutiques", "/solutions/boutiques"],
-      ["Craft Suppliers", "/solutions/freshies#craft"],
-      ["Subscription Boxes", "/solutions/boutiques#subscription"],
-      ["Custom / Personalized Products", "/solutions/apparel#custom"]
+      ["Craft & Maker Supplies", "/solutions/craft-suppliers"],
+      ["E-commerce Brands", "/solutions/ecommerce-brands"],
+      ["Made-to-Order & Manufacturing", "/solutions/made-to-order"],
+      ["Apparel & Print", "/solutions/apparel"],
+      ["Food & Bakery", "/solutions/bakery"],
+      ["Candles, Bath & Body & Home Fragrance", "/solutions/candles"],
+      ["Boutiques & Retail", "/solutions/boutiques"],
+      ["Subscription Boxes", "/solutions/subscription-boxes"],
+      ["Freshie Businesses", "/solutions/freshies"]
     ],
     resources: [
       ["How It Works", "/resources/how-it-works"],
       ["Integrations", "/resources/integrations"],
       ["FAQ", "/resources/faq"],
-      ["Help Center (Coming Soon)", "/resources/faq#help-center"],
       ["Dream Grant", "/dream-grant"]
     ]
   };
@@ -120,37 +119,232 @@
             </div>
             <div>
               <h4>Product</h4>
-              <a href="/product">Overview</a>
-              <a href="/product/inventory">Inventory</a>
-              <a href="/product/orders">Orders</a>
-              <a href="/product/production">Production</a>
+              <a href="/product">Product</a>
+              <a href="/pricing">Pricing</a>
+              <a href="/resources/integrations">Integrations</a>
               <a href="/product/novi">Novi</a>
             </div>
             <div>
               <h4>Solutions</h4>
-              <a href="/solutions/freshies">Freshies</a>
+              <a href="/solutions/craft-suppliers">Craft &amp; Maker Supplies</a>
+              <a href="/solutions/ecommerce-brands">E-commerce Brands</a>
+              <a href="/solutions/made-to-order">Made-to-Order</a>
               <a href="/solutions/apparel">Apparel</a>
-              <a href="/solutions/bakery">Bakery</a>
-              <a href="/solutions/candles">Candles</a>
-              <a href="/solutions/bath-body">Bath & Body</a>
+              <a href="/solutions/bakery">Food &amp; Bakery</a>
             </div>
             <div>
-              <h4>Resources</h4>
-              <a href="/resources/how-it-works">How It Works</a>
-              <a href="/resources/integrations">Integrations</a>
-              <a href="/resources/faq">FAQ</a>
-              <a href="/dream-grant">Dream Grant</a>
+              <h4>Company</h4>
+              <a href="/about">About</a>
               <a href="/early-access">Early Access</a>
+              <a href="/dream-grant">Dream Grant</a>
+              <a href="/contact">Contact</a>
             </div>
             <div>
               <h4>Trust</h4>
-              <p class="small">Shopify least-privilege read-only connection in early access. Encrypted credentials. Secure HttpOnly sessions. Tenant-aware architecture.</p>
+              <a href="/security">Security</a>
+              <a href="/privacy">Privacy</a>
+              <a href="/terms">Terms</a>
+              <a href="/early-access-terms">Early Access Terms</a>
+              <a href="/data-request">Data Request</a>
             </div>
           </div>
-          <p class="small">Built from real operations. Illustrative demo workspace UI appears throughout public pages where shown.</p>
+          <p class="small">Built from real operations. Illustrative demo workspace UI appears throughout public pages where shown. Shopify connection status: Early Access / Read-only Beta.</p>
         </div>
       </footer>
     `;
+  }
+
+  let cachedPublicRuntime = null;
+
+  async function getPublicRuntime() {
+    if (cachedPublicRuntime) return cachedPublicRuntime;
+
+    try {
+      const response = await fetch("/api/public/runtime", {
+        method: "GET",
+        headers: { "Accept": "application/json" }
+      });
+      if (!response.ok) {
+        throw new Error("runtime-fetch-failed");
+      }
+      const payload = await response.json();
+      cachedPublicRuntime = payload;
+      return payload;
+    } catch {
+      cachedPublicRuntime = {
+        privateMode: false,
+        noindex: false,
+        siteOrigin: "",
+        dreamGrantOpen: false
+      };
+      return cachedPublicRuntime;
+    }
+  }
+
+  function upsertMeta(attrName, attrValue, content) {
+    const selector = `meta[${attrName}="${attrValue}"]`;
+    let node = document.head.querySelector(selector);
+    if (!node) {
+      node = document.createElement("meta");
+      node.setAttribute(attrName, attrValue);
+      document.head.appendChild(node);
+    }
+    node.setAttribute("content", content);
+  }
+
+  function upsertLink(rel, href) {
+    let node = document.head.querySelector(`link[rel="${rel}"]`);
+    if (!node) {
+      node = document.createElement("link");
+      node.setAttribute("rel", rel);
+      document.head.appendChild(node);
+    }
+    node.setAttribute("href", href);
+  }
+
+  async function initSeoMetadata() {
+    if (!document.head) return;
+
+    const runtime = await getPublicRuntime();
+    const activeOrigin = runtime.siteOrigin || window.location.origin;
+    const canonicalUrl = `${activeOrigin}${window.location.pathname === "/" ? "/" : window.location.pathname.replace(/\/$/, "")}`;
+    const socialImage = `${activeOrigin}/assets/shimmerstock-social-1200x630.svg`;
+
+    if (runtime.noindex) {
+      upsertMeta("name", "robots", "noindex, nofollow, noarchive");
+      const canonicalNode = document.head.querySelector('link[rel="canonical"]');
+      if (canonicalNode) canonicalNode.remove();
+    } else {
+      upsertLink("canonical", canonicalUrl);
+    }
+
+    upsertMeta("property", "og:type", "website");
+    upsertMeta("property", "og:url", canonicalUrl);
+    upsertMeta("property", "og:image", socialImage);
+    upsertMeta("name", "twitter:card", "summary_large_image");
+    upsertMeta("name", "twitter:image", socialImage);
+
+    if (!document.head.querySelector('script[data-structured="organization"]')) {
+      const org = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "ShimmerStock",
+        "url": activeOrigin,
+        "description": "ShimmerStock is the commerce operating system for product businesses.",
+        "sameAs": []
+      };
+      const node = document.createElement("script");
+      node.type = "application/ld+json";
+      node.setAttribute("data-structured", "organization");
+      node.textContent = JSON.stringify(org);
+      document.head.appendChild(node);
+    }
+
+    if (!document.head.querySelector('script[data-structured="software"]')) {
+      const app = {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "ShimmerStock",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "url": activeOrigin,
+        "description": "ShimmerStock helps product businesses run inventory, orders, production, purchasing, fulfillment, and customer care in one workspace."
+      };
+      const node = document.createElement("script");
+      node.type = "application/ld+json";
+      node.setAttribute("data-structured", "software");
+      node.textContent = JSON.stringify(app);
+      document.head.appendChild(node);
+    }
+  }
+
+  async function initEarlyAccessApplicationForm() {
+    const form = document.getElementById("early-access-application-form");
+    if (!form) return;
+
+    const runtime = await getPublicRuntime();
+    const message = document.getElementById("early-access-message");
+    const submitButton = document.getElementById("early-access-submit");
+    const successPane = document.getElementById("early-access-success");
+    const planSelect = form.querySelector('select[name="plan_interest"]');
+
+    const allowedPlans = new Set(["launch", "grow", "scale", "not_sure"]);
+    const planFromUrl = new URLSearchParams(window.location.search).get("plan");
+    if (planSelect && planFromUrl && allowedPlans.has(planFromUrl)) {
+      planSelect.value = planFromUrl;
+    }
+
+    if (runtime.privateMode) {
+      if (message) {
+        message.textContent = "Early Access applications are disabled in private staging mode. Use this page for visual review only.";
+      }
+      form.querySelectorAll("input, select, textarea, button").forEach((node) => {
+        node.setAttribute("disabled", "disabled");
+      });
+      if (submitButton) submitButton.style.display = "none";
+      return;
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (message) message.textContent = "";
+
+      const formData = new FormData(form);
+      const payload = {
+        first_name: String(formData.get("first_name") || "").trim(),
+        last_name: String(formData.get("last_name") || "").trim(),
+        email: String(formData.get("email") || "").trim(),
+        business_name: String(formData.get("business_name") || "").trim(),
+        website_url: String(formData.get("website_url") || "").trim(),
+        what_business_sells: String(formData.get("what_business_sells") || "").trim(),
+        business_category: String(formData.get("business_category") || "").trim(),
+        current_commerce_platform: String(formData.get("current_commerce_platform") || "").trim(),
+        monthly_order_range: String(formData.get("monthly_order_range") || "").trim(),
+        team_size: String(formData.get("team_size") || "").trim(),
+        biggest_operational_challenge: String(formData.get("biggest_operational_challenge") || "").trim(),
+        plan_interest: String(formData.get("plan_interest") || "").trim(),
+        consent: formData.get("consent") === "on",
+        privacy_acknowledged: formData.get("privacy_acknowledged") === "on",
+        fax_number: String(formData.get("fax_number") || "").trim()
+      };
+
+      if (!payload.first_name || !payload.last_name || !payload.email || !payload.business_name || !payload.what_business_sells || !payload.business_category || !payload.current_commerce_platform || !payload.monthly_order_range || !payload.team_size || !payload.biggest_operational_challenge || !payload.plan_interest || !payload.consent || !payload.privacy_acknowledged) {
+        if (message) message.textContent = "Please complete all required fields and confirmations.";
+        return;
+      }
+
+      if (submitButton) {
+        submitButton.setAttribute("disabled", "disabled");
+        submitButton.textContent = "Submitting...";
+      }
+
+      try {
+        const response = await fetch("/api/early-access/apply", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          if (message) message.textContent = data.error || "Unable to submit right now. Please try again.";
+          return;
+        }
+
+        form.style.display = "none";
+        if (successPane) successPane.hidden = false;
+      } catch {
+        if (message) message.textContent = "Unable to submit right now. Please try again.";
+      } finally {
+        if (submitButton) {
+          submitButton.removeAttribute("disabled");
+          submitButton.textContent = "Submit Early Access Application";
+        }
+      }
+    });
   }
 
   function initMenus() {
@@ -589,6 +783,7 @@
 
   renderHeader();
   renderFooter();
+  initSeoMetadata();
   initMenus();
   initTabs();
   initProductTour();
@@ -597,5 +792,6 @@
   initNoviBrief();
   initWorkflowDetail();
   initSavingsMeter();
+  initEarlyAccessApplicationForm();
   initStatusBadges();
 })();

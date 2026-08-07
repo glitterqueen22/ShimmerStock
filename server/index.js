@@ -70,6 +70,7 @@ const runtimeState = {
 };
 
 const cleanupTasks = [];
+const publicSubmissionRateLimit = new Map();
 
 app.set("trust proxy", runtimeConfig.trustProxy ? 1 : false);
 
@@ -96,6 +97,65 @@ function blockPublicSubmissionInPrivateMode(res) {
   res.status(403).json({
     error: "Public submissions are disabled in private staging mode",
   });
+  return true;
+}
+
+function shouldAllowDreamGrantApplications() {
+  return String(process.env.SHIMMERSTOCK_DREAM_GRANT_OPEN || "").toLowerCase() === "true";
+}
+
+function getPublicSiteOrigin() {
+  const raw = process.env.SHIMMERSTOCK_PUBLIC_URL || process.env.SHIMMERSTOCK_URL || "";
+  if (!raw) return "";
+
+  try {
+    const parsed = new URL(raw);
+    return parsed.origin;
+  } catch {
+    return "";
+  }
+}
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isLikelyUrl(value) {
+  if (!value) return true;
+  const str = String(value).trim();
+  if (!str.startsWith("http://") && !str.startsWith("https://")) return false;
+  try {
+    const parsed = new URL(str);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function cleanField(value, { min = 0, max = 500 } = {}) {
+  const cleaned = String(value || "").trim();
+  if (cleaned.length < min || cleaned.length > max) {
+    return null;
+  }
+  return cleaned;
+}
+
+function takePublicRateLimitToken(key, windowMs = 15 * 60 * 1000, maxPerWindow = 8) {
+  const testFlag = process.env.SHIMMERSTOCK_TEST;
+  if (runtimeConfig.isTest || testFlag === "true" || testFlag === "1") return true;
+  const now = Date.now();
+  const existing = publicSubmissionRateLimit.get(key) || [];
+  const recent = existing.filter((t) => now - t < windowMs);
+  if (recent.length >= maxPerWindow) {
+    publicSubmissionRateLimit.set(key, recent);
+    return false;
+  }
+  recent.push(now);
+  publicSubmissionRateLimit.set(key, recent);
   return true;
 }
 
@@ -141,6 +201,16 @@ app.get("/ready", (_req, res) => {
     return res.status(503).json({ status: "not_ready" });
   }
   return res.status(200).json({ status: "ready" });
+});
+
+app.get("/api/public/runtime", (_req, res) => {
+  const siteOrigin = getPublicSiteOrigin();
+  res.json({
+    privateMode: runtimeConfig.isPrivateMode,
+    siteOrigin,
+    noindex: runtimeConfig.isPrivateMode,
+    dreamGrantOpen: shouldAllowDreamGrantApplications() && !runtimeConfig.isPrivateMode,
+  });
 });
 
 // Mount webhooks FIRST so they can read raw body
@@ -3499,6 +3569,121 @@ mountStudioRoutes(app, db);
   // ── Shopify OAuth (multi-business self-serve) ────────────────
   mountShopifyOauthRoutes(app, db);
 
+  // ── Early Access application endpoint ─────────────────────────────
+  app.post("/api/early-access/apply", (req, res) => {
+    try {
+      if (blockPublicSubmissionInPrivateMode(res)) {
+        return;
+      }
+
+      const rateLimitKey = `ea:${req.ip || "unknown"}`;
+      if (!takePublicRateLimitToken(rateLimitKey)) {
+        return res.status(429).json({ error: "Please wait a few minutes before submitting again." });
+      }
+
+      const honeypot = cleanField(req.body?.fax_number || "", { max: 100 });
+      if (honeypot) {
+        // Intentionally succeed for bots without persisting spam.
+        return res.status(202).json({ success: true, accepted: true });
+      }
+
+      const firstName = cleanField(req.body?.first_name, { min: 1, max: 80 });
+      const lastName = cleanField(req.body?.last_name, { min: 1, max: 80 });
+      const email = cleanField(req.body?.email, { min: 3, max: 200 });
+      const businessName = cleanField(req.body?.business_name, { min: 1, max: 180 });
+      const websiteUrlRaw = cleanField(req.body?.website_url, { max: 240 });
+      const whatBusinessSells = cleanField(req.body?.what_business_sells, { min: 2, max: 1500 });
+      const businessCategory = cleanField(req.body?.business_category, { min: 2, max: 120 });
+      const currentCommercePlatform = cleanField(req.body?.current_commerce_platform, { min: 2, max: 120 });
+      const monthlyOrderRange = cleanField(req.body?.monthly_order_range, { min: 1, max: 120 });
+      const teamSize = cleanField(req.body?.team_size, { min: 1, max: 80 });
+      const biggestOperationalChallenge = cleanField(req.body?.biggest_operational_challenge, { min: 3, max: 2000 });
+      const planInterest = cleanField(req.body?.plan_interest, { min: 1, max: 40 });
+      const consent = req.body?.consent === true;
+      const privacyAcknowledged = req.body?.privacy_acknowledged === true;
+
+      const allowedPlanInterest = new Set(["launch", "grow", "scale", "not_sure"]);
+      const normalizedEmail = normalizeEmail(email || "");
+
+      if (!firstName || !lastName || !email || !businessName || !whatBusinessSells || !businessCategory || !currentCommercePlatform || !monthlyOrderRange || !teamSize || !biggestOperationalChallenge || !planInterest) {
+        return res.status(400).json({ error: "Please complete all required fields." });
+      }
+      if (!isValidEmail(normalizedEmail)) {
+        return res.status(400).json({ error: "Please enter a valid email address." });
+      }
+      if (!allowedPlanInterest.has(planInterest)) {
+        return res.status(400).json({ error: "Please choose a valid plan interest." });
+      }
+      if (!consent || !privacyAcknowledged) {
+        return res.status(400).json({ error: "Consent and privacy acknowledgement are required." });
+      }
+      if (websiteUrlRaw && !isLikelyUrl(websiteUrlRaw)) {
+        return res.status(400).json({ error: "Website URL must be a valid http or https URL." });
+      }
+
+      const duplicate = db.query(
+        "SELECT id FROM early_access_applications WHERE normalized_email = ?"
+      ).get(normalizedEmail);
+
+      if (duplicate?.id) {
+        return res.status(200).json({ success: true, duplicate: true });
+      }
+
+      const consentedAt = new Date().toISOString();
+      const websiteUrl = websiteUrlRaw || null;
+      const result = db.run(
+        `INSERT INTO early_access_applications (
+          first_name,
+          last_name,
+          email,
+          normalized_email,
+          business_name,
+          website_url,
+          what_business_sells,
+          business_category,
+          current_commerce_platform,
+          monthly_order_range,
+          team_size,
+          biggest_operational_challenge,
+          plan_interest,
+          consented_at,
+          privacy_acknowledged,
+          source,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'public_site', datetime('now'), datetime('now'))`,
+        [
+          firstName,
+          lastName,
+          email,
+          normalizedEmail,
+          businessName,
+          websiteUrl,
+          whatBusinessSells,
+          businessCategory,
+          currentCommercePlatform,
+          monthlyOrderRange,
+          teamSize,
+          biggestOperationalChallenge,
+          planInterest,
+          consentedAt,
+          privacyAcknowledged ? 1 : 0,
+        ]
+      );
+
+      logInfo("early-access", "Public early access application received", {
+        applicationId: result.lastInsertRowid,
+      });
+
+      return res.status(200).json({ success: true });
+    } catch (err) {
+      logError("early-access", "Public early access application failed", {
+        error: err?.message || "unknown_error",
+      });
+      return res.status(500).json({ error: "Unable to submit right now. Please try again." });
+    }
+  });
+
 // ── Dream Grant application endpoint ────────────────────────────────
 
 app.post('/api/dream-grant/apply', (req, res) => {
@@ -3506,6 +3691,10 @@ app.post('/api/dream-grant/apply', (req, res) => {
     if (blockPublicSubmissionInPrivateMode(res)) {
       return;
     }
+
+      if (!shouldAllowDreamGrantApplications()) {
+        return res.status(403).json({ error: 'Dream Grant applications are not currently open.' });
+      }
 
     const { name, email, dream, build, stopping, change, mean } = req.body;
     if (!name || !email || !dream || !build || !change) {
