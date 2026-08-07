@@ -1,0 +1,25 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ShimmerStock social preview image">
+  <defs>
+    <linearGradient id="bg" x1="100" y1="40" x2="1100" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8F2FF"/>
+      <stop offset="0.5" stop-color="#FFF7EF"/>
+      <stop offset="1" stop-color="#ECF7EF"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="253" y1="154" x2="874" y2="522" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5B3F8C"/>
+      <stop offset="1" stop-color="#4F8A68"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
+  <circle cx="1085" cy="112" r="152" fill="#E7DDF9"/>
+  <circle cx="112" cy="541" r="152" fill="#D9EEE0"/>
+  <rect x="96" y="96" width="1008" height="438" rx="28" fill="white" stroke="#D8C9EE" stroke-width="2"/>
+  <rect x="140" y="136" width="198" height="26" rx="13" fill="#EDE3FA"/>
+  <text x="154" y="154" fill="#5B3F8C" font-size="16" font-family="Avenir Next, Avenir, Segoe UI, sans-serif" font-weight="700">SHIMMERSTOCK</text>
+  <text x="140" y="234" fill="#1F1B29" font-size="56" font-family="Iowan Old Style, Palatino Linotype, serif" font-weight="700">The Commerce Operating System</text>
+  <text x="140" y="286" fill="#1F1B29" font-size="56" font-family="Iowan Old Style, Palatino Linotype, serif" font-weight="700">for Product Businesses</text>
+  <text x="140" y="338" fill="#4E465A" font-size="26" font-family="Avenir Next, Avenir, Segoe UI, sans-serif">Inventory, orders, purchasing, production, fulfillment, teams, and Novi</text>
+  <text x="140" y="374" fill="#4E465A" font-size="26" font-family="Avenir Next, Avenir, Segoe UI, sans-serif">in one command center.</text>
+  <rect x="140" y="430" width="334" height="62" rx="31" fill="url(#accent)"/>
+  <text x="176" y="469" fill="white" font-size="28" font-family="Avenir Next, Avenir, Segoe UI, sans-serif" font-weight="700">Join Early Access</text>
+</svg>

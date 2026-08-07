@@ -60,6 +60,7 @@ const oauthCallbackLimiter = rateLimit({
 
 const REQUIRED_SCOPES = ["read_orders", "read_products", "read_inventory", "read_locations"];
 const SHOPIFY_SCOPES = REQUIRED_SCOPES.join(",");
+const PUBLIC_APP_URL = process.env.SHIMMERSTOCK_PUBLIC_URL || process.env.SHIMMERSTOCK_URL || "http://localhost:3000";
 
 // P0 policy: the approved set is exactly REQUIRED_SCOPES — no additional scopes.
 // read_all_orders is NOT approved for P0; it belongs in a separate owner-approved scope milestone.
@@ -416,7 +417,7 @@ export function mountShopifyOauthRoutes(app, db) {
       const authUrl = new URL(`https://${shop}/admin/oauth/authorize`);
       authUrl.searchParams.set("client_id", process.env.SHOPIFY_CLIENT_ID || "");
       authUrl.searchParams.set("scope", SHOPIFY_SCOPES);
-      authUrl.searchParams.set("redirect_uri", `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/api/shopify/auth/callback`);
+      authUrl.searchParams.set("redirect_uri", `${PUBLIC_APP_URL}/api/shopify/auth/callback`);
       authUrl.searchParams.set("state", stateToken);
 
       const destination = authUrl.toString();
@@ -537,7 +538,7 @@ export function mountShopifyOauthRoutes(app, db) {
         invalidateProviderCache(businessId);
         console.log(`[shopify-oauth] Shopify connected for business ${businessId}: ${shopName || shop}`);
 
-        const redirectUrl = `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/commerce?shopify_connected=true`;
+        const redirectUrl = `${PUBLIC_APP_URL}/commerce?shopify_connected=true`;
         res.redirect(redirectUrl);
       } else {
         // Verification failed — save metadata but mark as failed, do not activate
@@ -559,12 +560,12 @@ export function mountShopifyOauthRoutes(app, db) {
         `, [businessId, shop, encryptedToken, verifiedScopeString, `Token validation failed`, shopOwner, shopName]);
 
         console.error(`[shopify-oauth] Shopify connection FAILED for business ${businessId}`);
-        const errorUrl = `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/commerce?shopify_error=validation_failed`;
+        const errorUrl = `${PUBLIC_APP_URL}/commerce?shopify_error=validation_failed`;
         res.redirect(errorUrl);
       }
     } catch (err) {
       console.error("GET /api/shopify/auth/callback error:", err.message);
-      const errorUrl = `${process.env.SHIMMERSTOCK_URL || "https://shimmerstock.ctonew.app"}/commerce?shopify_error=connection_failed`;
+      const errorUrl = `${PUBLIC_APP_URL}/commerce?shopify_error=connection_failed`;
       res.redirect(errorUrl);
     }
   });

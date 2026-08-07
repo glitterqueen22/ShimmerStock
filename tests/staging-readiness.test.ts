@@ -35,7 +35,7 @@ async function loginWithCookie() {
   return cookie as string;
 }
 
-function tableRowCount(tableName: "dream_grant_applications" | "waitlist" | "partner_application_submissions" | "affiliate_tracking_cookies") {
+function tableRowCount(tableName: "dream_grant_applications" | "waitlist" | "partner_application_submissions" | "affiliate_tracking_cookies" | "early_access_applications") {
   const row = db.query(`SELECT COUNT(*) as count FROM ${tableName}`).get() as { count: number };
   return row.count;
 }
@@ -210,5 +210,57 @@ describe("Sensitive log redaction", () => {
       nested: { password: "[REDACTED]" },
       ok: "safe",
     });
+  });
+});
+
+const validEarlyAccessPayload = {
+  first_name: "Test",
+  last_name: "Operator",
+  email: "early-access-test@example.test",
+  business_name: "Test Supplies Co",
+  website_url: "",
+  what_business_sells: "Craft supplies and maker kits",
+  business_category: "craft_maker_supplies",
+  current_commerce_platform: "shopify",
+  monthly_order_range: "101_500",
+  team_size: "2_5",
+  biggest_operational_challenge: "Managing inventory across multiple suppliers",
+  plan_interest: "grow",
+  consent: true,
+  privacy_acknowledged: true,
+  fax_number: "",
+};
+
+describe("Early Access application endpoint — private staging closed state", () => {
+  it("blocks early access application in private staging mode", async () => {
+    const beforeCount = tableRowCount("early_access_applications");
+    const res = await fetch(`${appUrl}/api/early-access/apply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validEarlyAccessPayload),
+    });
+    expect(res.status).toBe(403);
+    const data = await res.json() as any;
+    expect(data.error).toContain("disabled");
+    expect(tableRowCount("early_access_applications")).toBe(beforeCount);
+  });
+
+  it("rejects missing required fields", async () => {
+    const res = await fetch(`${appUrl}/api/early-access/apply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "incomplete@example.test" }),
+    });
+    expect(res.status).toBe(403); // private mode rejects before validation
+    const data = await res.json() as any;
+    expect(data.error).toContain("disabled");
+  });
+
+  it("GET /api/public/runtime returns privateMode=true in staging", async () => {
+    const res = await fetch(`${appUrl}/api/public/runtime`);
+    expect(res.status).toBe(200);
+    const data = await res.json() as any;
+    expect(data.privateMode).toBe(true);
+    expect(data.noindex).toBe(true);
   });
 });

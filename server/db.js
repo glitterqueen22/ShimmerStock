@@ -2902,4 +2902,34 @@ function initAttributionTables(db) {
     )
   `);
   console.log("Waitlist table ready");
+
+  // ── Early Access applications ───────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS early_access_applications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      first_name TEXT NOT NULL,
+      last_name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      normalized_email TEXT NOT NULL,
+      business_name TEXT NOT NULL,
+      website_url TEXT,
+      what_business_sells TEXT NOT NULL,
+      business_category TEXT NOT NULL,
+      current_commerce_platform TEXT NOT NULL,
+      monthly_order_range TEXT NOT NULL,
+      team_size TEXT NOT NULL,
+      biggest_operational_challenge TEXT NOT NULL,
+      plan_interest TEXT NOT NULL,
+      consented_at TEXT NOT NULL,
+      privacy_acknowledged INTEGER NOT NULL DEFAULT 0,
+      source TEXT NOT NULL DEFAULT 'public_site',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+  db.run(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_early_access_applications_normalized_email
+    ON early_access_applications(normalized_email)
+  `);
+  console.log("Early Access applications table ready");
 }
