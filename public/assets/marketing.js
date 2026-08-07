@@ -250,6 +250,304 @@
     });
   }
 
+  function initProductTour() {
+    const shell = document.querySelector(".hero-stage[data-tour]");
+    const tabs = document.querySelectorAll("[data-product-tour] .tour-tab");
+    const summaryLabel = document.querySelector("[data-tour-kicker]");
+    const summaryTitle = document.querySelector("[data-tour-title]");
+    const summaryCopy = document.querySelector("[data-tour-copy]");
+    const summaryMetricNodes = document.querySelectorAll("[data-tour-metric-1], [data-tour-metric-2], [data-tour-metric-3]");
+    const summaryNote = document.querySelector("[data-tour-note]");
+
+    if (!shell || !tabs.length) return;
+
+    const states = {
+      command: {
+        label: "Command center",
+        title: "One calm place to run the day.",
+        copy: "The command shell tracks orders, inventory, production, care, and Novi without making the workspace feel crowded.",
+        metrics: ["146", "2,730", "9"],
+        note: "Everything is visible, but nothing is fighting for attention."
+      },
+      inventory: {
+        label: "Inventory",
+        title: "Stock, bins, and low-risk signals.",
+        copy: "Inventory states surface before a shortage becomes a scramble, so the team can restock with confidence.",
+        metrics: ["3", "2,730", "9"],
+        note: "Use it to preview counts, reorder timing, and material pressure."
+      },
+      orders: {
+        label: "Orders",
+        title: "Order flow stays visible from the first click.",
+        copy: "Incoming orders land in the queue with enough context to keep the handoff from storefront to fulfillment smooth.",
+        metrics: ["146", "2,730", "14"],
+        note: "The queue stays operational, not decorative."
+      },
+      production: {
+        label: "Production",
+        title: "Batch planning and purchasing live together.",
+        copy: "Production cards connect demand changes, draft purchase orders, and the work needed to keep batches moving.",
+        metrics: ["146", "1,930", "2"],
+        note: "Useful for makers, packers, and anyone juggling component lead times."
+      },
+      "customer-care": {
+        label: "Customer care",
+        title: "Support reads the same operational context.",
+        copy: "Messages are easier to answer when the order, inventory, and production state sit next to the conversation.",
+        metrics: ["3", "2,730", "9"],
+        note: "The care lane stays aware of the rest of the business."
+      },
+      novi: {
+        label: "Novi",
+        title: "Novi turns scattered signals into a brief.",
+        copy: "Instead of a chatbot bubble, Novi behaves like a real business operator that watches exceptions and prioritizes the morning.",
+        metrics: ["1", "3", "9"],
+        note: "This is the signature surface for the product."
+      }
+    };
+
+    function applyState(key) {
+      const state = states[key] || states.command;
+      shell.dataset.tour = key;
+      tabs.forEach((tab) => tab.setAttribute("aria-pressed", tab.getAttribute("data-tour-target") === key ? "true" : "false"));
+      if (summaryLabel) summaryLabel.textContent = state.label;
+      if (summaryTitle) summaryTitle.textContent = state.title;
+      if (summaryCopy) summaryCopy.textContent = state.copy;
+      summaryMetricNodes.forEach((node, index) => {
+        const value = state.metrics[index] || node.textContent || "";
+        node.textContent = value;
+      });
+      if (summaryNote) summaryNote.textContent = state.note;
+    }
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => applyState(tab.getAttribute("data-tour-target") || "command"));
+    });
+
+    applyState(tabs[0].getAttribute("data-tour-target") || "command");
+  }
+
+  function initChaosToggle() {
+    const stage = document.querySelector("[data-chaos-stage]");
+    const buttons = document.querySelectorAll("[data-chaos-view]");
+    if (!stage || !buttons.length) return;
+
+    const states = {
+      before: {
+        title: "Before ShimmerStock",
+        copy: "Teams juggle channels, sheets, inboxes, and shipping tools just to answer one operational question.",
+        pills: ["Storefront", "Spreadsheet", "Shipping App", "Support Inbox", "Batch Sheet", "Affiliate Tracker"]
+      },
+      after: {
+        title: "After ShimmerStock",
+        copy: "Orders, stock, production, fulfillment, care, and growth signals align in one operating rhythm.",
+        pills: ["Orders", "Inventory", "Production", "Fulfillment", "Customer Care", "Novi"]
+      }
+    };
+
+    const titleNode = stage.querySelector("[data-chaos-title]");
+    const copyNode = stage.querySelector("[data-chaos-copy]");
+    const pillsNode = stage.querySelector("[data-chaos-pills]");
+
+    function applyMode(mode) {
+      const state = states[mode] || states.before;
+      stage.dataset.chaosMode = mode;
+      buttons.forEach((button) => button.classList.toggle("is-active", button.getAttribute("data-chaos-view") === mode));
+      if (titleNode) titleNode.textContent = state.title;
+      if (copyNode) copyNode.textContent = state.copy;
+      if (pillsNode) {
+        pillsNode.innerHTML = state.pills.map((pill) => `<span>${pill}</span>`).join("");
+      }
+    }
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => applyMode(button.getAttribute("data-chaos-view") || "before"));
+    });
+
+    applyMode(stage.dataset.chaosMode || "before");
+  }
+
+  function initIndustrySpotlight() {
+    const spotlight = document.querySelector("[data-industry-spotlight]");
+    const tabs = document.querySelectorAll(".tabs .tab-button[data-industry-label]");
+    if (!spotlight || !tabs.length) return;
+
+    const labelNode = spotlight.querySelector("[data-industry-inventory]");
+    const productionNode = spotlight.querySelector("[data-industry-production]");
+    const alertNode = spotlight.querySelector("[data-industry-alert]");
+
+    function apply(tab) {
+      if (labelNode) labelNode.textContent = tab.getAttribute("data-industry-inventory") || "";
+      if (productionNode) productionNode.textContent = tab.getAttribute("data-industry-production") || "";
+      if (alertNode) alertNode.textContent = tab.getAttribute("data-industry-alert") || "";
+    }
+
+    tabs.forEach((tab) => tab.addEventListener("click", () => apply(tab)));
+    apply(document.querySelector(".tabs .tab-button[aria-selected='true'][data-industry-label]") || tabs[0]);
+  }
+
+  function initNoviBrief() {
+    const root = document.querySelector("[data-novi-demo]");
+    if (!root) return;
+
+    const detailBadge = root.querySelector("[data-novi-detail-badge]");
+    const detailTitle = root.querySelector("[data-novi-detail-title]");
+    const detailCopy = root.querySelector("[data-novi-detail-copy]");
+    const detailList = root.querySelector("[data-novi-detail-list]");
+    const buttons = root.querySelectorAll("[data-novi-target]");
+
+    const states = {
+      fulfillment: {
+        badge: { className: "status-live", label: "Review" },
+        title: "14 orders need your attention",
+        copy: "Open the fulfillment queue, clear the label reprint, and keep the packing line moving.",
+        rows: [["Queued", "14 orders"], ["Priority", "Pack lane"], ["Next step", "Review pick list"]]
+      },
+      inventory: {
+        badge: { className: "status-early", label: "Preview" },
+        title: "Vanilla base may run out in 6 days",
+        copy: "Novi notices the lead-time risk early enough to draft a refill before the pace turns urgent.",
+        rows: [["At risk", "Vanilla base"], ["Runway", "6 days"], ["Action", "Preview refill"]]
+      },
+      customers: {
+        badge: { className: "status-demo", label: "Review" },
+        title: "3 conversations need a reply",
+        copy: "Care stays connected to the order and fulfillment state so replies feel informed, not generic.",
+        rows: [["Open replies", "3"], ["Context", "Order + fulfillment"], ["Action", "Open queue"]]
+      },
+      trend: {
+        badge: { className: "status-beta", label: "Preview" },
+        title: "Formula 26 demand is up 28%",
+        copy: "Novi spots the trend while it is still small enough to shape purchasing and production.",
+        rows: [["Growth", "+28%"], ["Signal", "Formula 26"], ["Action", "Adjust purchasing"]]
+      },
+      purchase: {
+        badge: { className: "status-live", label: "Review" },
+        title: "Your suggested purchase order is ready",
+        copy: "The draft PO uses the live demand and supply picture so you can review it before anything is sent.",
+        rows: [["Draft", "Ready"], ["Lead time", "11 days"], ["Action", "Review PO"]]
+      }
+    };
+
+    function applyState(key) {
+      const state = states[key] || states.fulfillment;
+      buttons.forEach((button) => {
+        const active = button.getAttribute("data-novi-target") === key;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      if (detailBadge) {
+        detailBadge.className = `status ${state.badge.className}`;
+        detailBadge.textContent = state.badge.label;
+      }
+      if (detailTitle) detailTitle.textContent = state.title;
+      if (detailCopy) detailCopy.textContent = state.copy;
+      if (detailList) {
+        detailList.innerHTML = state.rows.map(([left, right]) => `<div class="novi-detail-row"><strong>${left}</strong><span>${right}</span></div>`).join("");
+      }
+    }
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => applyState(button.getAttribute("data-novi-target") || "fulfillment"));
+    });
+
+    applyState("fulfillment");
+  }
+
+  function initWorkflowDetail() {
+    const root = document.querySelector("[data-workflow-detail]");
+    const stageButtons = document.querySelectorAll("[data-workflow-stage]");
+    const steps = document.querySelectorAll("[data-workflow-step]");
+    if (!root || !stageButtons.length || !steps.length) return;
+
+    const titleNode = root.querySelector("[data-workflow-title]");
+    const copyNode = root.querySelector("[data-workflow-copy]");
+    const listNode = root.querySelector("[data-workflow-list]");
+
+    const states = {
+      order: {
+        title: "Order arrives",
+        copy: "When a Shopify order lands, the queue opens and Novi watches for exceptions before the team touches the work.",
+        rows: [["Source", "Shopify"], ["Action", "Queue opens"], ["Novi", "Flags risk"]]
+      },
+      reserve: {
+        title: "Inventory reserved",
+        copy: "Inventory reserves against the order so the visible counts and the real queue stay aligned.",
+        rows: [["Source", "Inventory"], ["Action", "Reserve stock"], ["Novi", "Checks runway"]]
+      },
+      production: {
+        title: "Production needed",
+        copy: "If a component is short, the batch lane lights up and the production team can see what needs to be made next.",
+        rows: [["Source", "Batch demand"], ["Action", "Draft work"], ["Novi", "Highlights shortage"]]
+      },
+      pick: {
+        title: "Ready to pick",
+        copy: "Verified orders move into the pick queue so the team can move faster without losing context.",
+        rows: [["Source", "Fulfillment"], ["Action", "Release queue"], ["Novi", "Keeps priority clear"]]
+      },
+      pack: {
+        title: "Packed",
+        copy: "Pack verification closes the loop before shipment, which keeps the handoff tight and auditable.",
+        rows: [["Source", "Packing"], ["Action", "Verify package"], ["Novi", "Confirms exception-free"]]
+      },
+      ship: {
+        title: "Shipped",
+        copy: "The customer timeline updates once the order leaves the building and the work is no longer in the warehouse.",
+        rows: [["Source", "Carrier"], ["Action", "Mark shipped"], ["Novi", "Updates the brief"]]
+      }
+    };
+
+    function applyState(key) {
+      const state = states[key] || states.order;
+      stageButtons.forEach((button) => button.classList.toggle("is-active", button.getAttribute("data-workflow-stage") === key));
+      steps.forEach((step) => step.classList.toggle("is-active", step.getAttribute("data-workflow-step") === key));
+      if (titleNode) titleNode.textContent = state.title;
+      if (copyNode) copyNode.textContent = state.copy;
+      if (listNode) {
+        listNode.innerHTML = state.rows.map(([left, right]) => `<div class="novi-detail-row"><strong>${left}</strong><span>${right}</span></div>`).join("");
+      }
+    }
+
+    stageButtons.forEach((button) => {
+      button.addEventListener("click", () => applyState(button.getAttribute("data-workflow-stage") || "order"));
+    });
+
+    steps.forEach((step) => {
+      step.addEventListener("click", () => applyState(step.getAttribute("data-workflow-step") || "order"));
+    });
+
+    applyState("order");
+  }
+
+  function initSavingsMeter() {
+    const root = document.getElementById("savings-calculator");
+    if (!root) return;
+
+    const bar = document.querySelector("[data-savings-bar]");
+    const inputs = root.querySelectorAll("input[data-cost]");
+    const stackOut = document.getElementById("stack-cost");
+    const savingsOut = document.getElementById("stack-savings");
+    const planOut = document.getElementById("stack-plan");
+
+    function recalc() {
+      let stackCost = 0;
+      inputs.forEach((input) => {
+        const value = Number.parseFloat(input.value || "0");
+        stackCost += Number.isFinite(value) ? value : 0;
+      });
+      const shimmerPlan = 149;
+      const savings = Math.max(0, stackCost - shimmerPlan);
+
+      if (stackOut) stackOut.textContent = `$${stackCost.toFixed(0)}/mo`;
+      if (planOut) planOut.textContent = `$${shimmerPlan}/mo`;
+      if (savingsOut) savingsOut.textContent = `$${savings.toFixed(0)}/mo`;
+      if (bar) bar.style.setProperty("--savings-fill", `${Math.min(100, Math.max(18, stackCost / 5))}%`);
+    }
+
+    inputs.forEach((input) => input.addEventListener("input", recalc));
+    recalc();
+  }
+
   function initSavingsCalculator() {
     const root = document.getElementById("savings-calculator");
     if (!root) return;
@@ -293,6 +591,11 @@
   renderFooter();
   initMenus();
   initTabs();
-  initSavingsCalculator();
+  initProductTour();
+  initChaosToggle();
+  initIndustrySpotlight();
+  initNoviBrief();
+  initWorkflowDetail();
+  initSavingsMeter();
   initStatusBadges();
 })();
