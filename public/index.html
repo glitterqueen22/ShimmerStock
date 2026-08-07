@@ -17,7 +17,7 @@
 
   <main id="main-content">
     <section class="section section-hero">
-      <div class="container hero-grid hero-grid-art">
+      <div class="container-wide hero-grid hero-grid-art">
         <div class="hero-copy">
           <span class="eyebrow">THE OPERATING SYSTEM FOR PRODUCT BUSINESSES</span>
           <h1 style="margin-top:0.8rem;">Run the business behind your brand without tab chaos and constant guessing.</h1>
@@ -35,20 +35,49 @@
           </div>
         </div>
 
-        <aside class="command-shell hero-stage" aria-label="ShimmerStock command center">
+        <aside class="command-shell hero-stage" data-tour="command" aria-label="ShimmerStock command center">
           <div class="command-top">
             <span class="command-title">Command Center</span>
             <div class="command-search">Search orders, products, suppliers</div>
-            <span class="status status-demo">Illustrative demo</span>
+            <span class="status status-demo">Illustrative workspace</span>
           </div>
+
+          <div class="product-tour" data-product-tour role="tablist" aria-label="Product tour">
+            <button class="tour-tab" type="button" role="tab" aria-pressed="true" data-tour-target="command">Command Center</button>
+            <button class="tour-tab" type="button" role="tab" aria-pressed="false" data-tour-target="inventory">Inventory</button>
+            <button class="tour-tab" type="button" role="tab" aria-pressed="false" data-tour-target="orders">Orders</button>
+            <button class="tour-tab" type="button" role="tab" aria-pressed="false" data-tour-target="production">Production</button>
+            <button class="tour-tab" type="button" role="tab" aria-pressed="false" data-tour-target="customer-care">Customer Care</button>
+            <button class="tour-tab" type="button" role="tab" aria-pressed="false" data-tour-target="novi">Novi</button>
+          </div>
+
+          <div class="tour-summary" data-tour-summary>
+            <div class="tour-summary-head">
+              <div>
+                <span class="small" data-tour-kicker>Command Center</span>
+                <strong data-tour-title>One gorgeous surface for selling, stock, care, and Novi.</strong>
+              </div>
+              <span class="status status-live" data-tour-badge>Everything connected</span>
+            </div>
+            <div class="tour-summary-body">
+              <p class="small" data-tour-copy>Click the tour tabs to spotlight a different part of the product and watch the large workspace respond.</p>
+              <div class="tour-grid">
+                <div class="metric"><strong data-tour-metric-1>146</strong><span>Orders in queue</span></div>
+                <div class="metric"><strong data-tour-metric-2>2,730</strong><span>Units in stock</span></div>
+                <div class="metric"><strong data-tour-metric-3>9</strong><span>Items need attention</span></div>
+              </div>
+              <div class="tour-note" data-tour-note>Orders, inventory, production, customer care, and Novi stay visible without feeling cramped.</div>
+            </div>
+          </div>
+
           <div class="command-body">
             <nav class="command-rail" aria-label="Primary modules">
-              <div class="rail-item is-active"><strong>Sell</strong><small>Orders + revenue</small></div>
-              <div class="rail-item"><strong>Stock</strong><small>Bins + reorder risk</small></div>
-              <div class="rail-item"><strong>Make</strong><small>Batch + BOM</small></div>
-              <div class="rail-item"><strong>Ship</strong><small>Pick + pack + ship</small></div>
-              <div class="rail-item"><strong>Care</strong><small>Order-linked support</small></div>
-              <div class="rail-item"><strong>Grow</strong><small>Novi + partner signals</small></div>
+              <button class="rail-item is-active" type="button" data-tour-card="orders"><strong>Sell</strong><small>Orders + revenue</small></button>
+              <button class="rail-item" type="button" data-tour-card="inventory"><strong>Stock</strong><small>Bins + reorder risk</small></button>
+              <button class="rail-item" type="button" data-tour-card="production"><strong>Make</strong><small>Batch + BOM</small></button>
+              <button class="rail-item" type="button" data-tour-card="orders"><strong>Ship</strong><small>Pick + pack + ship</small></button>
+              <button class="rail-item" type="button" data-tour-card="customer-care"><strong>Care</strong><small>Order-linked support</small></button>
+              <button class="rail-item" type="button" data-tour-card="novi"><strong>Grow</strong><small>Novi + partner signals</small></button>
             </nav>
 
             <div class="command-main">
@@ -65,8 +94,8 @@
               </div>
 
               <div class="signal-grid">
-                <section class="signal-card signal-card--wide">
-                  <div class="signal-head"><strong>Orders requiring attention</strong><span class="status status-beta">Live</span></div>
+                <section class="signal-card signal-card--wide" data-tour-card="orders">
+                  <div class="signal-head"><strong>Orders requiring attention</strong><span class="status status-live">Live</span></div>
                   <ul class="signal-list">
                     <li><span>14 orders waiting to be packed</span><span class="status status-early">Queue</span></li>
                     <li><span>Order #8197 is waiting on a label reprint</span><span class="status status-live">Pick</span></li>
@@ -74,7 +103,7 @@
                   </ul>
                 </section>
 
-                <section class="signal-card">
+                <section class="signal-card" data-tour-card="inventory">
                   <div class="signal-head"><strong>Inventory risk</strong><span class="status status-early">Early Access</span></div>
                   <p class="lead" style="margin-top:0;">Vanilla base may run out in 6 days.</p>
                   <div class="signal-actions">
@@ -84,16 +113,16 @@
                   </div>
                 </section>
 
-                <section class="signal-card">
+                <section class="signal-card signal-card--novi-teaser" data-tour-card="novi">
                   <div class="signal-head"><strong>Novi Morning Brief</strong><span class="status status-live">Preview</span></div>
-                  <p class="lead" style="margin-top:0;">Best seller is accelerating. PO draft is ready for review.</p>
+                  <p class="lead" style="margin-top:0;">Good morning. I’d handle fulfillment, inventory, and the purchase order draft first.</p>
                   <div class="signal-actions">
-                    <span>Open brief</span>
+                    <a href="#novi-section">Open Novi</a>
                     <span>Preview PO</span>
                   </div>
                 </section>
 
-                <section class="signal-card">
+                <section class="signal-card" data-tour-card="production">
                   <div class="signal-head"><strong>Purchasing recommendation</strong><span class="status status-planned">Draft</span></div>
                   <p class="lead" style="margin-top:0;">Purchase 18 units now to cover the 11-day lead time.</p>
                   <div class="signal-actions">
@@ -102,8 +131,8 @@
                   </div>
                 </section>
 
-                <section class="signal-card signal-card--wide">
-                  <div class="signal-head"><strong>Fulfillment queue</strong><span class="status status-demo">Operational</span></div>
+                <section class="signal-card signal-card--wide" data-tour-card="customer-care">
+                  <div class="signal-head"><strong>Fulfillment queue</strong><span class="status status-live">Operational</span></div>
                   <ul class="signal-list">
                     <li><span>Order #8197 ready for pick</span><span class="queue-pill">Queue</span></li>
                     <li><span>Low stock: Fragrance Oil #4</span><span class="queue-pill">Watch</span></li>
@@ -118,7 +147,7 @@
     </section>
 
     <section class="section section-tight band">
-      <div class="container">
+      <div class="container-wide">
         <h2>Everything behind your storefront. Finally in one place.</h2>
         <p class="lead" style="margin-top:0.8rem;">ShimmerStock resolves disconnected work into one operating surface instead of another pile of widgets.</p>
         <div class="resolve-layout" style="margin-top:1rem;">
@@ -158,539 +187,608 @@
       </div>
     </section>
 
-    <section class="section">
-      <div class="container compare-lanes">
-        <article class="lane chaos">
-          <h3>Without an operations OS</h3>
-          <p style="margin-top:0.7rem;">Teams juggle channels, sheets, inboxes, and shipping tools just to answer one operational question.</p>
-          <div class="pill-cloud">
-            <span>Storefront</span>
-            <span>Spreadsheet</span>
-            <span>Shipping App</span>
-            <span>Support Inbox</span>
-            <span>Batch Sheet</span>
-            <span>Affiliate Tracker</span>
-          </div>
-        </article>
-        <article class="lane system">
-          <h3>With ShimmerStock</h3>
-          <p style="margin-top:0.7rem;">Orders, stock, production, fulfillment, care, and growth signals align in one operating rhythm.</p>
-          <div class="pill-cloud">
-            <span>Orders</span>
-            <span>Inventory</span>
-            <span>Production</span>
-            <span>Fulfillment</span>
-            <span>Customer Care</span>
-                <h2>Core commerce workflows</h2>
-                <p class="lead" style="margin-top:0.8rem;">The six core motions stay consistent, but each one gets its own editorial composition.</p>
-                <div class="workflow-gallery" style="margin-top:1rem;">
-                  <article class="workflow-tile">
-                    <div class="workflow-head"><strong>Sell</strong><span class="status status-live">Revenue</span></div>
-                    <p>Orders, revenue, and queue pressure in one view.</p>
-                    <div class="workflow-mini">
-                      <ul class="mini-list">
-                        <li><span>New orders</span><span>32</span></li>
-                        <li><span>Revenue today</span><span>$4.8k</span></li>
-                        <li><span>Open holds</span><span>6</span></li>
-                      </ul>
-                    </div>
-                  </article>
+    <section class="section section-lavender">
+      <div class="container-wide">
+        <div class="chaos-toggle" role="tablist" aria-label="Chaos comparison toggle">
+          <button type="button" class="chaos-button is-active" data-chaos-view="before">Before ShimmerStock</button>
+          <button type="button" class="chaos-button" data-chaos-view="after">After ShimmerStock</button>
+        </div>
+        <div class="compare-lanes" data-chaos-stage data-chaos-mode="before">
+          <article class="lane chaos" data-chaos-card="before">
+            <h3 data-chaos-title>Before ShimmerStock</h3>
+            <p style="margin-top:0.7rem;" data-chaos-copy>Teams juggle channels, sheets, inboxes, and shipping tools just to answer one operational question.</p>
+            <div class="pill-cloud" data-chaos-pills>
+              <span>Storefront</span>
+              <span>Spreadsheet</span>
+              <span>Shipping App</span>
+              <span>Support Inbox</span>
+              <span>Batch Sheet</span>
+              <span>Affiliate Tracker</span>
+            </div>
+          </article>
+          <article class="lane system" data-chaos-card="after">
+            <h3 data-chaos-title>After ShimmerStock</h3>
+            <p style="margin-top:0.7rem;" data-chaos-copy>Orders, stock, production, fulfillment, care, and growth signals align in one operating rhythm.</p>
+            <div class="pill-cloud" data-chaos-pills>
+              <span>Orders</span>
+              <span>Inventory</span>
+              <span>Production</span>
+              <span>Fulfillment</span>
+              <span>Customer Care</span>
+              <span>Novi</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
 
-                  <article class="workflow-tile">
-                    <div class="workflow-head"><strong>Stock</strong><span class="status status-early">Risk</span></div>
-                    <p>Inventory, bins, and reorder signals before shortages become urgent.</p>
-                    <div class="workflow-graphic">
-                      <div class="workflow-bar"><span style="width:72%;"></span></div>
-                      <div class="workflow-bar"><span style="width:44%; background: linear-gradient(90deg, var(--gold), #c8a464);"></span></div>
-                      <div class="workflow-bar"><span style="width:88%; background: linear-gradient(90deg, var(--green), #7fa38b);"></span></div>
-                    </div>
-                  </article>
-
-                  <article class="workflow-tile">
-                    <div class="workflow-head"><strong>Make</strong><span class="status status-beta">Batch</span></div>
-                    <p>Production planning tied to component demand and batch execution.</p>
-                    <div class="workflow-mini">
-                      <ul class="mini-list">
-                        <li><span>Batch #52</span><span>In progress</span></li>
-                        <li><span>Formula 26</span><span>+28%</span></li>
-                        <li><span>Materials reserved</span><span>Ready</span></li>
-                      </ul>
-                    </div>
-                  </article>
-
-                  <article class="workflow-tile">
-                    <div class="workflow-head"><strong>Ship</strong><span class="status status-live">Queue</span></div>
-                    <p>Pick, pack, and fulfillment progress with clearer handoffs.</p>
-                    <div class="workflow-mini">
-                      <ul class="mini-list">
-                        <li><span>Ready to pick</span><span>18</span></li>
-                        <li><span>Packing</span><span>9</span></li>
-                        <li><span>Shipped today</span><span>41</span></li>
-                      </ul>
-                    </div>
-                  </article>
-
-                  <article class="workflow-tile">
-                    <div class="workflow-head"><strong>Care</strong><span class="status status-demo">Context</span></div>
-                    <p>Customer replies anchored in order and operations context.</p>
-                    <div class="workflow-graphic">
-                      <div class="workflow-bar"><span style="width:64%;"></span></div>
-                      <div class="workflow-bar"><span style="width:38%; background: linear-gradient(90deg, #8a5a1d, #b27a2a);"></span></div>
-                    </div>
-                  </article>
-
-                  <article class="workflow-tile">
-                    <div class="workflow-head"><strong>Grow</strong><span class="status status-planned">Novi</span></div>
-                    <p>Novi guidance, partner workflow visibility, and signal-driven priorities.</p>
-                    <div class="workflow-mini">
-                      <ul class="mini-list">
-                        <li><span>Partner lift</span><span>+17%</span></li>
-                        <li><span>Cross-sell signal</span><span>Strong</span></li>
-                        <li><span>Briefing ready</span><span>Yes</span></li>
-                      </ul>
-                    </div>
-                  </article>
+    <section class="section section-tight">
+      <div class="container-wide">
         <h2>Core commerce workflows</h2>
-        <div class="pillar-grid" style="margin-top:1rem;">
-          <article class="pillar"><h3>Sell</h3><p>Products, orders, channels, and queue health with fewer blind spots.</p></article>
-          <article class="pillar"><h3>Stock</h3><p>Inventory, bins, and purchasing signals before shortages become urgent.</p></article>
-            <section class="section dark-band">
-              <div class="container novi-layout">
-                <div class="novi-copy">
-                  <span class="eyebrow">NOVI</span>
-                  <h2 style="margin-top:0.8rem;">Meet the business partner that notices what you don’t have time to watch.</h2>
-                  <p class="lead" style="margin-top:0.8rem;">Novi reads across orders, inventory, production, and customer care, then turns that into a calm morning brief with context and next actions.</p>
-                  <div class="novi-side" style="margin-top:1rem;">
-                    <div class="mini-note">Novi is not a chatbot bubble. She is a cross-workflow operator who connects the signals.</div>
-                    <div class="novi-actions">
-                      <span>Review fulfillment</span>
-                      <span>See inventory risk</span>
-                      <span>Open customer queue</span>
-                      <span>Preview purchase order</span>
-                    </div>
+        <p class="lead" style="margin-top:0.8rem; max-width: 68ch;">The six core motions stay consistent, but each one gets its own editorial composition.</p>
+        <div class="workflow-gallery" style="margin-top:1rem;">
+          <article class="workflow-tile">
+            <div class="workflow-head"><strong>Sell</strong><span class="status status-live">Revenue</span></div>
+            <p>Orders, revenue, and queue pressure in one view.</p>
+            <div class="workflow-mini">
+              <ul class="mini-list">
+                <li><span>New orders</span><span>32</span></li>
+                <li><span>Revenue today</span><span>$4.8k</span></li>
+                <li><span>Open holds</span><span>6</span></li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="workflow-tile">
+            <div class="workflow-head"><strong>Stock</strong><span class="status status-early">Risk</span></div>
+            <p>Inventory, bins, and reorder signals before shortages become urgent.</p>
+            <div class="workflow-graphic">
+              <div class="workflow-bar"><span style="width:72%;"></span></div>
+              <div class="workflow-bar"><span style="width:44%; background: linear-gradient(90deg, var(--gold), #c8a464);"></span></div>
+              <div class="workflow-bar"><span style="width:88%; background: linear-gradient(90deg, var(--green), #7fa38b);"></span></div>
+            </div>
+          </article>
+
+          <article class="workflow-tile">
+            <div class="workflow-head"><strong>Make</strong><span class="status status-beta">Batch</span></div>
+            <p>Production planning tied to component demand and batch execution.</p>
+            <div class="workflow-mini">
+              <ul class="mini-list">
+                <li><span>Batch #52</span><span>In progress</span></li>
+                <li><span>Formula 26</span><span>+28%</span></li>
+                <li><span>Materials reserved</span><span>Ready</span></li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="workflow-tile">
+            <div class="workflow-head"><strong>Ship</strong><span class="status status-live">Queue</span></div>
+            <p>Pick, pack, and fulfillment progress with clearer handoffs.</p>
+            <div class="workflow-mini">
+              <ul class="mini-list">
+                <li><span>Ready to pick</span><span>18</span></li>
+                <li><span>Packing</span><span>9</span></li>
+                <li><span>Shipped today</span><span>41</span></li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="workflow-tile">
+            <div class="workflow-head"><strong>Care</strong><span class="status status-demo">Context</span></div>
+            <p>Customer replies anchored in order and operations context.</p>
+            <div class="workflow-graphic">
+              <div class="workflow-bar"><span style="width:64%;"></span></div>
+              <div class="workflow-bar"><span style="width:38%; background: linear-gradient(90deg, #8a5a1d, #b27a2a);"></span></div>
+            </div>
+          </article>
+
+          <article class="workflow-tile">
+            <div class="workflow-head"><strong>Grow</strong><span class="status status-planned">Novi</span></div>
+            <p>Novi guidance, partner workflow visibility, and signal-driven priorities.</p>
+            <div class="workflow-mini">
+              <ul class="mini-list">
+                <li><span>Partner lift</span><span>+17%</span></li>
+                <li><span>Cross-sell signal</span><span>Strong</span></li>
+                <li><span>Briefing ready</span><span>Yes</span></li>
+              </ul>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-wash" id="novi-section">
+      <div class="container-wide novi-layout novi-glow">
+        <div class="novi-copy">
+          <span class="eyebrow">MEET NOVI</span>
+          <h2 style="margin-top:0.8rem;">The business bestie that notices what you don’t have time to watch.</h2>
+          <p class="lead" style="margin-top:0.8rem;">Novi watches the business, assembles the morning brief, and tells you what deserves attention before the day gets noisy.</p>
+          <div class="novi-side" style="margin-top:1rem;">
+            <div class="mini-note">Novi is not a chatbot bubble. She is a cross-workflow operator who connects the signals.</div>
+            <div class="novi-actions">
+              <span>Review fulfillment</span>
+              <span>See inventory risk</span>
+              <span>Open customer queue</span>
+              <span>Preview purchase order</span>
+            </div>
+          </div>
+        </div>
+        <aside class="novi-shell" aria-label="Novi morning brief workspace" data-novi-demo>
+          <div class="novi-shell-top">
+            <strong>GOOD MORNING, MONICA ✦</strong>
+            <span class="status status-live">Novi brief</span>
+          </div>
+          <div class="novi-shell-body">
+            <div class="novi-hero-callout">
+              <span class="novi-brand">NOVI</span>
+              <h3>Here’s what I’d handle first today.</h3>
+              <p class="small">Morning Brief centered on the work that matters most right now.</p>
+            </div>
+            <div class="novi-focus">
+              <div class="novi-brief" data-novi-view>
+                <div class="novi-priority-list" role="tablist" aria-label="Novi morning brief priorities">
+                  <button class="novi-priority is-active" type="button" role="tab" aria-selected="true" data-novi-target="fulfillment"><span class="novi-pill"></span><div><strong>Fulfillment</strong><span>14 orders need your attention</span></div><span class="status status-live">Review</span></button>
+                  <button class="novi-priority" type="button" role="tab" aria-selected="false" data-novi-target="inventory"><span class="novi-pill"></span><div><strong>Inventory</strong><span>Vanilla base may run out in 6 days</span></div><span class="status status-early">Preview</span></button>
+                  <button class="novi-priority" type="button" role="tab" aria-selected="false" data-novi-target="customers"><span class="novi-pill"></span><div><strong>Customers</strong><span>3 conversations need a reply</span></div><span class="status status-demo">Review</span></button>
+                  <button class="novi-priority" type="button" role="tab" aria-selected="false" data-novi-target="trend"><span class="novi-pill"></span><div><strong>Trend</strong><span>Formula 26 demand is up 28%</span></div><span class="status status-beta">Preview</span></button>
+                  <button class="novi-priority" type="button" role="tab" aria-selected="false" data-novi-target="purchase"><span class="novi-pill"></span><div><strong>Purchasing</strong><span>Your suggested purchase order is ready</span></div><span class="status status-live">Review</span></button>
+                </div>
+                <div class="novi-detail" data-novi-detail>
+                  <div>
+                    <span class="status status-live" data-novi-detail-badge>Review</span>
+                    <h3 data-novi-detail-title>14 orders need your attention</h3>
+                    <p class="small" data-novi-detail-copy>Open the fulfillment queue, clear the label reprint, and keep the packing line moving.</p>
+                  </div>
+                  <div class="novi-detail-grid" data-novi-detail-list>
+                    <div class="novi-detail-row"><strong>Queued</strong><span>14 orders</span></div>
+                    <div class="novi-detail-row"><strong>Priority</strong><span>Pack lane</span></div>
+                    <div class="novi-detail-row"><strong>Next step</strong><span>Review pick list</span></div>
                   </div>
                 </div>
-                <aside class="novi-shell" aria-label="Novi morning brief workspace">
-                  <div class="novi-shell-top">
-                    <strong>GOOD MORNING, MONICA</strong>
-                    <span class="status status-live">Novi brief</span>
+              </div>
+              <div class="novi-actions">
+                <a href="/product/novi" class="btn btn-secondary">Open Novi</a>
+                <span>Review fulfillment</span>
+                <span>See inventory risk</span>
+                <span>Open customer queue</span>
+                <span>Preview purchase order</span>
+              </div>
+            </div>
+            <div class="novi-side">
+              <div class="mini-note">Novi connects information from different areas of ShimmerStock and keeps the recommendations previewed before approval.</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section section-sage">
+      <div class="container-wide industry-stage">
+        <div>
+          <span class="eyebrow">INDUSTRY SWITCHER</span>
+          <h2 style="margin-top:0.8rem;">The workspace changes to your business.</h2>
+          <p class="lead" style="margin-top:0.8rem;">Select a business type to watch the same operating system speak the right language for that workflow.</p>
+          <div class="tabs" style="margin-top:0.9rem;" role="tablist" aria-label="Industry switcher tabs">
+            <button class="tab-button" role="tab" aria-selected="true" data-tab="freshies" data-industry-label="Freshies" data-industry-inventory="Aroma Beads • Formula 26 • Fresh Linen FO • Cow Mold" data-industry-production="Freshie Batch #284" data-industry-alert="Formula 26 — 6 days remaining">Freshies</button>
+            <button class="tab-button" role="tab" aria-selected="false" data-tab="apparel" data-industry-label="Apparel" data-industry-inventory="Comfort Colors 1717 • Small / Orchid • Large / Black" data-industry-production="Retro Summer Tee — 18 orders" data-industry-alert="Black Large blanks — low stock">Apparel</button>
+            <button class="tab-button" role="tab" aria-selected="false" data-tab="bakery" data-industry-label="Bakery" data-industry-inventory="Flour • Vanilla • Butter • Cake boxes" data-industry-production="Birthday Cake Batch" data-industry-alert="Vanilla extract — reorder suggested">Bakery</button>
+            <button class="tab-button" role="tab" aria-selected="false" data-tab="candles" data-industry-label="Candles" data-industry-inventory="Wax • Fragrance oils • Vessels • Labels" data-industry-production="Candle Pour #52" data-industry-alert="Wick packs — low stock">Candles</button>
+            <button class="tab-button" role="tab" aria-selected="false" data-tab="bath" data-industry-label="Bath &amp; Body" data-industry-inventory="Lotions • Soaps • Oils • Jars" data-industry-production="Glow Set Run #12" data-industry-alert="Ingredient lot review today">Bath &amp; Body</button>
+            <button class="tab-button" role="tab" aria-selected="false" data-tab="boutique" data-industry-label="Boutique" data-industry-inventory="Accessories • Seasonal drops • Display stock" data-industry-production="Boutique Drop #09" data-industry-alert="Display refresh tomorrow">Boutique</button>
+          </div>
+        </div>
+
+        <div class="industry-spotlight" data-industry-spotlight>
+          <div class="industry-spotlight-card">
+            <span>Inventory</span>
+            <strong data-industry-inventory>Aroma Beads • Formula 26 • Fresh Linen FO • Cow Mold</strong>
+          </div>
+          <div class="industry-spotlight-card">
+            <span>Production</span>
+            <strong data-industry-production>Freshie Batch #284</strong>
+          </div>
+          <div class="industry-spotlight-card">
+            <span>Alert</span>
+            <strong data-industry-alert>Formula 26 — 6 days remaining</strong>
+          </div>
+        </div>
+
+        <div data-tab-group>
+          <div class="tab-panel" data-panel="freshies" data-open="true">
+            <div class="industry-shell">
+              <div class="industry-top">
+                <strong>Freshies workspace</strong>
+                <div class="chip-list" style="margin-top:0;">
+                  <span data-status="demo"></span>
+                  <span class="status status-demo">Illustrative workspace</span>
+                </div>
+                <span class="small">Scents, molds, aroma beads, blank inventory, batch production, formula costing</span>
+              </div>
+              <div class="industry-grid">
+                <aside class="industry-sidebar">
+                  <div class="industry-block">
+                    <h3>What this business watches</h3>
+                    <ul>
+                      <li><span>Scents</span><span>3 low</span></li>
+                      <li><span>Molds</span><span>Ready</span></li>
+                      <li><span>Aroma beads</span><span>27 days</span></li>
+                      <li><span>Blank inventory</span><span>Stable</span></li>
+                    </ul>
                   </div>
-                  <div class="novi-shell-body">
-                    <div class="novi-brief">
-                      <h3>Here’s what I’d handle first today.</h3>
-                      <ul>
-                        <li><span>14 orders need fulfillment</span><span class="status status-beta">Queue</span></li>
-                        <li><span>3 customer conversations need attention</span><span class="status status-demo">Care</span></li>
-                        <li><span>Vanilla base may run out in 6 days</span><span class="status status-early">Risk</span></li>
-                        <li><span>Formula 26 demand increased 28% this week</span><span class="status status-planned">Trend</span></li>
-                        <li><span>Your PO draft is ready for review</span><span class="status status-live">Draft</span></li>
-                      </ul>
-                      <div class="novi-actions">
-                        <span>Review fulfillment</span>
-                        <span>See inventory risk</span>
-                        <span>Open customer queue</span>
-                        <span>Preview purchase order</span>
-                      </div>
-                    </div>
-                    <div class="novi-side">
-                      <div class="mini-note">Novi connects information from different areas of ShimmerStock and keeps the recommendations previewed before approval.</div>
-                    </div>
+                  <div class="industry-block">
+                    <h3>Production rhythm</h3>
+                    <ul>
+                      <li><span>Batch production</span><span>Today</span></li>
+                      <li><span>Formula costing</span><span>Live</span></li>
+                    </ul>
                   </div>
                 </aside>
-              </div>
-          <ul class="ia-list">
-            <li>14 orders need fulfillment</li>
-            <li>Vanilla base may run out in 6 days</li>
-              <div class="container industry-stage">
-                <div>
-                  <span class="eyebrow">INDUSTRY SWITCHER</span>
-                  <h2 style="margin-top:0.8rem;">The workspace changes to your business.</h2>
-                  <p class="lead" style="margin-top:0.8rem;">Select a business type to watch the same operating system speak the right language for that workflow.</p>
-                  <div class="tabs" style="margin-top:0.9rem;" role="tablist" aria-label="Industry switcher tabs">
-                    <button class="tab-button" role="tab" aria-selected="true" data-tab="freshies">Freshies</button>
-                    <button class="tab-button" role="tab" aria-selected="false" data-tab="apparel">Apparel</button>
-                    <button class="tab-button" role="tab" aria-selected="false" data-tab="bakery">Bakery</button>
-                    <button class="tab-button" role="tab" aria-selected="false" data-tab="candles">Candles</button>
-                    <button class="tab-button" role="tab" aria-selected="false" data-tab="bath">Bath &amp; Body</button>
-                    <button class="tab-button" role="tab" aria-selected="false" data-tab="boutique">Boutique</button>
+                <div class="industry-main">
+                  <div class="industry-metrics">
+                    <div class="industry-metric"><strong>38</strong><span>Open batch items</span></div>
+                    <div class="industry-metric"><strong>6</strong><span>Low stock signals</span></div>
+                    <div class="industry-metric"><strong>18</strong><span>Orders awaiting pack</span></div>
+                    <div class="industry-metric"><strong>Beta</strong><span>Formula costing label</span></div>
                   </div>
-                </div>
-
-                <div data-tab-group>
-                  <div class="tab-panel" data-panel="freshies" data-open="true">
-                    <div class="industry-shell">
-                      <div class="industry-top">
-                        <strong>Freshies workspace</strong>
-                        <div class="chip-list" style="margin-top:0;">
-                          <span class="status status-demo">Demo</span>
-                          <span class="status status-beta">Beta workflow</span>
-                        </div>
-                        <span class="small">Scents, molds, aroma beads, blank inventory, batch production, formula costing</span>
-                      </div>
-                      <div class="industry-grid">
-                        <aside class="industry-sidebar">
-                          <div class="industry-block">
-                            <h3>What this business watches</h3>
-                            <ul>
-                              <li><span>Scents</span><span>3 low</span></li>
-                              <li><span>Molds</span><span>Ready</span></li>
-                              <li><span>Aroma beads</span><span>27 days</span></li>
-                              <li><span>Blank inventory</span><span>Stable</span></li>
-                            </ul>
-                          </div>
-                          <div class="industry-block">
-                            <h3>Production rhythm</h3>
-                            <ul>
-                              <li><span>Batch production</span><span>Today</span></li>
-                              <li><span>Formula costing</span><span>Live</span></li>
-                            </ul>
-                          </div>
-                        </aside>
-                        <div class="industry-main">
-                          <div class="industry-metrics">
-                            <div class="industry-metric"><strong>38</strong><span>Open batch items</span></div>
-                            <div class="industry-metric"><strong>6</strong><span>Low stock signals</span></div>
-                            <div class="industry-metric"><strong>18</strong><span>Orders awaiting pack</span></div>
-                            <div class="industry-metric"><strong>Beta</strong><span>Formula costing label</span></div>
-                          </div>
-                          <div class="industry-workflow">
-                            <ul class="mini-list">
-                              <li><span>Freshies batch queue</span><span class="status status-live">Ready</span></li>
-                              <li><span>Aroma bead reorder draft</span><span class="status status-early">Draft</span></li>
-                              <li><span>New scent launch demand</span><span class="status status-demo">Watch</span></li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="tab-panel" data-panel="apparel" data-open="false">
-                    <div class="industry-shell">
-                      <div class="industry-top">
-                        <strong>Apparel workspace</strong>
-                        <div class="chip-list" style="margin-top:0;">
-                          <span class="status status-beta">Beta</span>
-                          <span class="status status-demo">Illustrative</span>
-                        </div>
-                        <span class="small">Blank inventory, size/color variants, artwork, personalization queue, preorders</span>
-                      </div>
-                      <div class="industry-grid">
-                        <aside class="industry-sidebar">
-                          <div class="industry-block">
-                            <h3>Variant pressure</h3>
-                            <ul>
-                              <li><span>Blank inventory</span><span>52 on hand</span></li>
-                              <li><span>Size/color variants</span><span>14 active</span></li>
-                              <li><span>Artwork</span><span>Review</span></li>
-                              <li><span>Personalization queue</span><span>7 waiting</span></li>
-                            </ul>
-                          </div>
-                          <div class="industry-block">
-                            <h3>Demand pattern</h3>
-                            <ul>
-                              <li><span>Preorders</span><span>Live</span></li>
-                              <li><span>Variant holds</span><span>2 issues</span></li>
-                            </ul>
-                          </div>
-                        </aside>
-                        <div class="industry-main">
-                          <div class="industry-metrics">
-                            <div class="industry-metric"><strong>14</strong><span>Variant families</span></div>
-                            <div class="industry-metric"><strong>7</strong><span>Personalization jobs</span></div>
-                            <div class="industry-metric"><strong>28%</strong><span>Preorder lift</span></div>
-                            <div class="industry-metric"><strong>Live</strong><span>Artwork approval lane</span></div>
-                          </div>
-                          <div class="industry-workflow">
-                            <ul class="mini-list">
-                              <li><span>Artwork approval</span><span class="status status-live">Ready</span></li>
-                              <li><span>Size run restock</span><span class="status status-early">Draft</span></li>
-                              <li><span>Personalization queue</span><span class="status status-demo">Watch</span></li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="tab-panel" data-panel="bakery" data-open="false">
-                    <div class="industry-shell">
-                      <div class="industry-top">
-                        <strong>Bakery workspace</strong>
-                        <div class="chip-list" style="margin-top:0;">
-                          <span class="status status-beta">Beta</span>
-                          <span class="status status-live">Live</span>
-                        </div>
-                        <span class="small">Ingredients, recipes, batch yields, prep schedule, pickup orders</span>
-                      </div>
-                      <div class="industry-grid">
-                        <aside class="industry-sidebar">
-                          <div class="industry-block">
-                            <h3>Ingredient watchlist</h3>
-                            <ul>
-                              <li><span>Ingredients</span><span>11 low</span></li>
-                              <li><span>Recipes</span><span>24 active</span></li>
-                              <li><span>Batch yields</span><span>93%</span></li>
-                              <li><span>Prep schedule</span><span>Today</span></li>
-                            </ul>
-                          </div>
-                          <div class="industry-block">
-                            <h3>Pickup flow</h3>
-                            <ul>
-                              <li><span>Pickup orders</span><span>18</span></li>
-                              <li><span>Allergen notes</span><span>Visible</span></li>
-                            </ul>
-                          </div>
-                        </aside>
-                        <div class="industry-main">
-                          <div class="industry-metrics">
-                            <div class="industry-metric"><strong>24</strong><span>Recipe cards</span></div>
-                            <div class="industry-metric"><strong>18</strong><span>Pickup orders</span></div>
-                            <div class="industry-metric"><strong>93%</strong><span>Batch yield</span></div>
-                            <div class="industry-metric"><strong>3</strong><span>Prep windows</span></div>
-                          </div>
-                          <div class="industry-workflow">
-                            <ul class="mini-list">
-                              <li><span>Morning bake prep</span><span class="status status-live">Today</span></li>
-                              <li><span>Ingredient reorder draft</span><span class="status status-early">Draft</span></li>
-                              <li><span>Pickup order wave</span><span class="status status-demo">Watch</span></li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="tab-panel" data-panel="candles" data-open="false">
-                    <div class="industry-shell">
-                      <div class="industry-top">
-                        <strong>Candles workspace</strong>
-                        <div class="chip-list" style="margin-top:0;">
-                          <span class="status status-demo">Demo</span>
-                          <span class="status status-early">Early Access</span>
-                        </div>
-                        <span class="small">Wax, fragrance oils, vessels, curing windows, seasonal demand planning</span>
-                      </div>
-                      <div class="industry-grid">
-                        <aside class="industry-sidebar">
-                          <div class="industry-block">
-                            <h3>Seasonal pressure</h3>
-                            <ul>
-                              <li><span>Wax</span><span>8 days</span></li>
-                              <li><span>Fragrance oils</span><span>4 low</span></li>
-                              <li><span>Vessels</span><span>Strong</span></li>
-                              <li><span>Curing windows</span><span>3 batches</span></li>
-                            </ul>
-                          </div>
-                          <div class="industry-block">
-                            <h3>Launch pacing</h3>
-                            <ul>
-                              <li><span>Seasonal demand</span><span>+31%</span></li>
-                              <li><span>Release queue</span><span>Tonight</span></li>
-                            </ul>
-                          </div>
-                        </aside>
-                        <div class="industry-main">
-                          <div class="industry-metrics">
-                            <div class="industry-metric"><strong>31%</strong><span>Seasonal lift</span></div>
-                            <div class="industry-metric"><strong>8</strong><span>Wax days on hand</span></div>
-                            <div class="industry-metric"><strong>4</strong><span>Low oil signals</span></div>
-                            <div class="industry-metric"><strong>Live</strong><span>Launch pacing</span></div>
-                          </div>
-                          <div class="industry-workflow">
-                            <ul class="mini-list">
-                              <li><span>Seasonal candle launch</span><span class="status status-live">Ready</span></li>
-                              <li><span>Wax reorder draft</span><span class="status status-early">Draft</span></li>
-                              <li><span>Curing queue</span><span class="status status-demo">Watch</span></li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="tab-panel" data-panel="bath" data-open="false">
-                    <div class="industry-shell">
-                      <div class="industry-top">
-                        <strong>Bath &amp; Body workspace</strong>
-                        <div class="chip-list" style="margin-top:0;">
-                          <span class="status status-planned">Planned</span>
-                          <span class="status status-beta">Beta</span>
-                        </div>
-                        <span class="small">Formula workflows, lot-related planning, replenishment timing clarity</span>
-                      </div>
-                      <div class="industry-grid">
-                        <aside class="industry-sidebar">
-                          <div class="industry-block">
-                            <h3>Execution lanes</h3>
-                            <ul>
-                              <li><span>Formula workflows</span><span>Tracked</span></li>
-                              <li><span>Lot planning</span><span>Visible</span></li>
-                              <li><span>Replenishment timing</span><span>6 days</span></li>
-                              <li><span>Quality notes</span><span>Ready</span></li>
-                            </ul>
-                          </div>
-                          <div class="industry-block">
-                            <h3>Status note</h3>
-                            <ul>
-                              <li><span>Lot-sensitive execution</span><span>Planned</span></li>
-                              <li><span>Compliance lane</span><span>Beta</span></li>
-                            </ul>
-                          </div>
-                        </aside>
-                        <div class="industry-main">
-                          <div class="industry-metrics">
-                            <div class="industry-metric"><strong>6</strong><span>Days to replenish</span></div>
-                            <div class="industry-metric"><strong>2</strong><span>Lot notes</span></div>
-                            <div class="industry-metric"><strong>Beta</strong><span>Compliance lane</span></div>
-                            <div class="industry-metric"><strong>Planned</strong><span>Lot-sensitive automation</span></div>
-                          </div>
-                          <div class="industry-workflow">
-                            <ul class="mini-list">
-                              <li><span>Formula update review</span><span class="status status-live">Ready</span></li>
-                              <li><span>Lot planning lane</span><span class="status status-planned">Planned</span></li>
-                              <li><span>Replenishment draft</span><span class="status status-early">Draft</span></li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="tab-panel" data-panel="boutique" data-open="false">
-                    <div class="industry-shell">
-                      <div class="industry-top">
-                        <strong>Boutique workspace</strong>
-                        <div class="chip-list" style="margin-top:0;">
-                          <span class="status status-demo">Demo</span>
-                          <span class="status status-live">Live</span>
-                        </div>
-                        <span class="small">Merchandising visibility, incoming stock awareness, fulfillment pacing</span>
-                      </div>
-                      <div class="industry-grid">
-                        <aside class="industry-sidebar">
-                          <div class="industry-block">
-                            <h3>Merchandising rhythm</h3>
-                            <ul>
-                              <li><span>Incoming stock</span><span>Visible</span></li>
-                              <li><span>Merchandising</span><span>5 displays</span></li>
-                              <li><span>Fulfillment pacing</span><span>Today</span></li>
-                              <li><span>Channel timing</span><span>Strong</span></li>
-                            </ul>
-                          </div>
-                          <div class="industry-block">
-                            <h3>Subscription-adjacent</h3>
-                            <ul>
-                              <li><span>Seasonal drops</span><span>Ready</span></li>
-                              <li><span>Box rhythm</span><span>Flexible</span></li>
-                            </ul>
-                          </div>
-                        </aside>
-                        <div class="industry-main">
-                          <div class="industry-metrics">
-                            <div class="industry-metric"><strong>5</strong><span>Display setups</span></div>
-                            <div class="industry-metric"><strong>18</strong><span>Orders today</span></div>
-                            <div class="industry-metric"><strong>Visible</strong><span>Incoming stock</span></div>
-                            <div class="industry-metric"><strong>Live</strong><span>Pacing</span></div>
-                          </div>
-                          <div class="industry-workflow">
-                            <ul class="mini-list">
-                              <li><span>Boutique drop queue</span><span class="status status-live">Ready</span></li>
-                              <li><span>Merchandise refresh</span><span class="status status-demo">Watch</span></li>
-                              <li><span>Box rhythm planning</span><span class="status status-early">Draft</span></li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-        <div class="card tab-panel" data-panel="bath" data-open="false"><p>Formula workflows, lot-related planning, and replenishment timing clarity.</p></div>
-        <div class="card tab-panel" data-panel="boutique" data-open="false"><p>Merchandising visibility, incoming stock awareness, and fulfillment pacing.</p></div>
-      </div>
-    </section>
-
-                <span class="eyebrow">ORDER FLOW</span>
-                <h2 style="margin-top:0.8rem;">From new order to shipped without losing the thread.</h2>
-                <div class="timeline-shell" style="margin-top:1rem;">
-                  <div class="timeline-flow">
-                    <div class="timeline-step"><div><strong>New order</strong><p>Order lands from Shopify or manual entry.</p></div><span class="status status-live">Sell</span></div>
-                    <div class="timeline-step"><div><strong>Inventory reserved</strong><p>Available stock adjusts before anyone touches the queue.</p></div><span class="status status-early">Stock</span></div>
-                    <div class="timeline-step"><div><strong>Production needed</strong><p>If components are short, the batch lane lights up.</p></div><span class="status status-beta">Make</span></div>
-                    <div class="timeline-step"><div><strong>Ready to pick</strong><p>Fulfillment queue receives the verified order.</p></div><span class="status status-live">Ship</span></div>
-                    <div class="timeline-step"><div><strong>Packed</strong><p>Pack verification clears the order for shipment.</p></div><span class="status status-demo">Pack</span></div>
-                    <div class="timeline-step"><div><strong>Shipped</strong><p>Customer timeline updates with the completed handoff.</p></div><span class="status status-live">Done</span></div>
-                  </div>
-                  <aside class="timeline-side">
-                    <h3>Novi watches exceptions</h3>
-                    <ul class="mini-list" style="margin-top:0.7rem;">
-                      <li><span>Late ship on Order #8197</span><span class="status status-early">Watch</span></li>
-                      <li><span>Inventory risk on Vanilla Base</span><span class="status status-live">Alert</span></li>
-                      <li><span>Customer response due today</span><span class="status status-demo">Care</span></li>
+                  <div class="industry-workflow">
+                    <ul class="mini-list">
+                      <li><span>Freshies batch queue</span><span class="status status-live">Ready</span></li>
+                      <li><span>Aroma bead reorder draft</span><span class="status status-early">Draft</span></li>
+                      <li><span>New scent launch demand</span><span class="status status-demo">Watch</span></li>
                     </ul>
-                  </aside>
+                  </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-panel="apparel" data-open="false">
+            <div class="industry-shell">
+              <div class="industry-top">
+                <strong>Apparel workspace</strong>
+                <div class="chip-list" style="margin-top:0;">
+                  <span data-status="beta"></span>
+                  <span class="status status-demo">Illustrative workspace</span>
+                </div>
+                <span class="small">Blank inventory, size/color variants, artwork, personalization queue, preorders</span>
+              </div>
+              <div class="industry-grid">
+                <aside class="industry-sidebar">
+                  <div class="industry-block">
+                    <h3>Variant pressure</h3>
+                    <ul>
+                      <li><span>Blank inventory</span><span>52 on hand</span></li>
+                      <li><span>Size/color variants</span><span>14 active</span></li>
+                      <li><span>Artwork</span><span>Review</span></li>
+                      <li><span>Personalization queue</span><span>7 waiting</span></li>
+                    </ul>
+                  </div>
+                  <div class="industry-block">
+                    <h3>Demand pattern</h3>
+                    <ul>
+                      <li><span>Preorders</span><span>Live</span></li>
+                      <li><span>Variant holds</span><span>2 issues</span></li>
+                    </ul>
+                  </div>
+                </aside>
+                <div class="industry-main">
+                  <div class="industry-metrics">
+                    <div class="industry-metric"><strong>14</strong><span>Variant families</span></div>
+                    <div class="industry-metric"><strong>7</strong><span>Personalization jobs</span></div>
+                    <div class="industry-metric"><strong>28%</strong><span>Preorder lift</span></div>
+                    <div class="industry-metric"><strong>Live</strong><span>Artwork approval lane</span></div>
+                  </div>
+                  <div class="industry-workflow">
+                    <ul class="mini-list">
+                      <li><span>Artwork approval</span><span class="status status-live">Ready</span></li>
+                      <li><span>Size run restock</span><span class="status status-early">Draft</span></li>
+                      <li><span>Personalization queue</span><span class="status status-demo">Watch</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-panel="bakery" data-open="false">
+            <div class="industry-shell">
+              <div class="industry-top">
+                <strong>Bakery workspace</strong>
+                <div class="chip-list" style="margin-top:0;">
+                  <span data-status="live"></span>
+                  <span class="status status-demo">Illustrative workspace</span>
+                </div>
+                <span class="small">Ingredients, recipes, batch yields, prep schedule, pickup orders</span>
+              </div>
+              <div class="industry-grid">
+                <aside class="industry-sidebar">
+                  <div class="industry-block">
+                    <h3>Ingredient watchlist</h3>
+                    <ul>
+                      <li><span>Ingredients</span><span>11 low</span></li>
+                      <li><span>Recipes</span><span>24 active</span></li>
+                      <li><span>Batch yields</span><span>93%</span></li>
+                      <li><span>Prep schedule</span><span>Today</span></li>
+                    </ul>
+                  </div>
+                  <div class="industry-block">
+                    <h3>Pickup flow</h3>
+                    <ul>
+                      <li><span>Pickup orders</span><span>18</span></li>
+                      <li><span>Allergen notes</span><span>Visible</span></li>
+                    </ul>
+                  </div>
+                </aside>
+                <div class="industry-main">
+                  <div class="industry-metrics">
+                    <div class="industry-metric"><strong>24</strong><span>Recipe cards</span></div>
+                    <div class="industry-metric"><strong>18</strong><span>Pickup orders</span></div>
+                    <div class="industry-metric"><strong>93%</strong><span>Batch yield</span></div>
+                    <div class="industry-metric"><strong>3</strong><span>Prep windows</span></div>
+                  </div>
+                  <div class="industry-workflow">
+                    <ul class="mini-list">
+                      <li><span>Morning bake prep</span><span class="status status-live">Today</span></li>
+                      <li><span>Ingredient reorder draft</span><span class="status status-early">Draft</span></li>
+                      <li><span>Pickup order wave</span><span class="status status-demo">Watch</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-panel="candles" data-open="false">
+            <div class="industry-shell">
+              <div class="industry-top">
+                <strong>Candles workspace</strong>
+                <div class="chip-list" style="margin-top:0;">
+                  <span data-status="early"></span>
+                  <span class="status status-demo">Illustrative workspace</span>
+                </div>
+                <span class="small">Wax, fragrance oils, vessels, curing windows, seasonal demand planning</span>
+              </div>
+              <div class="industry-grid">
+                <aside class="industry-sidebar">
+                  <div class="industry-block">
+                    <h3>Seasonal pressure</h3>
+                    <ul>
+                      <li><span>Wax</span><span>8 days</span></li>
+                      <li><span>Fragrance oils</span><span>4 low</span></li>
+                      <li><span>Vessels</span><span>Strong</span></li>
+                      <li><span>Curing windows</span><span>3 batches</span></li>
+                    </ul>
+                  </div>
+                  <div class="industry-block">
+                    <h3>Launch pacing</h3>
+                    <ul>
+                      <li><span>Seasonal demand</span><span>+31%</span></li>
+                      <li><span>Release queue</span><span>Tonight</span></li>
+                    </ul>
+                  </div>
+                </aside>
+                <div class="industry-main">
+                  <div class="industry-metrics">
+                    <div class="industry-metric"><strong>31%</strong><span>Seasonal lift</span></div>
+                    <div class="industry-metric"><strong>8</strong><span>Wax days on hand</span></div>
+                    <div class="industry-metric"><strong>4</strong><span>Low oil signals</span></div>
+                    <div class="industry-metric"><strong>Live</strong><span>Launch pacing</span></div>
+                  </div>
+                  <div class="industry-workflow">
+                    <ul class="mini-list">
+                      <li><span>Seasonal candle launch</span><span class="status status-live">Ready</span></li>
+                      <li><span>Wax reorder draft</span><span class="status status-early">Draft</span></li>
+                      <li><span>Curing queue</span><span class="status status-demo">Watch</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-panel="bath" data-open="false">
+            <div class="industry-shell">
+              <div class="industry-top">
+                <strong>Bath &amp; Body workspace</strong>
+                <div class="chip-list" style="margin-top:0;">
+                  <span data-status="planned"></span>
+                  <span class="status status-demo">Illustrative workspace</span>
+                </div>
+                <span class="small">Formula workflows, lot-related planning, replenishment timing clarity</span>
+              </div>
+              <div class="industry-grid">
+                <aside class="industry-sidebar">
+                  <div class="industry-block">
+                    <h3>Execution lanes</h3>
+                    <ul>
+                      <li><span>Formula workflows</span><span>Tracked</span></li>
+                      <li><span>Lot planning</span><span>Visible</span></li>
+                      <li><span>Replenishment timing</span><span>6 days</span></li>
+                      <li><span>Quality notes</span><span>Ready</span></li>
+                    </ul>
+                  </div>
+                  <div class="industry-block">
+                    <h3>Status note</h3>
+                    <ul>
+                      <li><span>Lot-sensitive execution</span><span>Planned</span></li>
+                      <li><span>Compliance lane</span><span>Beta</span></li>
+                    </ul>
+                  </div>
+                </aside>
+                <div class="industry-main">
+                  <div class="industry-metrics">
+                    <div class="industry-metric"><strong>6</strong><span>Days to replenish</span></div>
+                    <div class="industry-metric"><strong>2</strong><span>Lot notes</span></div>
+                    <div class="industry-metric"><strong>Beta</strong><span>Compliance lane</span></div>
+                    <div class="industry-metric"><strong>Planned</strong><span>Lot-sensitive automation</span></div>
+                  </div>
+                  <div class="industry-workflow">
+                    <ul class="mini-list">
+                      <li><span>Formula update review</span><span class="status status-live">Ready</span></li>
+                      <li><span>Lot planning lane</span><span class="status status-planned">Planned</span></li>
+                      <li><span>Replenishment draft</span><span class="status status-early">Draft</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-panel="boutique" data-open="false">
+            <div class="industry-shell">
+              <div class="industry-top">
+                <strong>Boutique workspace</strong>
+                <div class="chip-list" style="margin-top:0;">
+                  <span data-status="demo"></span>
+                  <span class="status status-demo">Illustrative workspace</span>
+                </div>
+                <span class="small">Merchandising visibility, incoming stock awareness, fulfillment pacing</span>
+              </div>
+              <div class="industry-grid">
+                <aside class="industry-sidebar">
+                  <div class="industry-block">
+                    <h3>Merchandising rhythm</h3>
+                    <ul>
+                      <li><span>Incoming stock</span><span>Visible</span></li>
+                      <li><span>Merchandising</span><span>5 displays</span></li>
+                      <li><span>Fulfillment pacing</span><span>Today</span></li>
+                      <li><span>Channel timing</span><span>Strong</span></li>
+                    </ul>
+                  </div>
+                  <div class="industry-block">
+                    <h3>Subscription-adjacent</h3>
+                    <ul>
+                      <li><span>Seasonal drops</span><span>Ready</span></li>
+                      <li><span>Box rhythm</span><span>Flexible</span></li>
+                    </ul>
+                  </div>
+                </aside>
+                <div class="industry-main">
+                  <div class="industry-metrics">
+                    <div class="industry-metric"><strong>5</strong><span>Display setups</span></div>
+                    <div class="industry-metric"><strong>18</strong><span>Orders today</span></div>
+                    <div class="industry-metric"><strong>Visible</strong><span>Incoming stock</span></div>
+                    <div class="industry-metric"><strong>Live</strong><span>Pacing</span></div>
+                  </div>
+                  <div class="industry-workflow">
+                    <ul class="mini-list">
+                      <li><span>Boutique drop queue</span><span class="status status-live">Ready</span></li>
+                      <li><span>Merchandise refresh</span><span class="status status-demo">Watch</span></li>
+                      <li><span>Box rhythm planning</span><span class="status status-early">Draft</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-                <span class="eyebrow">SAVINGS</span>
-                <h2 style="margin-top:0.8rem;">How much are you paying to keep your business stitched together?</h2>
-                <div class="savings-shell" style="margin-top:1rem;">
-                  <div>
-                    <p class="lead" style="margin-top:0;">Current tools feed into one monthly total. Then ShimmerStock replaces the stack with one operating plan.</p>
-                    <div class="stack-feed">
-                      <div class="stack-item"><div><strong>Inventory software</strong><small>Reorder + bin tracking</small></div><span>$79</span></div>
-                      <div class="stack-item"><div><strong>Customer support</strong><small>Inbox + order context</small></div><span>$39</span></div>
-                      <div class="stack-item"><div><strong>Affiliate tracking</strong><small>Partner attribution</small></div><span>$49</span></div>
-                      <div class="stack-item"><div><strong>Production planning</strong><small>BOM + batch flow</small></div><span>$69</span></div>
-                      <div class="stack-item"><div><strong>Reporting</strong><small>Weekly visibility</small></div><span>$29</span></div>
-                      <div class="stack-arrow">↓</div>
-                    </div>
-                  </div>
-                  <div class="savings-result" id="savings-calculator">
-                    <div class="savings-grid">
-                      <label>Inventory software <input type="number" data-cost value="79" min="0"></label>
-                      <label>Customer support <input type="number" data-cost value="39" min="0"></label>
-                      <label>Affiliate tracking <input type="number" data-cost value="49" min="0"></label>
-                      <label>Production planning <input type="number" data-cost value="69" min="0"></label>
-                      <label>Reporting <input type="number" data-cost value="29" min="0"></label>
-                      <label>Other <input type="number" data-cost value="30" min="0"></label>
-                    </div>
-                    <div class="calc-results" style="margin-top:1rem;">
-                      <p>Estimated monthly stack cost: <strong id="stack-cost">$0/mo</strong></p>
-                      <p>Example ShimmerStock plan: <strong id="stack-plan">$0/mo</strong></p>
-                      <p>Potential consolidation savings: <strong id="stack-savings">$0/mo</strong></p>
-                      <p class="small">Example plan shown for planning only.</p>
-                    </div>
-                  </div>
-                </div>
+    <section class="section section-mint">
+      <div class="container-wide timeline-shell">
+        <div>
+          <span class="eyebrow">ORDER FLOW</span>
+          <h2 style="margin-top:0.8rem;">From new order to shipped without losing the thread.</h2>
+        </div>
+        <div class="workflow-stage-list" role="tablist" aria-label="Workflow stage selector">
+          <button type="button" class="workflow-stage-button is-active" data-workflow-stage="order">Order arrives</button>
+          <button type="button" class="workflow-stage-button" data-workflow-stage="reserve">Inventory reserved</button>
+          <button type="button" class="workflow-stage-button" data-workflow-stage="production">Production</button>
+          <button type="button" class="workflow-stage-button" data-workflow-stage="pick">Pick</button>
+          <button type="button" class="workflow-stage-button" data-workflow-stage="pack">Pack</button>
+          <button type="button" class="workflow-stage-button" data-workflow-stage="ship">Ship</button>
+        </div>
+        <div class="timeline-shell" style="margin-top:1rem;">
+          <div class="timeline-flow">
+            <button type="button" class="timeline-step is-active" data-workflow-step="order"><div><strong>New order</strong><p>Order lands from Shopify or manual entry.</p></div><span class="status status-live">Sell</span></button>
+            <button type="button" class="timeline-step" data-workflow-step="reserve"><div><strong>Inventory reserved</strong><p>Available stock adjusts before anyone touches the queue.</p></div><span class="status status-early">Stock</span></button>
+            <button type="button" class="timeline-step" data-workflow-step="production"><div><strong>Production needed</strong><p>If components are short, the batch lane lights up.</p></div><span class="status status-beta">Make</span></button>
+            <button type="button" class="timeline-step" data-workflow-step="pick"><div><strong>Ready to pick</strong><p>Fulfillment queue receives the verified order.</p></div><span class="status status-live">Ship</span></button>
+            <button type="button" class="timeline-step" data-workflow-step="pack"><div><strong>Packed</strong><p>Pack verification clears the order for shipment.</p></div><span class="status status-demo">Pack</span></button>
+            <button type="button" class="timeline-step" data-workflow-step="ship"><div><strong>Shipped</strong><p>Customer timeline updates with the completed handoff.</p></div><span class="status status-live">Done</span></button>
+          </div>
+          <aside class="timeline-side">
+            <div class="workflow-detail" data-workflow-detail>
+              <span class="status status-live">Preview</span>
+              <strong data-workflow-title>Order arrives</strong>
+              <p data-workflow-copy>When a Shopify order lands, the queue opens and Novi watches for exceptions before the team touches the work.</p>
+              <div class="novi-detail-grid" data-workflow-list>
+                <div class="novi-detail-row"><strong>Source</strong><span>Shopify</span></div>
+                <div class="novi-detail-row"><strong>Action</strong><span>Queue opens</span></div>
+                <div class="novi-detail-row"><strong>Novi</strong><span>Flags risk</span></div>
+              </div>
+            </div>
+            <h3>Novi watches exceptions</h3>
+            <ul class="mini-list" style="margin-top:0.7rem;">
+              <li><span>Late ship on Order #8197</span><span class="status status-early">Watch</span></li>
+              <li><span>Inventory risk on Vanilla Base</span><span class="status status-live">Alert</span></li>
+              <li><span>Customer response due today</span><span class="status status-demo">Care</span></li>
+            </ul>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-blush section-tight">
+      <div class="container-wide savings-shell">
+        <div>
+          <span class="eyebrow">SAVINGS</span>
+          <h2 style="margin-top:0.8rem;">How much are you paying to keep your business stitched together?</h2>
+          <p class="lead" style="margin-top:0.8rem;">Example stack costs are prefilled so the monthly total starts from a believable demo state instead of showing $0 beside nonzero examples.</p>
+          <div class="stack-feed">
+            <div class="stack-item"><div><strong>Inventory software</strong><small>Reorder + bin tracking</small></div><span>$79</span></div>
+            <div class="stack-item"><div><strong>Customer support</strong><small>Inbox + order context</small></div><span>$39</span></div>
+            <div class="stack-item"><div><strong>Affiliate tracking</strong><small>Partner attribution</small></div><span>$49</span></div>
+            <div class="stack-item"><div><strong>Production planning</strong><small>BOM + batch flow</small></div><span>$69</span></div>
+            <div class="stack-item"><div><strong>Reporting</strong><small>Weekly visibility</small></div><span>$29</span></div>
+          </div>
+          <div class="savings-meter">
+            <div class="savings-meter-track"><span data-savings-bar></span></div>
+            <div class="savings-meter-labels"><span>Disconnected stack</span><span>ShimmerStock consolidation</span></div>
+          </div>
+        </div>
+        <div class="savings-result" id="savings-calculator">
+          <div class="savings-grid">
+            <label>Inventory software <input type="number" data-cost value="79" min="0"></label>
+            <label>Customer support <input type="number" data-cost value="39" min="0"></label>
+            <label>Affiliate tracking <input type="number" data-cost value="49" min="0"></label>
+            <label>Production planning <input type="number" data-cost value="69" min="0"></label>
+            <label>Reporting <input type="number" data-cost value="29" min="0"></label>
+            <label>Other <input type="number" data-cost value="30" min="0"></label>
+          </div>
+          <div class="calc-results" style="margin-top:1rem;">
+            <p>Estimated monthly stack cost: <strong id="stack-cost">$295/mo</strong></p>
+            <p>Example ShimmerStock plan: <strong id="stack-plan">$149/mo</strong></p>
+            <p>Potential consolidation savings: <strong id="stack-savings">$146/mo</strong></p>
+            <p class="small">Example stack values are prefilled for planning clarity.</p>
           </div>
         </div>
       </div>
     </section>
-              <div class="container card" style="background:#fff; border-color:#cfbfeb; box-shadow:0 18px 42px rgba(93,70,133,0.1);">
+
     <section class="section section-tight">
-                <h2 style="margin-top:0.8rem;">You’re early enough to help shape this.</h2>
-                <p class="lead" style="margin-top:0.8rem;">We are inviting teams that want to influence how the operating system feels day to day.</p>
-                <div class="pill-cloud" style="margin-top:0.85rem;">
-                  <span>Direct feedback loop</span>
-                  <span>First access to new workflows</span>
-                  <span>Clear status labels</span>
-                </div>
+      <div class="container-wide card" style="background:#fff; border-color:#cfbfeb; box-shadow:0 18px 42px rgba(93,70,133,0.1);">
+        <h2 style="margin-top:0.8rem;">You’re early enough to help shape this.</h2>
+        <p class="lead" style="margin-top:0.8rem;">We are inviting teams that want to influence how the operating system feels day to day.</p>
+        <div class="pill-cloud" style="margin-top:0.85rem;">
+          <span>Direct feedback loop</span>
+          <span>First access to new workflows</span>
+          <span>Clear status labels</span>
+        </div>
+        <ul class="ia-list">
           <li>Founding-member recognition later</li>
         </ul>
         <div class="btn-row">
           <a class="btn btn-primary" href="/early-access">Join Early Access</a>
-                <p class="small" style="margin-top:0.8rem;">No countdowns. No scarcity tricks. Just a carefully staged rollout.</p>
           <a class="btn btn-secondary" href="/product">Explore the Platform</a>
         </div>
+        <p class="small" style="margin-top:0.8rem;">No countdowns. No scarcity tricks. Just a carefully staged rollout.</p>
       </div>
     </section>
 
     <section class="section">
-      <div class="container split">
+      <div class="container-wide split">
         <div class="card">
           <h2>Security and trust</h2>
           <ul class="ia-list">
@@ -717,7 +815,7 @@
     </section>
 
     <section class="section cta-band">
-      <div class="container card" style="text-align:center; background: transparent; border-color: rgba(255,255,255,0.12); box-shadow:none;">
+      <div class="container-wide card" style="text-align:center; background: transparent; border-color: rgba(255,255,255,0.12); box-shadow:none;">
         <span class="eyebrow">FINAL STEP</span>
         <h2 style="margin-top:0.8rem;">Your business grew up. Your back office should too.</h2>
         <p class="lead" style="margin:0.8rem auto 0;">Stop stitching your operations together one app at a time.</p>
