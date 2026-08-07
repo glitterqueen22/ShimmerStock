@@ -30,7 +30,12 @@ import { requireAuth } from "./auth.js";
 import { encryptToken } from "./crypto-utils.js";
 import { getProvider, invalidateProviderCache } from "./providers/registry.js";
 import { canonicalizeShopDomain, isCanonicalShopDomain } from "./providers/shopify-domain.js";
-import { gatewayFetch, SHOPIFY_API_VERSION } from "./providers/shopify-gateway.js";
+import { gatewayFetch } from "./providers/shopify-gateway.js";
+import {
+  buildShopifyAuthorizationUrl,
+  resolveShopifyOAuthConfig,
+  SHOPIFY_OAUTH_REQUIRED_SCOPES,
+} from "./shopify-oauth-config.js";
 
 // ── Rate limiters for OAuth endpoints ──────────────────────────────────────
 
@@ -58,13 +63,9 @@ const oauthCallbackLimiter = rateLimit({
 // ── P0 OAuth scope policy ────────────────────────────────────────────────────
 // Exactly these four read scopes — no more, no fewer.
 
-const REQUIRED_SCOPES = ["read_orders", "read_products", "read_inventory", "read_locations"];
-const SHOPIFY_SCOPES = REQUIRED_SCOPES.join(",");
-const PUBLIC_APP_URL = process.env.SHIMMERSTOCK_PUBLIC_URL || process.env.SHIMMERSTOCK_URL || "http://localhost:3000";
-
-// P0 policy: the approved set is exactly REQUIRED_SCOPES — no additional scopes.
+// P0 policy: the approved set is exactly SHOPIFY_OAUTH_REQUIRED_SCOPES — no additional scopes.
 // read_all_orders is NOT approved for P0; it belongs in a separate owner-approved scope milestone.
-const APPROVED_SCOPES = new Set(REQUIRED_SCOPES);
+const APPROVED_SCOPES = new Set(SHOPIFY_OAUTH_REQUIRED_SCOPES);
 
 // API_VERSION is centralized in server/providers/shopify-gateway.js as SHOPIFY_API_VERSION.
 // The unused local constant previously declared here has been removed.
@@ -132,7 +133,7 @@ function validateHmac(query, secret) {
  * Exchange a Shopify OAuth code for an access token.
  * Never logs the token or client secret values.
  */
-async function exchangeCodeForToken(shopDomain, code) {
+async function exchangeCodeForToken(shopDomain, code, oauthConfig) {
   const normalizedShopDomain = canonicalizeShopDomain(shopDomain);
   // Defense-in-depth: assert canonical Shopify domain before constructing the URL.
   // The shopDomain should already have been validated by isValidShopDomain() in the caller,
@@ -147,8 +148,8 @@ async function exchangeCodeForToken(shopDomain, code) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      client_id: process.env.SHOPIFY_CLIENT_ID || "",
-      client_secret: process.env.SHOPIFY_CLIENT_SECRET || "",
+      client_id: oauthConfig.clientId,
+      client_secret: oauthConfig.clientSecret,
       code,
     }),
   });
@@ -176,8 +177,8 @@ async function fetchShopInfo(shopDomain, accessToken) {
 /**
  * Verify granted scopes against P0 policy:
  *  - No write_* scope is permitted.
- *  - Granted scopes must exactly match APPROVED_SCOPES (same as REQUIRED_SCOPES for P0).
- *  - All REQUIRED_SCOPES must be present.
+ *  - Granted scopes must exactly match APPROVED_SCOPES (same as SHOPIFY_OAUTH_REQUIRED_SCOPES for P0).
+ *  - All SHOPIFY_OAUTH_REQUIRED_SCOPES must be present.
  *
  * Exported for unit testing.
  *
@@ -211,7 +212,7 @@ export function verifyGrantedScopes(grantedScopeString) {
   }
 
   // Check all required scopes are present
-  const missing = REQUIRED_SCOPES.filter((req) => !grantedList.includes(req));
+  const missing = SHOPIFY_OAUTH_REQUIRED_SCOPES.filter((req) => !grantedList.includes(req));
 
   if (missing.length > 0) {
     return {
@@ -390,6 +391,12 @@ export function mountShopifyOauthRoutes(app, db) {
 
   app.get("/api/shopify/auth", oauthInitLimiter, requireAuth(db, "shopify.read"), (req, res) => {
     try {
+      const oauthConfig = resolveShopifyOAuthConfig(process.env, { appUrl: req.app?.locals?.shopifyOauthAppUrl });
+      if (!oauthConfig.ok) {
+        console.warn("[shopify-oauth] OAuth configuration invalid — refusing to initiate connection");
+        return res.status(500).json({ error: "Shopify OAuth is not configured correctly" });
+      }
+
       const userId = req.user?.id;
       const businessId = req.businessId;
       const sessionId = req.sessionId ?? null;
@@ -404,10 +411,6 @@ export function mountShopifyOauthRoutes(app, db) {
         return res.status(400).json({ error: "Invalid shop domain — must be a canonical *.myshopify.com domain" });
       }
 
-      if (!(process.env.SHOPIFY_CLIENT_ID || "")) {
-        return res.status(500).json({ error: "Shopify OAuth is not configured — set SHOPIFY_CLIENT_ID" });
-      }
-
       if (!userId || !businessId) {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -415,13 +418,13 @@ export function mountShopifyOauthRoutes(app, db) {
       // Create opaque state bound to user + business + session + shop
       const stateToken = createOAuthState(db, userId, businessId, sessionId, shop);
 
-      const authUrl = new URL(`https://${shop}/admin/oauth/authorize`);
-      authUrl.searchParams.set("client_id", process.env.SHOPIFY_CLIENT_ID || "");
-      authUrl.searchParams.set("scope", SHOPIFY_SCOPES);
-      authUrl.searchParams.set("redirect_uri", `${PUBLIC_APP_URL}/api/shopify/auth/callback`);
-      authUrl.searchParams.set("state", stateToken);
+      const destination = buildShopifyAuthorizationUrl({
+        shopDomain: shop,
+        clientId: oauthConfig.clientId,
+        redirectUri: oauthConfig.redirectUri,
+        state: stateToken,
+      });
 
-      const destination = authUrl.toString();
       console.log(`[shopify-oauth] Redirecting business ${businessId} to Shopify OAuth (shop: ${shop})`);
       if (req.query.format === "json") {
         return res.json({ authUrl: destination });
@@ -437,6 +440,12 @@ export function mountShopifyOauthRoutes(app, db) {
 
   app.get("/api/shopify/auth/callback", oauthCallbackLimiter, async (req, res) => {
     try {
+      const oauthConfig = resolveShopifyOAuthConfig(process.env, { appUrl: req.app?.locals?.shopifyOauthAppUrl });
+      if (!oauthConfig.ok) {
+        console.warn("[shopify-oauth] OAuth configuration invalid — refusing callback processing");
+        return res.status(500).json({ error: "Shopify OAuth is not configured correctly" });
+      }
+
       const { code, hmac, state } = req.query;
       // Canonicalize shop domain at the callback boundary
       const shop = canonicalizeShopDomain(req.query.shop);
@@ -451,7 +460,7 @@ export function mountShopifyOauthRoutes(app, db) {
       }
 
       // Validate HMAC signature — constant-time, excludes 'signature' legacy param
-      if (!validateHmac(req.query, process.env.SHOPIFY_CLIENT_SECRET || "")) {
+      if (!validateHmac(req.query, oauthConfig.clientSecret)) {
         console.warn("[shopify-oauth] HMAC validation failed");
         return res.status(403).json({ error: "Invalid HMAC signature — request may be forged" });
       }
@@ -469,7 +478,7 @@ export function mountShopifyOauthRoutes(app, db) {
       console.log(`[shopify-oauth] OAuth callback for business ${businessId}, shop ${shop}`);
 
       // Exchange code for access token — token value never logged
-      const tokenData = await exchangeCodeForToken(shop, code);
+      const tokenData = await exchangeCodeForToken(shop, code, oauthConfig);
       const accessToken = tokenData.access_token;
       const grantedScopeString = tokenData.scope || "";
 
@@ -539,7 +548,7 @@ export function mountShopifyOauthRoutes(app, db) {
         invalidateProviderCache(businessId);
         console.log(`[shopify-oauth] Shopify connected for business ${businessId}: ${shopName || shop}`);
 
-        const redirectUrl = `${PUBLIC_APP_URL}/commerce?shopify_connected=true`;
+        const redirectUrl = `${oauthConfig.appUrl}/commerce?shopify_connected=true`;
         res.redirect(redirectUrl);
       } else {
         // Verification failed — save metadata but mark as failed, do not activate
@@ -561,12 +570,12 @@ export function mountShopifyOauthRoutes(app, db) {
         `, [businessId, shop, encryptedToken, verifiedScopeString, `Token validation failed`, shopOwner, shopName]);
 
         console.error(`[shopify-oauth] Shopify connection FAILED for business ${businessId}`);
-        const errorUrl = `${PUBLIC_APP_URL}/commerce?shopify_error=validation_failed`;
+        const errorUrl = `${oauthConfig.appUrl}/commerce?shopify_error=validation_failed`;
         res.redirect(errorUrl);
       }
     } catch (err) {
       console.error("GET /api/shopify/auth/callback error:", err.message);
-      const errorUrl = `${PUBLIC_APP_URL}/commerce?shopify_error=connection_failed`;
+      const errorUrl = `${req.app?.locals?.shopifyOauthAppUrl || process.env.SHIMMERSTOCK_URL || "http://localhost:3000"}/commerce?shopify_error=connection_failed`;
       res.redirect(errorUrl);
     }
   });

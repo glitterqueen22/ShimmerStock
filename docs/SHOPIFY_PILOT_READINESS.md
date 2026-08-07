@@ -217,9 +217,36 @@ All protections in `server/shopify-oauth-routes.js`:
 14. Disconnect → verify `provider_credentials` deactivated, no further calls
 
 ### Business B — E-commerce Brand Test
-- Repeat steps 1–14 independently as Business B
-- After both connected: verify Business A cannot read Business B data
-- Verify webhook deliveries route to correct business by shop domain
+
+### Owner-side OAuth verification
+1. Confirm the Shopify Dev Dashboard app name is exactly `ShimmerStock Read-Only Pilot`.
+2. Confirm the app version is Active/Released.
+3. Confirm the Client ID copied from the app Settings page matches the Railway runtime fingerprint.
+4. Confirm the redirect URL is exactly `https://shimmerstock-production.up.railway.app/api/shopify/auth/callback`.
+5. Confirm the App URL matches the Railway staging URL.
+6. Confirm `Craft Supply Test` is the selected development store.
+7. Confirm the app is installed on that exact development store.
+8. Confirm no attempt is made against GGE.
+9. Confirm the Railway variables are set on the correct ShimmerStock service/environment.
+10. Confirm Railway redeploy occurred after the most recent variable update.
+11. If fingerprints differ, treat it as a Railway runtime-variable mismatch before changing OAuth logic.
+
+### Safe fingerprint check
+
+Run the local/server-side diagnostic:
+
+```bash
+bun run shopify:oauth:check
+```
+
+To fingerprint a copied Client ID without printing it, read it silently and pipe it through stdin:
+
+```bash
+read -rs SHOPIFY_CLIENT_ID_INPUT; printf '\n'; printf '%s' "$SHOPIFY_CLIENT_ID_INPUT" | node scripts/check-shopify-oauth-config.mjs --fingerprint-stdin
+unset SHOPIFY_CLIENT_ID_INPUT
+```
+
+The diagnostic and the hidden-stdin fingerprint must match before the OAuth app is trusted.
 
 ---
 

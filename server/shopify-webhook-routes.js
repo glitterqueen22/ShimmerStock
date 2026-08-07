@@ -13,13 +13,16 @@ import crypto from "crypto";
 import express from "express";
 import * as sync from "./sync.js";
 import * as store from "./store.js";
+import { resolveShopifyOAuthConfig } from "./shopify-oauth-config.js";
 
 /**
  * Validate a Shopify webhook HMAC header.
  */
 function validateWebhookHmac(rawBody, hmacHeader) {
   if (!hmacHeader) return false;
-  const secret = process.env.SHOPIFY_CLIENT_SECRET || "";
+  const oauthConfig = resolveShopifyOAuthConfig(process.env, { requireClientId: false });
+  if (!oauthConfig.ok || !oauthConfig.clientSecret) return false;
+  const secret = oauthConfig.clientSecret;
   const expectedHmac = crypto
     .createHmac("sha256", secret)
     .update(rawBody)
