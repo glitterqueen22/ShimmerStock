@@ -30,7 +30,7 @@ import { requireAuth } from "./auth.js";
 import { encryptToken } from "./crypto-utils.js";
 import { getProvider, invalidateProviderCache } from "./providers/registry.js";
 import { canonicalizeShopDomain, isCanonicalShopDomain } from "./providers/shopify-domain.js";
-import { gatewayFetch } from "./providers/shopify-gateway.js";
+import { gatewayFetch, SHOPIFY_API_VERSION } from "./providers/shopify-gateway.js";
 
 // ── Rate limiters for OAuth endpoints ──────────────────────────────────────
 
@@ -66,7 +66,8 @@ const PUBLIC_APP_URL = process.env.SHIMMERSTOCK_PUBLIC_URL || process.env.SHIMME
 // read_all_orders is NOT approved for P0; it belongs in a separate owner-approved scope milestone.
 const APPROVED_SCOPES = new Set(REQUIRED_SCOPES);
 
-const API_VERSION = "2024-01";
+// API_VERSION is centralized in server/providers/shopify-gateway.js as SHOPIFY_API_VERSION.
+// The unused local constant previously declared here has been removed.
 
 // ── OAuth state TTL ────────────────────────────────────────────────────────
 const STATE_TTL_SECONDS = 600; // 10 minutes

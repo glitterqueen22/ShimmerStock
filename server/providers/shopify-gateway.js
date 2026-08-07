@@ -31,7 +31,12 @@
  */
 
 import { canonicalizeShopDomain, isCanonicalShopDomain } from "./shopify-domain.js";
-const API_VERSION = "2024-01";
+
+/** Canonical Shopify Admin API version for all requests from this application. */
+export const SHOPIFY_API_VERSION = "2026-07";
+
+// Internal alias kept private — all call sites below use the exported constant.
+const API_VERSION = SHOPIFY_API_VERSION;
 
 // ── Write-method classification ────────────────────────────────────────────
 
