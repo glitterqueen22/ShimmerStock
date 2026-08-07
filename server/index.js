@@ -73,6 +73,15 @@ const cleanupTasks = [];
 
 app.set("trust proxy", runtimeConfig.trustProxy ? 1 : false);
 
+if (runtimeConfig.isPrivateMode) {
+  app.use((req, res, next) => {
+    if (!req.path.startsWith("/api")) {
+      res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
+    }
+    next();
+  });
+}
+
 function addCleanupTask(task) {
   if (typeof task === "function") {
     cleanupTasks.push(task);
