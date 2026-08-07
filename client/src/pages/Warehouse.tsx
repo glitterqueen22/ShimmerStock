@@ -4,6 +4,9 @@ import { RADIUS } from '../design/tokens';
 import { MOTION } from '../design/motion';
 import Novi from '../components/Novi';
 import { apiFetch } from '../lib/api';
+import NoviEngineInsight from '../components/novi/NoviEngineInsight';
+import { getDemoInsights } from '../lib/businessDna';
+import { useTerms } from '../context/IndustryContext';
 
 // ── Types ────────────────────────────────────────────────────────
 interface Bin {
@@ -106,6 +109,7 @@ function api(path: string, init?: RequestInit) {
 // ── Component ─────────────────────────────────────────────────────
 export default function Warehouse() {
   const { toast } = useToast();
+  const terms = useTerms();
   const [activeTab, setActiveTab] = useState('bins');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -406,7 +410,7 @@ export default function Warehouse() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Warehouse HQ"
+        title={terms.warehouse}
         novi={<Novi size="sm" accessory="warehouse" />}
         actions={
           <Button variant="primary" size="sm" onClick={() => setShowAddBin(true)}>
@@ -414,6 +418,8 @@ export default function Warehouse() {
           </Button>
         }
       />
+
+      <NoviEngineInsight insights={getDemoInsights('craft_supplies', 'inventory')} />
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
@@ -623,7 +629,7 @@ export default function Warehouse() {
           <div className="lg:col-span-1 space-y-3">
             <h3 className="font-semibold text-neutral-800">Orders Ready to Pick</h3>
             {orders.length === 0 ? (
-              <EmptyState icon="📋" title="No pending orders" description="Orders awaiting picking will appear here." />
+              <EmptyState icon="📋" title={`No pending ${terms.order.toLowerCase()}s`} description={`${terms.order}s awaiting picking will appear here.`} />
             ) : (
               orders.map((o) => (
                 <button

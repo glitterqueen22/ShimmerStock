@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { apiPost } from "../lib/api";
 import { Button } from "../components/ui";
 import Novi from "../components/Novi";
+import DemoWorkspacePreview from "../components/DemoWorkspacePreview";
 import type { NoviExpression } from "../components/Novi";
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -128,6 +129,7 @@ export default function Onboarding() {
   const [selectedHQs, setSelectedHQs] = useState<string[]>([]);
   const [selectedIndustryId, setSelectedIndustryId] = useState<string | null>(null);
   const [allDone, setAllDone] = useState(false);
+  const [showDemoPreview, setShowDemoPreview] = useState(false);
   // Novi refinement state
   const [refinementInput, setRefinementInput] = useState("");
   const [isRefining, setIsRefining] = useState(false);
@@ -414,6 +416,18 @@ export default function Onboarding() {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* ── Demo Workspace Preview ──────────────────────────── */}
+        {showDemoPreview && !allDone && (
+          <div className="mb-6">
+            <DemoWorkspacePreview
+              businessType={selectedIndustryId as any ?? "craft_supplies"}
+              onContinueSetup={() => setShowDemoPreview(false)}
+              onBack={() => setShowDemoPreview(false)}
+              onSkip={() => setShowDemoPreview(false)}
+            />
+          </div>
+        )}
+
         {/* ── Proposal (Phase: proposal) ──────────────────────────── */}
         {phase === "proposal" && proposal && !allDone && (
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-rose-100 p-6 mb-6 animate-slideUp space-y-6">
@@ -607,6 +621,12 @@ export default function Onboarding() {
             >
               ✨ Apply & Set Up Workspace
             </Button>
+            <button
+              onClick={() => setShowDemoPreview(true)}
+              className="w-full text-sm text-violet-500 hover:text-violet-700 transition-colors py-2 rounded-xl border border-violet-200 bg-violet-50 hover:bg-violet-100 font-medium"
+            >
+              👀 Preview Demo Workspace first
+            </button>
           </div>
         )}
 

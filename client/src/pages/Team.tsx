@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import Novi from "../components/Novi";
 import { PageHeader, Button, Tabs, EmptyState, ErrorBanner, useToast } from "../components/ui";
 import { apiFetch as authApiFetch } from "../lib/api";
+import NoviEngineInsight from "../components/novi/NoviEngineInsight";
+import { getDemoInsights } from "../lib/businessDna";
 
 // ── Types ──
 
@@ -379,6 +381,8 @@ export default function Team() {
   return (
     <div>
       <PageHeader title="👥 Team" subtitle="Manage your team, roles, and permissions" />
+
+      <NoviEngineInsight insights={getDemoInsights('craft_supplies', 'inventory')} className="mb-6" />
 
       {/* Novi stats banner */}
       {teamStats.totalMembers > 0 && (

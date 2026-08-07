@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet, apiPost, apiPut, apiDelete } from "../lib/api";
 import { PageHeader, Skeleton, EmptyState, ErrorBanner, Button, Modal, ConfirmModal, SearchBar } from "../components/ui";
+import NoviEngineInsight from "../components/novi/NoviEngineInsight";
+import { getDemoInsights } from "../lib/businessDna";
+import { useTerms } from "../context/IndustryContext";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -168,11 +171,14 @@ export default function Products() {
 
   // ── Render ───────────────────────────────────────────────────────
 
+  const noviInsights = getDemoInsights("craft_supplies", "inventory");
+  const terms = useTerms();
+
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Products"
-        description="Manage your inventory products, SKUs, and barcodes"
+        title={terms.products}
+        description={`Manage your ${terms.products.toLowerCase()}, SKUs, and barcodes`}
         actions={
           <Button variant="primary" onClick={openAdd}>
             <span className="text-lg mr-1">＋</span>
@@ -180,6 +186,8 @@ export default function Products() {
           </Button>
         }
       />
+
+      <NoviEngineInsight insights={noviInsights} />
 
       {/* Error banner */}
       {error && <ErrorBanner message={error} onRetry={fetchProducts} />}
