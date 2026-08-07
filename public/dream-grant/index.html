@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dream Grant | ShimmerStock</title>
+  <meta name="description" content="Dream Grant is a dedicated community initiative page, separate from primary conversion flows.">
+  <link rel="canonical" href="https://shimmerstock.ctonew.app/dream-grant">
+  <link rel="stylesheet" href="/assets/marketing.css">
+</head>
+<body>
+  <div data-marketing-header></div>
+
+  <main id="main-content">
+    <section class="section">
+      <div class="container split">
+        <div>
+          <span class="eyebrow">DREAM GRANT</span>
+          <h1 style="margin-top:0.8rem;">A dedicated space for the Dream Grant initiative.</h1>
+          <p class="lead" style="margin-top:0.8rem;">Dream Grant supports founders and builders with a community-first lens and is intentionally separate from homepage pricing and conversion paths.</p>
+          <div class="btn-row">
+            <a class="btn btn-primary" href="#grant-form">Jump to Application</a>
+            <a class="btn btn-secondary" href="/early-access">Join Early Access</a>
+          </div>
+        </div>
+
+        <aside class="notice">
+          <h3>Grant process</h3>
+          <p style="margin-top:0.6rem;">Submissions are reviewed in batches. Applying does not affect product access eligibility.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section section-tight band" id="grant-form">
+      <div class="container card">
+        <h2>Application</h2>
+        <form class="form-stack" id="dream-grant-form" method="post" action="/api/dream-grant/apply">
+          <label for="name">Name
+            <input id="name" name="name" required>
+          </label>
+          <label for="email">Email
+            <input id="email" name="email" type="email" required>
+          </label>
+          <label for="dream">Your dream
+            <textarea id="dream" name="dream" required rows="4"></textarea>
+          </label>
+          <label for="build">What you are building
+            <textarea id="build" name="build" required rows="4"></textarea>
+          </label>
+          <label for="stopping">What is stopping you
+            <textarea id="stopping" name="stopping" rows="3"></textarea>
+          </label>
+          <label for="change">What would change after support
+            <textarea id="change" name="change" required rows="3"></textarea>
+          </label>
+          <button class="btn btn-primary" type="submit">Submit Dream Grant Application</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div data-marketing-footer></div>
+  <script src="/assets/marketing.js" defer></script>
+</body>
+</html>
