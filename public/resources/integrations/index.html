@@ -4,59 +4,114 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Integrations | ShimmerStock</title>
-  <meta name="description" content="Integration status by connector with truthful rollout labels.">
+  <meta name="description" content="ShimmerStock Shopify integration — Early Access, read-only beta. Current scopes, verified behavior, and the planned integration roadmap.">
   <link rel="canonical" href="/resources/integrations">
+  <meta property="og:title" content="Integrations | ShimmerStock">
   <link rel="stylesheet" href="/assets/marketing.css">
 </head>
 <body>
   <div data-marketing-header></div>
-
   <main id="main-content">
+
     <section class="section">
       <div class="container">
         <span class="eyebrow">INTEGRATIONS</span>
-        <h1 style="margin-top:0.8rem;">Connector status with explicit rollout labels.</h1>
-        <p class="lead" style="margin-top:0.8rem;">Statuses are published to prevent planned capabilities from being interpreted as currently live.</p>
+        <h1 style="margin-top:0.8rem;">Commerce platform connections. Honest about what's live, what's beta, and what's planned.</h1>
+        <p class="lead" style="margin-top:0.8rem; max-width:62ch;">No overpromises. Every integration is labeled with its actual status. If it's read-only, we say read-only. If it's planned, we say planned.</p>
+      </div>
+    </section>
 
-        <div class="card-grid" style="margin-top:1rem;">
-          <article class="card">
-            <h3>Shopify</h3>
-            <p>Early access onboarding is available with read-only mode.</p>
-            <div class="chip-list">
-              <span data-status="early"></span>
-              <span class="status status-demo">Illustrative workspace</span>
+    <section class="section section-tight band">
+      <div class="container">
+        <span class="eyebrow">SHOPIFY</span>
+        <h2 style="margin-top:0.8rem;">Shopify Connection — Early Access / Read-only Beta</h2>
+        <div class="split" style="align-items:start; gap:2rem; margin-top:1.2rem;">
+          <div class="integration-card" style="max-width:520px;">
+            <div class="integration-header">
+              <div style="display:flex;align-items:center;gap:0.8rem;">
+                <span class="integration-logo shopify" aria-hidden="true">S</span>
+                <div>
+                  <strong style="display:block; font-size:1rem;">Shopify</strong>
+                  <span class="small">E-commerce platform</span>
+                </div>
+              </div>
+              <span class="status status-early">Read-only Beta</span>
             </div>
-          </article>
-          <article class="card">
-            <h3>Etsy</h3>
-            <p>Planned for future staged rollout.</p>
-            <span data-status="planned"></span>
-          </article>
-          <article class="card">
-            <h3>Amazon</h3>
-            <p>Planned for future staged rollout.</p>
-            <span data-status="planned"></span>
-          </article>
-          <article class="card">
-            <h3>TikTok Shop</h3>
-            <p>Planned for future staged rollout.</p>
-            <span data-status="planned"></span>
-          </article>
-          <article class="card">
-            <h3>WooCommerce</h3>
-            <p>Planned for future staged rollout.</p>
-            <span data-status="planned"></span>
-          </article>
-          <article class="card">
-            <h3>Faire</h3>
-            <p>Planned for future staged rollout.</p>
-            <span data-status="planned"></span>
-          </article>
+            <p style="font-size:0.92rem; line-height:1.6;">ShimmerStock currently connects to Shopify in read-only mode. No inventory writes, no order modifications, no mutations. The connection pulls the data your operations need and keeps it synchronized without touching your live Shopify store.</p>
+            <div class="integration-scope">
+              <p class="small" style="font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:0.3rem;">Current scopes — exactly these four, no more</p>
+              <div class="integration-scope-item"><code style="font-family:monospace;font-size:0.82rem;background:#f5f1ff;padding:0.15rem 0.4rem;border-radius:5px;color:var(--violet);">read_orders</code></div>
+              <div class="integration-scope-item"><code style="font-family:monospace;font-size:0.82rem;background:#f5f1ff;padding:0.15rem 0.4rem;border-radius:5px;color:var(--violet);">read_products</code></div>
+              <div class="integration-scope-item"><code style="font-family:monospace;font-size:0.82rem;background:#f5f1ff;padding:0.15rem 0.4rem;border-radius:5px;color:var(--violet);">read_inventory</code></div>
+              <div class="integration-scope-item"><code style="font-family:monospace;font-size:0.82rem;background:#f5f1ff;padding:0.15rem 0.4rem;border-radius:5px;color:var(--violet);">read_locations</code></div>
+            </div>
+          </div>
+          <div style="display:grid;gap:1rem;">
+            <article class="card">
+              <h3>What ShimmerStock reads from Shopify</h3>
+              <ul class="ia-list">
+                <li>Products, variants, and SKU details</li>
+                <li>Orders and order line items</li>
+                <li>Inventory levels per location</li>
+                <li>Fulfillment locations</li>
+              </ul>
+            </article>
+            <article class="card">
+              <h3>What ShimmerStock never writes to Shopify</h3>
+              <ul class="ia-list">
+                <li>No inventory adjustments</li>
+                <li>No order modifications or cancellations</li>
+                <li>No product or variant changes</li>
+                <li>No fulfillments or tracking updates</li>
+                <li>No refunds, no webhooks without approval</li>
+              </ul>
+              <p class="small" style="margin-top:0.6rem;">Write scope requires a separate owner-approved milestone and will be announced transparently.</p>
+            </article>
+            <article class="card">
+              <h3>Data ownership and security</h3>
+              <ul class="ia-list">
+                <li>Shopify access tokens are encrypted at rest</li>
+                <li>Connection is tenant-scoped — no cross-business data access</li>
+                <li>Disconnect at any time from the Commerce settings page</li>
+                <li>GGE and real merchant stores remain disconnected until a separate pilot milestone</li>
+              </ul>
+            </article>
+          </div>
         </div>
       </div>
     </section>
-  </main>
 
+    <section class="section section-tight">
+      <div class="container">
+        <span class="eyebrow">PLANNED INTEGRATIONS</span>
+        <h2 style="margin-top:0.8rem;">More channels are coming. No fake launch dates.</h2>
+        <p class="lead" style="margin-top:0.8rem; max-width:60ch;">These integrations are on the roadmap. Each will be built with the same read-first, write-with-permission philosophy as Shopify.</p>
+        <div class="integration-grid" style="margin-top:1.2rem;">
+          <div class="integration-card"><div class="integration-header"><div style="display:flex;align-items:center;gap:0.8rem;"><span class="integration-logo etsy" aria-hidden="true">E</span><div><strong>Etsy</strong><span class="small" style="display:block;">Handmade marketplace</span></div></div><span class="status status-planned">Planned</span></div><p style="font-size:0.88rem; margin-top:0.5rem;">Order sync, product catalog, and inventory visibility for Etsy shops.</p></div>
+          <div class="integration-card"><div class="integration-header"><div style="display:flex;align-items:center;gap:0.8rem;"><span class="integration-logo amazon" aria-hidden="true">A</span><div><strong>Amazon</strong><span class="small" style="display:block;">Marketplace</span></div></div><span class="status status-planned">Planned</span></div><p style="font-size:0.88rem; margin-top:0.5rem;">FBA and FBM order sync, inventory awareness, and multi-channel fulfillment visibility.</p></div>
+          <div class="integration-card"><div class="integration-header"><div style="display:flex;align-items:center;gap:0.8rem;"><span class="integration-logo tiktok" aria-hidden="true">TT</span><div><strong>TikTok Shop</strong><span class="small" style="display:block;">Social commerce</span></div></div><span class="status status-planned">Planned</span></div><p style="font-size:0.88rem; margin-top:0.5rem;">Live-selling and TikTok Shop order integration for product businesses running live-commerce channels.</p></div>
+          <div class="integration-card"><div class="integration-header"><div style="display:flex;align-items:center;gap:0.8rem;"><span class="integration-logo woo" aria-hidden="true">W</span><div><strong>WooCommerce</strong><span class="small" style="display:block;">Self-hosted e-commerce</span></div></div><span class="status status-planned">Planned</span></div><p style="font-size:0.88rem; margin-top:0.5rem;">Order and inventory sync for WooCommerce stores running WordPress-based operations.</p></div>
+          <div class="integration-card"><div class="integration-header"><div style="display:flex;align-items:center;gap:0.8rem;"><span class="integration-logo faire" aria-hidden="true">F</span><div><strong>Faire</strong><span class="small" style="display:block;">Wholesale marketplace</span></div></div><span class="status status-planned">Planned</span></div><p style="font-size:0.88rem; margin-top:0.5rem;">Wholesale order import and inventory management for brands selling on Faire.</p></div>
+        </div>
+        <div class="notice" style="margin-top:1.5rem; max-width:640px;">
+          <strong>Request an integration:</strong>
+          <p style="margin-top:0.5rem;">If there's a platform not listed here that matters to your operations, let us know via the <a href="/contact">contact page</a>. We review integration requests when planning roadmap priorities.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tight band">
+      <div class="container" style="text-align:center;">
+        <span class="eyebrow">EARLY ACCESS</span>
+        <h2 style="margin-top:0.8rem; max-width:26ch; margin-left:auto; margin-right:auto;">Start with read-only Shopify. More channels will follow.</h2>
+        <div class="btn-row" style="justify-content:center; margin-top:1.2rem;">
+          <a class="btn btn-primary" href="/early-access">Join Early Access</a>
+          <a class="btn btn-secondary" href="/product">See the Full Platform</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
   <div data-marketing-footer></div>
   <script src="/assets/marketing.js" defer></script>
 </body>

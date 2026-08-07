@@ -3,41 +3,248 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Novi | ShimmerStock</title>
-  <meta name="description" content="Meet Novi, the proactive business companion that surfaces what needs attention and previews recommendations before approval.">
+  <title>Meet Novi | ShimmerStock</title>
+  <meta name="description" content="Novi is the business bestie inside ShimmerStock. She watches your operations, assembles your morning brief, and tells you what needs attention before you even ask.">
   <link rel="canonical" href="/product/novi">
+  <meta property="og:title" content="Meet Novi | ShimmerStock">
+  <meta property="og:description" content="The business intelligence that connects every part of your operation. Not a chatbot. Your actual business in one morning brief.">
   <link rel="stylesheet" href="/assets/marketing.css">
 </head>
 <body>
   <div data-marketing-header></div>
-
   <main id="main-content">
-    <section class="section">
-      <div class="container-wide split">
-        <div>
-          <span class="eyebrow">NOVI</span>
-          <h1 style="margin-top:0.8rem;">Know what to do next before issues get expensive.</h1>
-          <p class="lead" style="margin-top:0.8rem;">Novi surfaces operational priorities, highlights exceptions, and drafts recommendations for review.</p>
+
+    <section class="section section-hero hero-novi">
+      <div class="container-wide hero-grid hero-grid-art">
+        <div class="hero-copy">
+          <div class="novi-greeting">
+            <span class="novi-dot" aria-hidden="true"></span>
+            MEET NOVI
+          </div>
+          <h1 style="margin-top:0.9rem; max-width:16ch;">The business bestie inside&nbsp;ShimmerStock.</h1>
+          <p class="lead" style="margin-top:0.9rem; max-width:54ch;">Novi watches your inventory, orders, production, and customer queue — then tells you what actually needs your attention before the day gets loud.</p>
+          <p class="kicker" style="margin-top:0.8rem;">Not a chatbot. Not generic AI. The operating intelligence that knows your specific business.</p>
+          <div class="btn-row">
+            <a class="btn btn-primary" href="/early-access">Join Early Access</a>
+            <a class="btn btn-secondary" href="#novi-demo">See the Morning Brief</a>
+          </div>
           <div class="chip-list">
             <span data-status="early"></span>
             <span class="status status-demo">Illustrative workspace</span>
           </div>
         </div>
-        <aside class="card">
-          <h3>Morning brief examples</h3>
-          <ul class="ia-list">
-            <li>Orders waiting to ship</li>
-            <li>Inventory risk windows</li>
-            <li>Customer-care backlog pressure</li>
-            <li>Growth opportunity watchlist</li>
-          </ul>
-          <p class="small">Novi uses preview-and-approve guidance rather than autonomous sensitive actions.</p>
+
+        <aside class="novi-flagship-demo" id="novi-demo" aria-label="Novi morning brief interactive demo">
+          <div class="novi-demo-bar">
+            <div class="novi-demo-greeting">GOOD MORNING ✦</div>
+            <span class="status status-live">Novi brief</span>
+          </div>
+          <div class="novi-demo-body">
+            <div class="novi-demo-priorities" role="tablist" aria-label="Novi morning brief priorities">
+              <p class="small" style="margin-bottom:0.35rem; padding:0 0.1rem;">Here's what I'd handle first today.</p>
+              <button class="novi-priority-btn" role="tab" aria-selected="true"  data-novi-priority="fulfillment" aria-controls="novi-panel-fulfillment"><span class="novi-priority-icon fulfillment" aria-hidden="true">📦</span><span><span class="novi-priority-label">Fulfillment</span><span class="novi-priority-summary">14 orders waiting to ship</span></span><span class="status status-live">Review</span></button>
+              <button class="novi-priority-btn" role="tab" aria-selected="false" data-novi-priority="inventory"   aria-controls="novi-panel-inventory"  ><span class="novi-priority-icon inventory"   aria-hidden="true">⚠️</span><span><span class="novi-priority-label">Inventory</span><span class="novi-priority-summary">Vanilla Base — 6 days runway</span></span><span class="status status-early">Flag</span></button>
+              <button class="novi-priority-btn" role="tab" aria-selected="false" data-novi-priority="customers"   aria-controls="novi-panel-customers"  ><span class="novi-priority-icon customers"   aria-hidden="true">💬</span><span><span class="novi-priority-label">Customers</span><span class="novi-priority-summary">3 conversations need a reply</span></span><span class="status status-demo">Review</span></button>
+              <button class="novi-priority-btn" role="tab" aria-selected="false" data-novi-priority="demand"      aria-controls="novi-panel-demand"     ><span class="novi-priority-icon demand"      aria-hidden="true">📈</span><span><span class="novi-priority-label">Demand</span><span class="novi-priority-summary">Best seller accelerating</span></span><span class="status status-beta">Watch</span></button>
+              <button class="novi-priority-btn" role="tab" aria-selected="false" data-novi-priority="purchasing"  aria-controls="novi-panel-purchasing" ><span class="novi-priority-icon purchasing"  aria-hidden="true">🛒</span><span><span class="novi-priority-label">Purchasing</span><span class="novi-priority-summary">Draft PO ready to review</span></span><span class="status status-live">Preview</span></button>
+            </div>
+            <div class="novi-demo-detail-pane">
+              <div id="novi-panel-fulfillment" role="tabpanel" class="novi-detail-panel"><div class="novi-voice-bubble"><span class="novi-voice-label">Novi says</span><p>14 orders are ready to pick. Order #8197 needs a label reprint before it leaves the building — that one will hold up the pack lane if it sits.</p></div><div class="novi-data-rows"><div class="novi-data-row"><span>Ready to pick</span><span>14 orders</span></div><div class="novi-data-row"><span>Label reprint needed</span><span>Order #8197</span></div><div class="novi-data-row"><span>Pack estimate</span><span>~2.5 hours</span></div><div class="novi-data-row"><span>Batch #52</span><span>Awaiting verify</span></div></div><div class="novi-action-row"><button class="btn-novi btn-novi-preview">Preview queue</button><button class="btn-novi btn-novi-review">Review exceptions</button></div><p class="small" style="margin-top:0.55rem;">Illustrative. No action taken without your review.</p></div>
+              <div id="novi-panel-inventory"   role="tabpanel" class="novi-detail-panel" hidden><div class="novi-voice-bubble"><span class="novi-voice-label">Novi says</span><p>Quick heads-up: Vanilla Base is at 4.2 kg on hand. At ~620g per day, you have about 6 days — and supplier lead time is 9 days. I pulled the numbers so you can decide whether to reorder.</p></div><div class="novi-data-rows"><div class="novi-data-row"><span>On hand</span><span>4.2 kg</span></div><div class="novi-data-row"><span>Daily usage</span><span>~620g / day</span></div><div class="novi-data-row"><span>Days remaining</span><span>6 days</span></div><div class="novi-data-row"><span>Lead time</span><span>9 days</span></div><div class="novi-data-row"><span>Suggested reorder</span><span>12 kg</span></div></div><div class="novi-action-row"><button class="btn-novi btn-novi-preview">Preview reorder</button><button class="btn-novi btn-novi-review">Show me why</button></div></div>
+              <div id="novi-panel-customers"   role="tabpanel" class="novi-detail-panel" hidden><div class="novi-voice-bubble"><span class="novi-voice-label">Novi says</span><p>3 conversations need a reply. One is tied to a delayed shipment — Order #7924 went out late and the customer emailed twice. I surfaced the full order context so your first response can be an actual answer.</p></div><div class="novi-data-rows"><div class="novi-data-row"><span>Open replies</span><span>3 conversations</span></div><div class="novi-data-row"><span>Priority</span><span>Order #7924</span></div><div class="novi-data-row"><span>Context available</span><span>Order + fulfillment</span></div><div class="novi-data-row"><span>Customer last replied</span><span>18h ago</span></div></div><div class="novi-action-row"><button class="btn-novi btn-novi-preview">Open queue</button><button class="btn-novi btn-novi-review">View order context</button></div></div>
+              <div id="novi-panel-demand"      role="tabpanel" class="novi-detail-panel" hidden><div class="novi-voice-bubble"><span class="novi-voice-label">Novi says</span><p>Formula 26 is selling 3× faster than 3 weeks ago. Worth knowing before you plan next week's production — the current batch queue doesn't account for this pace.</p></div><div class="novi-data-rows"><div class="novi-data-row"><span>SKU</span><span>Formula 26 — Vanilla Cupcake</span></div><div class="novi-data-row"><span>Velocity change</span><span>+3× vs 3 weeks ago</span></div><div class="novi-data-row"><span>Batch coverage</span><span>~8 days</span></div><div class="novi-data-row"><span>Suggested bump</span><span>+40 units</span></div></div><div class="novi-action-row"><button class="btn-novi btn-novi-preview">Adjust production plan</button><button class="btn-novi btn-novi-review">See velocity</button></div></div>
+              <div id="novi-panel-purchasing"  role="tabpanel" class="novi-detail-panel" hidden><div class="novi-voice-bubble"><span class="novi-voice-label">Novi says</span><p>Based on current stock, the Vanilla Base flag, and 30 days of usage, I'd recommend ordering 12 kg now. Here's the math before you decide.</p></div><div class="novi-data-rows"><div class="novi-data-row"><span>Item</span><span>Vanilla Base Fragrance</span></div><div class="novi-data-row"><span>Quantity</span><span>12 kg</span></div><div class="novi-data-row"><span>Estimated cost</span><span>~$148</span></div><div class="novi-data-row"><span>Lead time</span><span>9 days</span></div><div class="novi-data-row"><span>Draft PO</span><span>Ready to review</span></div></div><div class="novi-action-row"><button class="btn-novi btn-novi-preview">Preview draft PO</button><button class="btn-novi btn-novi-review">Show the math</button></div><p class="small" style="margin-top:0.55rem;">Nothing is sent. Novi prepares; you approve.</p></div>
+            </div>
+          </div>
         </aside>
       </div>
     </section>
-  </main>
 
+    <section class="section section-tight band">
+      <div class="container-wide">
+        <div class="split" style="align-items:start;">
+          <div>
+            <span class="eyebrow">WHY NOVI EXISTS</span>
+            <h2 style="margin-top:0.8rem; max-width:22ch;">Running a product business means things fall through.</h2>
+            <p class="lead" style="margin-top:0.8rem;">The inventory alert you didn't see. The customer waiting too long. The purchase order that wasn't placed until the shelf was empty.</p>
+            <p style="margin-top:0.8rem;">None of these are effort failures. They're visibility failures. Novi closes those gaps — quietly, every day.</p>
+          </div>
+          <div style="display:grid; gap:1rem;">
+            <article class="card">
+              <h3>Novi watches so you don't have to</h3>
+              <ul class="ia-list">
+                <li>Inventory runway vs. supplier lead times</li>
+                <li>Order exceptions and fulfillment friction</li>
+                <li>Customer conversations that need a real answer</li>
+                <li>Demand acceleration on specific SKUs</li>
+                <li>Purchase order timing windows</li>
+                <li>Production bottlenecks before they block shipping</li>
+              </ul>
+            </article>
+            <article class="card">
+              <h3>What Novi will never do</h3>
+              <ul class="ia-list">
+                <li>Make decisions for you</li>
+                <li>Submit orders or send emails automatically</li>
+                <li>Pretend an action happened when it didn't</li>
+                <li>Shame you for a mistake</li>
+                <li>Overwhelm you with 27 alerts when 3 matter</li>
+                <li>Sound like generic AI</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tight">
+      <div class="container">
+        <div class="split" style="align-items:center; gap:1.5rem;">
+          <div>
+            <span class="eyebrow">THE ORIGIN</span>
+            <h2 style="margin-top:0.8rem; max-width:22ch;">Purple and green aren't just colors.</h2>
+            <p class="lead" style="margin-top:0.8rem;">Every design choice in ShimmerStock — including Novi — comes from a real emotional compass. She is the best of both.</p>
+            <p style="margin-top:0.8rem;">Novi notices what you miss, recommends what makes sense, and stays calm when things are serious. <a href="/about" class="btn-link">Read the founder story →</a></p>
+          </div>
+          <div style="display:grid; gap:1rem;">
+            <div class="origin-card purple">
+              <p class="origin-subtitle">Purple — Steadiness. Calm. Support.</p>
+              <h3>When things are uncertain, Novi stays grounded.</h3>
+              <p style="margin-top:0.5rem; font-size:0.9rem;">When the business is under pressure, she gives you clarity instead of panic.</p>
+              <div class="origin-traits"><span class="origin-trait">Patient</span><span class="origin-trait">Reassuring</span><span class="origin-trait">Thoughtful</span><span class="origin-trait">Steady</span></div>
+            </div>
+            <div class="origin-card green">
+              <p class="origin-subtitle">Green — Drive. Growth. Resilience.</p>
+              <h3>Novi notices the opportunity and tells you the honest thing.</h3>
+              <p style="margin-top:0.5rem; font-size:0.9rem;">Even when it's not what you wanted to hear.</p>
+              <div class="origin-traits"><span class="origin-trait">Direct</span><span class="origin-trait">Driven</span><span class="origin-trait">Protective</span><span class="origin-trait">Resourceful</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tight section-lavender">
+      <div class="container">
+        <span class="eyebrow">PREVIEW + APPROVE</span>
+        <h2 style="margin-top:0.8rem; max-width:28ch;">Novi recommends. You decide. Every time.</h2>
+        <p class="lead" style="margin-top:0.8rem; max-width:62ch;">Every sensitive action — purchase orders, customer responses, production changes — requires your review before anything happens.</p>
+        <div class="permission-flow" style="margin-top:1.2rem; max-width:680px;">
+          <div class="permission-step"><span class="permission-num">1</span><div><strong>Novi notices</strong><p style="font-size:0.88rem; margin-top:0.2rem;">She spots the inventory risk, the demand acceleration, or the customer waiting too long.</p></div></div>
+          <div class="permission-step"><span class="permission-num">2</span><div><strong>Novi prepares</strong><p style="font-size:0.88rem; margin-top:0.2rem;">She drafts the recommendation, calculates the quantity, and shows you the reasoning.</p></div></div>
+          <div class="permission-step"><span class="permission-num">3</span><div><strong>You review</strong><p style="font-size:0.88rem; margin-top:0.2rem;">Full context: the numbers, the logic, the trade-offs. Nothing is hidden.</p></div></div>
+          <div class="permission-step"><span class="permission-num">4</span><div><strong>You approve or dismiss</strong><p style="font-size:0.88rem; margin-top:0.2rem;">Your decision. Your business. Novi acts on what you say yes to.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tight">
+      <div class="container">
+        <span class="eyebrow">PERMISSIONS</span>
+        <h2 style="margin-top:0.8rem;">What Novi can see. What she won't do without you.</h2>
+        <div class="can-cannot-grid" style="margin-top:1.2rem;">
+          <div class="can-list">
+            <h3>Novi can surface</h3>
+            <ul class="check-list">
+              <li>Inventory runway and reorder risk</li>
+              <li>Order exceptions and fulfillment pressure</li>
+              <li>Customer conversations needing attention</li>
+              <li>Demand acceleration on specific products</li>
+              <li>Draft purchase order recommendations</li>
+              <li>Production bottlenecks</li>
+              <li>Partner and affiliate signals</li>
+              <li>Morning Brief priorities</li>
+            </ul>
+          </div>
+          <div class="cannot-list">
+            <h3>Without your review, Novi won't</h3>
+            <ul class="cross-list">
+              <li>Submit or approve purchase orders</li>
+              <li>Send emails or customer responses</li>
+              <li>Modify inventory counts</li>
+              <li>Start or cancel production batches</li>
+              <li>Adjust pricing or promotions</li>
+              <li>Access payment or billing</li>
+              <li>Write anything back to Shopify</li>
+              <li>Take any action that can't be previewed first</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tight band">
+      <div class="container">
+        <span class="eyebrow">NOVI'S VOICE</span>
+        <h2 style="margin-top:0.8rem;">She knows when to be warm. When to be direct. When to be quiet.</h2>
+        <div class="voice-example-grid" style="margin-top:1.2rem;">
+          <div class="voice-example celebrate"><p class="voice-situation">When celebrating</p><p class="voice-text">You did that. Orders are up, fulfillment cleared the queue before lunch, and your team moved through the whole backlog. I think we earned a tiny victory lap.</p></div>
+          <div class="voice-example flag"><p class="voice-situation">When flagging risk</p><p class="voice-text">Quick heads-up: Vanilla Base may run out in six days at the current sales rate. I pulled the numbers so you can decide whether to reorder.</p></div>
+          <div class="voice-example calm"><p class="voice-situation">When you're overwhelmed</p><p class="voice-text">There are twelve things asking for your attention. Only three actually need you today. Let's start there.</p></div>
+          <div class="voice-example recommend"><p class="voice-situation">When recommending</p><p class="voice-text">Based on current stock, incoming inventory, and the last 30 days of sales, I'd recommend ordering 40 units. Here's the math before you decide.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tight">
+      <div class="container-wide">
+        <span class="eyebrow">ACROSS EVERY INDUSTRY</span>
+        <h2 style="margin-top:0.8rem;">Novi speaks your business language.</h2>
+        <div class="card-grid" style="margin-top:1.2rem; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));">
+          <article class="card"><h3>Craft &amp; Maker Supplies</h3><p style="margin-top:0.6rem; font-size:0.9rem; font-style:italic; color:var(--muted);">"Your best-selling vinyl color is selling 2× faster this week. The current stock won't survive next week's orders."</p></article>
+          <article class="card"><h3>Freshie Businesses</h3><p style="margin-top:0.6rem; font-size:0.9rem; font-style:italic; color:var(--muted);">"Formula 26 demand is accelerating faster than its replacement stock. I'd bump the next batch before this weekend."</p></article>
+          <article class="card"><h3>E-commerce Brands</h3><p style="margin-top:0.6rem; font-size:0.9rem; font-style:italic; color:var(--muted);">"Three exceptions are actually affecting today's fulfillment. The other nine can wait until tomorrow."</p></article>
+          <article class="card"><h3>Apparel &amp; Print</h3><p style="margin-top:0.6rem; font-size:0.9rem; font-style:italic; color:var(--muted);">"Four orders are blocked by the same blank SKU. Resolving one resolves all four."</p></article>
+          <article class="card"><h3>Bakery &amp; Food</h3><p style="margin-top:0.6rem; font-size:0.9rem; font-style:italic; color:var(--muted);">"Your prep window has a conflict with tomorrow's pickup wave. Here's a reorder that keeps both moving."</p></article>
+          <article class="card"><h3>Candles &amp; Home Fragrance</h3><p style="margin-top:0.6rem; font-size:0.9rem; font-style:italic; color:var(--muted);">"Seasonal demand is up 31%. The wax reorder scheduled for next week needs to move to today."</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tight band">
+      <div class="container" style="text-align:center;">
+        <span class="novi-greeting" style="margin-bottom:0.9rem; display:inline-flex;"><span class="novi-dot" aria-hidden="true"></span>EARLY ACCESS</span>
+        <h2 style="margin-top:0; max-width:26ch; margin-left:auto; margin-right:auto;">Your business deserves a Novi.</h2>
+        <p class="lead" style="margin-top:0.8rem; max-width:52ch; margin-left:auto; margin-right:auto;">Apply for Early Access and be among the first to run operations with Novi's intelligence behind every decision.</p>
+        <div class="btn-row" style="justify-content:center; margin-top:1.2rem;">
+          <a class="btn btn-primary" href="/early-access">Join Early Access</a>
+          <a class="btn btn-secondary" href="/product">See the Full Platform</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
   <div data-marketing-footer></div>
   <script src="/assets/marketing.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const buttons = document.querySelectorAll('[data-novi-priority]');
+      const panels  = document.querySelectorAll('#novi-demo [role="tabpanel"]');
+      function activate(key) {
+        buttons.forEach(btn => btn.setAttribute('aria-selected', btn.dataset.noviPriority === key ? 'true' : 'false'));
+        panels.forEach(panel => { panel.hidden = panel.id !== 'novi-panel-' + key; });
+        // On mobile scroll the detail pane into view after a priority selection
+        if (window.innerWidth < 768) {
+          const detail = document.querySelector('.novi-demo-detail-pane');
+          if (detail) { setTimeout(() => detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50); }
+        }
+      }
+      buttons.forEach(btn => {
+        btn.addEventListener('click', () => activate(btn.dataset.noviPriority));
+        btn.addEventListener('keydown', e => {
+          const btns = [...buttons]; const idx = btns.indexOf(btn);
+          if (e.key === 'ArrowDown') { e.preventDefault(); btns[(idx+1) % btns.length].focus(); }
+          if (e.key === 'ArrowUp')   { e.preventDefault(); btns[(idx-1+btns.length) % btns.length].focus(); }
+        });
+      });
+      document.querySelectorAll('.btn-novi').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const orig = btn.textContent;
+          btn.textContent = 'Review in app →'; btn.disabled = true;
+          setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
+        });
+      });
+    });
+  </script>
 </body>
 </html>
