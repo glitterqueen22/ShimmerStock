@@ -1003,7 +1003,7 @@ export async function runInitialImport(db, businessId) {
     const { products, shopifyCount: prodCount, graphqlErrors: prodErrors } =
       await fetchAllProducts(shopDomain, accessToken);
     summary.products.shopify = prodCount;
-    if (prodErrors?.length) summary.graphqlErrors.push(...prodErrors.map(e => `products: ${e}`));
+    if (prodErrors?.length) summary.graphqlErrors.push(...prodErrors);
 
     let variantShopifyCount = 0;
     let variantPersistedCount = 0;
@@ -1032,7 +1032,7 @@ export async function runInitialImport(db, businessId) {
     const { locations, shopifyCount: locCount, graphqlErrors: locErrors } =
       await fetchAllLocations(shopDomain, accessToken);
     summary.locations.shopify = locCount;
-    if (locErrors?.length) summary.graphqlErrors.push(...locErrors.map(e => `locations: ${e}`));
+    if (locErrors?.length) summary.graphqlErrors.push(...locErrors);
 
     for (const loc of locations) {
       summary.locations.ids.push(loc.id);
@@ -1049,7 +1049,7 @@ export async function runInitialImport(db, businessId) {
     const { levels, shopifyCount: levelsCount, graphqlErrors: invErrors } =
       await fetchAllInventoryLevels(shopDomain, accessToken, locationGids);
     summary.inventoryLevels.shopify = levelsCount;
-    if (invErrors?.length) summary.graphqlErrors.push(...invErrors.map(e => `inventory: ${e}`));
+    if (invErrors?.length) summary.graphqlErrors.push(...invErrors);
 
     for (const level of levels) {
       summary.inventoryLevels.pairs.push({
@@ -1068,7 +1068,7 @@ export async function runInitialImport(db, businessId) {
     const { orders, shopifyCount: ordersCount, graphqlErrors: orderErrors } =
       await fetchAllOrders(shopDomain, accessToken);
     summary.orders.shopify = ordersCount;
-    if (orderErrors?.length) summary.graphqlErrors.push(...orderErrors.map(e => `orders: ${e}`));
+    if (orderErrors?.length) summary.graphqlErrors.push(...orderErrors);
 
     for (const order of orders) {
       summary.orders.ids.push(order.id);
