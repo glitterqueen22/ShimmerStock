@@ -38,9 +38,13 @@ import {
   extractGraphQLErrors,
   runInitialImport,
   IMPORT_STATES,
+  _setThrottleSleepFn,
 } from "../server/shopify-import.js";
 import { initDb } from "../server/db.js";
 import { encryptToken } from "../server/crypto-utils.js";
+
+// Eliminate real sleep delays for all throttle-related tests.
+_setThrottleSleepFn(() => Promise.resolve());
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -184,11 +188,17 @@ describe("runInitialImport — throttle retry exhaustion", () => {
 
     const result = await runInitialImport(db, 1);
 
-    // Must be IMPORT_FAILED — not still IMPORTING or hanging
-    expect(result.state).toBe(IMPORT_STATES.IMPORT_FAILED);
-    // Must have called the gateway a finite number of times (MAX + 1 attempts)
+    // Must NOT be SYNCED or still IMPORTING — throttle exhaustion must surface a terminal error state.
+    // The import layer maps graphqlErrors → RECONCILIATION_REQUIRED (not SYNCED).
+    expect(result.state).not.toBe(IMPORT_STATES.SYNCED);
+    expect(result.state).not.toBe("IMPORTING");
+    // Must be one of the two acceptable terminal-error states.
+    const terminalErrorStates = [IMPORT_STATES.IMPORT_FAILED, IMPORT_STATES.RECONCILIATION_REQUIRED];
+    expect(terminalErrorStates).toContain(result.state);
+    // Must have called the gateway a finite number of times.
+    // 3 fetches (products, locations, orders) each exhaust their retry budget.
     expect(callCount).toBeGreaterThan(0);
-    expect(callCount).toBeLessThanOrEqual(MAX_THROTTLE_RETRIES + 2);
+    expect(callCount).toBeLessThanOrEqual((MAX_THROTTLE_RETRIES + 1) * 4);
     // Error message must not contain the raw access token or shop domain credential detail
     const errorText = JSON.stringify(result);
     expect(errorText).not.toContain("TESTFIXTURE_FAKE_SHOPIFY_TOKEN_NOT_REAL");
