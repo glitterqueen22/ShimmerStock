@@ -951,7 +951,17 @@ export default function Orders() {
         novi={<Novi size="sm" accessory="marketing" />}
         actions={
           <div className="flex gap-2">
-            <Button variant="primary" onClick={openNewOrder}>+ New Order</Button>
+            <Button
+              variant="primary"
+              onClick={openNewOrder}
+              title={shopifyConfigured && syncMode === "readonly"
+                ? "This does not change Shopify and will be excluded from Shopify reconciliation."
+                : undefined}
+            >
+              {shopifyConfigured && syncMode === "readonly"
+                ? "+ New Local ShimmerStock Order"
+                : "+ New Order"}
+            </Button>
             {shopifyConfigured && (
               <Button variant="secondary" onClick={handleSync} loading={syncing}>
                 {syncing ? "Syncing..." : syncMode === "readonly" ? "Import Orders" : "Sync Orders"}
@@ -960,6 +970,13 @@ export default function Orders() {
           </div>
         }
       />
+
+      {shopifyConfigured && syncMode === "readonly" && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>Shopify Reconciliation Active:</strong> New orders created here are local-only
+          and will not appear in Shopify. They are excluded from Shopify import counts and reconciliation.
+        </div>
+      )}
 
       <NoviEngineInsight insights={noviInsights} />
 
@@ -1024,9 +1041,12 @@ export default function Orders() {
             🏪 Sales Channels ({providers.filter(p => p.connectionStatus === "connected").length}/{providers.length} connected)
           </h2>
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm" onClick={handleSyncAll} loading={syncingAll}>
-              {syncingAll ? "Syncing All..." : "Sync All"}
-            </Button>
+            {/* Sync All is ambiguous during Shopify read-only reconciliation pilot — hidden to prevent confusion */}
+            {!(shopifyConfigured && syncMode === "readonly") && (
+              <Button variant="secondary" size="sm" onClick={handleSyncAll} loading={syncingAll}>
+                {syncingAll ? "Syncing All..." : "Sync All"}
+              </Button>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3 p-4">

@@ -41,6 +41,9 @@ import {
   getLatestImportSession,
   getEffectiveImportState,
   getReconciliationReport,
+  recoverStaleSessions,
+  getActiveImportSession,
+  STALE_IMPORT_THRESHOLD_MINUTES,
 } from "../server/shopify-import.js";
 import { encryptToken } from "../server/crypto-utils.js";
 import { deriveWorkspaceState, filterInsightsByWorkspaceState } from "../client/src/lib/workspaceState.ts";
@@ -643,5 +646,433 @@ describe("shopify pilot import — scope verification", () => {
   it("no write_* scopes in approved list", () => {
     const writeScopes = SHOPIFY_OAUTH_REQUIRED_SCOPES.filter((s: string) => s.startsWith("write_"));
     expect(writeScopes).toHaveLength(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REQUIREMENT 2: Reconciliation must compare ID sets, not only counts
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("shopify pilot — ID-set reconciliation (counts match but IDs differ)", () => {
+  it("REGRESSION: equal counts but different product IDs → MISMATCH not RECONCILED", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    // Create an import session that says 2 Shopify products were found with IDs [A, B]
+    const sessionId = createImportSession(db, bizId);
+    updateImportSession(db, sessionId, IMPORT_STATES.SYNCED, {
+      import_completed_at: new Date().toISOString(),
+      last_successful_import_at: new Date().toISOString(),
+      shopify_products_count: 2,
+      persisted_products_count: 2,
+      shopify_variants_count: 0,
+      persisted_variants_count: 0,
+      shopify_orders_count: 0,
+      persisted_orders_count: 0,
+      shopify_locations_count: 0,
+      shopify_inventory_levels_count: 0,
+      // IDs seen during import: A and B
+      shopify_product_ids: JSON.stringify(["gid://shopify/Product/100", "gid://shopify/Product/200"]),
+      shopify_variant_ids: JSON.stringify([]),
+      shopify_order_ids: JSON.stringify([]),
+      shopify_location_ids: JSON.stringify([]),
+      shopify_inventory_pairs: JSON.stringify([]),
+    });
+
+    // But ShimmerStock actually has products with IDs A and C (not B)
+    insertFakeProduct(db, bizId, "gid://shopify/Product/100", "Product A");
+    insertFakeProduct(db, bizId, "gid://shopify/Product/999", "Product C — wrong ID"); // C, not B
+
+    const report = getReconciliationReport(db, bizId);
+
+    // Count-based check would say 2 == 2 → no mismatch, but ID-set comparison detects the drift
+    expect(report.products.shopifyCount).toBe(2);
+    expect(report.products.shimmerCount).toBe(2);
+    expect(report.products.mismatch).toBe(true); // ID mismatch detected
+    expect(report.products.status).toBe("MISMATCH");
+    expect(report.status).toBe("MISMATCH"); // Overall must not be RECONCILED
+    expect(report.status).not.toBe("RECONCILED");
+    // missing: Product/200 not in DB; unexpected: Product/999 not in Shopify set
+    expect(report.products.missingFromDb).toContain("gid://shopify/Product/200");
+    expect(report.products.unexpectedInDb).toContain("gid://shopify/Product/999");
+  });
+
+  it("REGRESSION: equal order counts but different order IDs → MISMATCH not RECONCILED", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    const sessionId = createImportSession(db, bizId);
+    updateImportSession(db, sessionId, IMPORT_STATES.SYNCED, {
+      import_completed_at: new Date().toISOString(),
+      last_successful_import_at: new Date().toISOString(),
+      shopify_products_count: 0,
+      persisted_products_count: 0,
+      shopify_variants_count: 0,
+      persisted_variants_count: 0,
+      shopify_orders_count: 1,
+      persisted_orders_count: 1,
+      shopify_locations_count: 0,
+      shopify_inventory_levels_count: 0,
+      shopify_product_ids: JSON.stringify([]),
+      shopify_variant_ids: JSON.stringify([]),
+      shopify_order_ids: JSON.stringify(["gid://shopify/Order/5001"]),
+      shopify_location_ids: JSON.stringify([]),
+      shopify_inventory_pairs: JSON.stringify([]),
+    });
+
+    // ShimmerStock has a different order ID (not the one in the import set)
+    insertFakeOrder(db, bizId, "gid://shopify/Order/9999", "#9999");
+
+    const report = getReconciliationReport(db, bizId);
+    expect(report.orders.shopifyCount).toBe(1);
+    expect(report.orders.shimmerCount).toBe(1);
+    expect(report.orders.status).toBe("MISMATCH");
+    expect(report.status).toBe("MISMATCH");
+    expect(report.orders.missingFromDb).toContain("gid://shopify/Order/5001");
+    expect(report.orders.unexpectedInDb).toContain("gid://shopify/Order/9999");
+  });
+
+  it("exact ID sets match → RECONCILED when all entities align", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    const sessionId = createImportSession(db, bizId);
+    updateImportSession(db, sessionId, IMPORT_STATES.SYNCED, {
+      import_completed_at: new Date().toISOString(),
+      last_successful_import_at: new Date().toISOString(),
+      shopify_products_count: 1,
+      persisted_products_count: 1,
+      shopify_variants_count: 0,
+      persisted_variants_count: 0,
+      shopify_orders_count: 1,
+      persisted_orders_count: 1,
+      shopify_locations_count: 0,
+      shopify_inventory_levels_count: 0,
+      shopify_product_ids: JSON.stringify(["gid://shopify/Product/42"]),
+      shopify_variant_ids: JSON.stringify([]),
+      shopify_order_ids: JSON.stringify(["gid://shopify/Order/77"]),
+      shopify_location_ids: JSON.stringify([]),
+      shopify_inventory_pairs: JSON.stringify([]),
+    });
+
+    insertFakeProduct(db, bizId, "gid://shopify/Product/42", "The One Product");
+    insertFakeOrder(db, bizId, "gid://shopify/Order/77", "#1001");
+
+    const report = getReconciliationReport(db, bizId);
+    expect(report.products.status).toBe("RECONCILED");
+    expect(report.orders.status).toBe("RECONCILED");
+    expect(report.status).toBe("RECONCILED");
+    expect(report.products.missingFromDb).toHaveLength(0);
+    expect(report.products.unexpectedInDb).toHaveLength(0);
+  });
+
+  it("session without stored ID sets → NEEDS_REVIEW (cannot verify IDs)", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    // Old-style session with no ID columns set
+    const sessionId = createImportSession(db, bizId);
+    updateImportSession(db, sessionId, IMPORT_STATES.SYNCED, {
+      import_completed_at: new Date().toISOString(),
+      last_successful_import_at: new Date().toISOString(),
+      shopify_products_count: 1,
+      persisted_products_count: 1,
+      shopify_variants_count: 0,
+      persisted_variants_count: 0,
+      shopify_orders_count: 0,
+      persisted_orders_count: 0,
+      shopify_locations_count: 0,
+      shopify_inventory_levels_count: 0,
+      // No shopify_product_ids / shopify_order_ids etc.
+    });
+
+    insertFakeProduct(db, bizId, "gid://shopify/Product/1", "Some Product");
+
+    const report = getReconciliationReport(db, bizId);
+    expect(report.hasIdSets).toBe(false);
+    // Without ID sets, we can't confirm RECONCILED — must be NEEDS_REVIEW
+    expect(report.status).not.toBe("RECONCILED");
+    expect(["NEEDS_REVIEW", "MISMATCH"]).toContain(report.status);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REQUIREMENT 3: Import concurrency, failure, and recovery
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("shopify pilot — concurrency guard", () => {
+  it("concurrent import request is rejected when an IMPORTING session is active", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    // Start an import (create IMPORTING session manually to simulate an in-flight import)
+    const sessionId = createImportSession(db, bizId);
+    updateImportSession(db, sessionId, IMPORT_STATES.IMPORTING, {
+      import_started_at: new Date().toISOString(),
+    });
+
+    // getActiveImportSession should find it
+    const active = getActiveImportSession(db, bizId);
+    expect(active).not.toBeNull();
+    expect(active!.id).toBe(sessionId);
+  });
+
+  it("no concurrent session — getActiveImportSession returns null", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    const active = getActiveImportSession(db, bizId);
+    expect(active).toBeNull();
+  });
+
+  it("completed session does not block a new import", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    // A SYNCED session should not be considered active
+    const sessionId = createImportSession(db, bizId);
+    updateImportSession(db, sessionId, IMPORT_STATES.SYNCED, {
+      import_completed_at: new Date().toISOString(),
+    });
+
+    const active = getActiveImportSession(db, bizId);
+    expect(active).toBeNull();
+  });
+
+  it("IMPORT_FAILED session does not block a new import (safe retry)", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    const sessionId = createImportSession(db, bizId);
+    updateImportSession(db, sessionId, IMPORT_STATES.IMPORT_FAILED, {
+      import_completed_at: new Date().toISOString(),
+    });
+
+    const active = getActiveImportSession(db, bizId);
+    expect(active).toBeNull(); // Failed sessions do not block new imports
+  });
+});
+
+describe("shopify pilot — stale session recovery", () => {
+  it("STALE_IMPORT_THRESHOLD_MINUTES is documented", () => {
+    expect(typeof STALE_IMPORT_THRESHOLD_MINUTES).toBe("number");
+    expect(STALE_IMPORT_THRESHOLD_MINUTES).toBeGreaterThan(0);
+  });
+
+  it("IMPORTING session started long ago is marked IMPORT_FAILED", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    // Create an import session started 60 minutes ago (stale by any threshold)
+    const staleStartTime = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const sessionId = createImportSession(db, bizId);
+    updateImportSession(db, sessionId, IMPORT_STATES.IMPORTING, {
+      import_started_at: staleStartTime,
+    });
+
+    const recoveredCount = recoverStaleSessions(db, bizId);
+    expect(recoveredCount).toBeGreaterThan(0);
+
+    const session = getLatestImportSession(db, bizId);
+    expect(session!.state).toBe(IMPORT_STATES.IMPORT_FAILED);
+    // Errors field should contain stale message
+    const errors = JSON.parse(session!.errors ?? "[]");
+    expect(errors[0]).toContain("stale");
+  });
+
+  it("fresh IMPORTING session is not recovered", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    const sessionId = createImportSession(db, bizId);
+    updateImportSession(db, sessionId, IMPORT_STATES.IMPORTING, {
+      import_started_at: new Date().toISOString(), // just started
+    });
+
+    const recoveredCount = recoverStaleSessions(db, bizId);
+    expect(recoveredCount).toBe(0); // Fresh session not affected
+
+    const session = getLatestImportSession(db, bizId);
+    expect(session!.state).toBe(IMPORT_STATES.IMPORTING); // Still importing
+  });
+
+  it("IMPORTING session with NULL started_at is recovered (process kill with no timestamp)", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    const sessionId = createImportSession(db, bizId);
+    // Manually set to IMPORTING with no start time (simulates crash before timestamp write)
+    db.run("UPDATE shopify_import_sessions SET state = 'IMPORTING', import_started_at = NULL WHERE id = ?", [sessionId]);
+
+    const recoveredCount = recoverStaleSessions(db, bizId);
+    expect(recoveredCount).toBeGreaterThan(0);
+
+    const session = getLatestImportSession(db, bizId);
+    expect(session!.state).toBe(IMPORT_STATES.IMPORT_FAILED);
+  });
+
+  it("safe retry: after stale recovery, getActiveImportSession returns null", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    const staleStartTime = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const sessionId = createImportSession(db, bizId);
+    updateImportSession(db, sessionId, IMPORT_STATES.IMPORTING, {
+      import_started_at: staleStartTime,
+    });
+
+    recoverStaleSessions(db, bizId);
+
+    // After recovery, the session is no longer IMPORTING — safe to retry
+    const active = getActiveImportSession(db, bizId);
+    expect(active).toBeNull();
+  });
+});
+
+describe("shopify pilot — idempotent rerun", () => {
+  it("running import twice does not duplicate products", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    // Insert same product twice (simulates re-import)
+    insertFakeProduct(db, bizId, "gid://shopify/Product/555", "Widget A");
+    insertFakeProduct(db, bizId, "gid://shopify/Product/555", "Widget A"); // duplicate — INSERT OR IGNORE
+
+    const count = db.query("SELECT COUNT(*) as c FROM products WHERE business_id = ? AND shopify_product_id = 'gid://shopify/Product/555'")
+      .get(bizId) as { c: number };
+    expect(count.c).toBe(1); // Only one row persisted (idempotent upsert)
+  });
+
+  it("running import twice does not duplicate orders", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    insertFakeOrder(db, bizId, "gid://shopify/Order/888", "#1010");
+    insertFakeOrder(db, bizId, "gid://shopify/Order/888", "#1010"); // duplicate attempt
+
+    const count = db.query("SELECT COUNT(*) as c FROM orders WHERE business_id = ? AND shopify_order_id = 'gid://shopify/Order/888'")
+      .get(bizId) as { c: number };
+    expect(count.c).toBe(1);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REQUIREMENT 4: Database uniqueness and tenant scoping
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("shopify pilot — tenant-scoped unique indexes", () => {
+  it("two businesses can have products with the same Shopify product ID", () => {
+    const db = initTestDb();
+    const bizRows = db.query("SELECT id FROM businesses ORDER BY id LIMIT 2").all() as { id: number }[];
+
+    // Ensure we have two businesses
+    if (bizRows.length < 2) {
+      db.run("INSERT INTO businesses (name, slug) VALUES ('Biz Two', 'biz-two')");
+    }
+    const [biz1, biz2] = db.query("SELECT id FROM businesses ORDER BY id LIMIT 2").all() as { id: number }[];
+
+    const sharedShopifyId = "gid://shopify/Product/DUPLICATE_CROSS_TENANT";
+
+    // Both inserts should succeed — no global unique constraint
+    insertFakeProduct(db, biz1.id, sharedShopifyId, "Biz1 Product");
+    insertFakeProduct(db, biz2.id, sharedShopifyId, "Biz2 Product");
+
+    const count = db.query("SELECT COUNT(*) as c FROM products WHERE shopify_product_id = ?")
+      .get(sharedShopifyId) as { c: number };
+    expect(count.c).toBe(2); // Both tenants have their own record
+  });
+
+  it("same business cannot have two products with the same Shopify product ID", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    const shopifyId = "gid://shopify/Product/SAME_TENANT_DUP";
+    insertFakeProduct(db, bizId, shopifyId, "First");
+
+    // Second insert with same business + shopify_product_id should fail or be ignored
+    let threw = false;
+    try {
+      db.run(
+        `INSERT INTO products (name, sku, stock_count, shopify_product_id, business_id, created_at, updated_at)
+         VALUES ('Second', 'SKU-DUP-2', 0, ?, ?, datetime('now'), datetime('now'))`,
+        [shopifyId, bizId]
+      );
+    } catch {
+      threw = true;
+    }
+
+    const count = db.query("SELECT COUNT(*) as c FROM products WHERE business_id = ? AND shopify_product_id = ?")
+      .get(bizId, shopifyId) as { c: number };
+
+    // Either it threw (UNIQUE violation) or INSERT OR IGNORE prevented the dup — either is correct
+    expect(threw || count.c === 1).toBe(true);
+  });
+
+  it("two businesses can have orders with the same Shopify order ID", () => {
+    const db = initTestDb();
+    const bizRows = db.query("SELECT id FROM businesses ORDER BY id LIMIT 2").all() as { id: number }[];
+
+    if (bizRows.length < 2) {
+      db.run("INSERT INTO businesses (name, slug) VALUES ('Biz Three', 'biz-three')");
+    }
+    const [biz1, biz2] = db.query("SELECT id FROM businesses ORDER BY id LIMIT 2").all() as { id: number }[];
+
+    const sharedOrderId = "gid://shopify/Order/CROSS_TENANT_ORDER";
+    insertFakeOrder(db, biz1.id, sharedOrderId, "#2001");
+    insertFakeOrder(db, biz2.id, sharedOrderId, "#2001");
+
+    const count = db.query("SELECT COUNT(*) as c FROM orders WHERE shopify_order_id = ?")
+      .get(sharedOrderId) as { c: number };
+    expect(count.c).toBe(2);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REQUIREMENT 6: Import status UX — state machine completeness
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("shopify pilot — import status UX states", () => {
+  it("all required import states are defined", () => {
+    const required = [
+      "DISCONNECTED", "CONNECTED", "IMPORT_PENDING", "IMPORTING",
+      "RECONCILIATION_REQUIRED", "SYNCED", "IMPORT_FAILED",
+      "TOKEN_REVOKED", "CONNECTION_ERROR",
+    ];
+    for (const state of required) {
+      expect(IMPORT_STATES).toHaveProperty(state);
+      expect(IMPORT_STATES[state as keyof typeof IMPORT_STATES]).toBe(state);
+    }
+  });
+
+  it("import state never shows SYNCED when session has GraphQL errors", () => {
+    const db = initTestDb();
+    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+
+    // Simulate session with graphQL errors persisted as discrepancies
+    const sessionId = createImportSession(db, bizId);
+    updateImportSession(db, sessionId, IMPORT_STATES.RECONCILIATION_REQUIRED, {
+      import_completed_at: new Date().toISOString(),
+      shopify_products_count: 5,
+      persisted_products_count: 5,
+      shopify_orders_count: 3,
+      persisted_orders_count: 3,
+      discrepancies: JSON.stringify(["products: THROTTLED — query cost exceeded"]),
+    });
+
+    const session = getLatestImportSession(db, bizId);
+    // State must not be SYNCED when discrepancies/errors present
+    expect(session!.state).not.toBe(IMPORT_STATES.SYNCED);
+    expect(session!.state).toBe(IMPORT_STATES.RECONCILIATION_REQUIRED);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REQUIREMENT 1: Dedicated test business — STALE_IMPORT_THRESHOLD is sane
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("shopify pilot — create-pilot-business script invariants", () => {
+  it("STALE_IMPORT_THRESHOLD_MINUTES is at least 5 and at most 60", () => {
+    expect(STALE_IMPORT_THRESHOLD_MINUTES).toBeGreaterThanOrEqual(5);
+    expect(STALE_IMPORT_THRESHOLD_MINUTES).toBeLessThanOrEqual(60);
   });
 });

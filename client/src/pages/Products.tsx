@@ -6,6 +6,7 @@ import NoviEngineInsight from "../components/novi/NoviEngineInsight";
 import { getDemoInsights } from "../lib/businessDna";
 import { useTerms } from "../context/IndustryContext";
 import { deriveWorkspaceState, filterInsightsByWorkspaceState } from "../lib/workspaceState";
+import { useShopifyConnection } from "../lib/useShopifyConnection";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -182,6 +183,17 @@ export default function Products() {
   const allDemoInsights = getDemoInsights("craft_supplies", "inventory");
   const noviInsights = filterInsightsByWorkspaceState(allDemoInsights, workspaceConfig.state);
   const terms = useTerms();
+  const { isConnected: shopifyConnected, syncMode: shopifySyncMode } = useShopifyConnection();
+
+  // In read-only Shopify pilot mode, local-only records must be labeled clearly
+  // so users know they won't affect Shopify reconciliation.
+  const isShopifyPilot = shopifyConnected && shopifySyncMode === "readonly";
+  const addProductLabel = isShopifyPilot
+    ? "Create Local ShimmerStock Product"
+    : "Add Product";
+  const addProductNote = isShopifyPilot
+    ? "This does not change Shopify and will be excluded from Shopify reconciliation."
+    : null;
 
   return (
     <div className="space-y-4">
@@ -189,12 +201,19 @@ export default function Products() {
         title={terms.products}
         description={`Manage your ${terms.products.toLowerCase()}, SKUs, and barcodes`}
         actions={
-          <Button variant="primary" onClick={openAdd}>
+          <Button variant="primary" onClick={openAdd} title={addProductNote ?? undefined}>
             <span className="text-lg mr-1">＋</span>
-            Add Product
+            {addProductLabel}
           </Button>
         }
       />
+
+      {isShopifyPilot && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>Shopify Reconciliation Active:</strong> New products created here are local-only
+          and will not appear in Shopify. They are excluded from import counts and reconciliation.
+        </div>
+      )}
 
       <NoviEngineInsight insights={noviInsights} />
 
@@ -222,7 +241,7 @@ export default function Products() {
           icon="📦"
           title="No products yet"
           description="Create your first product to start tracking inventory"
-          action={{ label: "Add Product", onClick: openAdd }}
+          action={{ label: addProductLabel, onClick: openAdd }}
         />
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-rose-100 overflow-hidden">
@@ -357,7 +376,7 @@ export default function Products() {
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title={editingProduct ? "Edit Product" : "Add Product"}
+        title={editingProduct ? "Edit Product" : addProductLabel}
       >
         <form onSubmit={handleSave} className="space-y-5">
           {/* Name */}
@@ -442,7 +461,7 @@ export default function Products() {
               Cancel
             </Button>
             <Button variant="primary" className="flex-1" type="submit" loading={saving}>
-              {editingProduct ? "Save Changes" : "Add Product"}
+              {editingProduct ? "Save Changes" : addProductLabel}
             </Button>
           </div>
         </form>

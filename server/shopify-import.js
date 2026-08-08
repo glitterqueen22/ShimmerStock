@@ -147,6 +147,11 @@ export function updateImportSession(db, sessionId, state, extra = {}) {
     "persisted_orders_count",
     "persisted_locations_count",
     "persisted_inventory_levels_count",
+    "shopify_product_ids",
+    "shopify_variant_ids",
+    "shopify_order_ids",
+    "shopify_location_ids",
+    "shopify_inventory_pairs",
     "discrepancies",
     "errors",
     "reconciliation_status",
@@ -197,16 +202,116 @@ export function getEffectiveImportState(db, businessId) {
   return session.state;
 }
 
+// ── Stale-session recovery ────────────────────────────────────────────────
+
+/**
+ * Maximum number of minutes an import session may remain in IMPORTING state
+ * before it is considered stale (e.g. after a Railway restart or process kill).
+ * Owners may retry safely after this threshold.
+ */
+export const STALE_IMPORT_THRESHOLD_MINUTES = 30;
+
+/**
+ * Mark any IMPORTING sessions for a business that have been running longer
+ * than STALE_IMPORT_THRESHOLD_MINUTES as IMPORT_FAILED with a clear reason.
+ *
+ * Safe to call before starting a new import. Does not affect completed sessions.
+ *
+ * @param {import("bun:sqlite").Database} db
+ * @param {number} businessId
+ * @returns {number} number of stale sessions recovered
+ */
+export function recoverStaleSessions(db, businessId) {
+  const staleRows = db
+    .query(
+      `SELECT id, import_started_at FROM shopify_import_sessions
+       WHERE business_id = ? AND state = 'IMPORTING'
+         AND (
+           import_started_at IS NULL
+           OR (
+             (julianday('now') - julianday(import_started_at)) * 1440
+             > ?
+           )
+         )`
+    )
+    .all(businessId, STALE_IMPORT_THRESHOLD_MINUTES);
+
+  for (const row of staleRows) {
+    updateImportSession(db, row.id, IMPORT_STATES.IMPORT_FAILED, {
+      import_completed_at: new Date().toISOString(),
+      errors: JSON.stringify([
+        `Import session stale: exceeded ${STALE_IMPORT_THRESHOLD_MINUTES}-minute threshold ` +
+        `(started: ${row.import_started_at ?? "unknown"}). ` +
+        "Likely caused by a process restart or timeout. Safe to retry."
+      ]),
+    });
+    console.warn(
+      `[shopify-import] Recovered stale session id=${row.id} for business ${businessId}`
+    );
+  }
+
+  return staleRows.length;
+}
+
+/**
+ * Check whether an active (IMPORTING) session already exists for a business.
+ * Returns the session row if one is found, otherwise null.
+ *
+ * @param {import("bun:sqlite").Database} db
+ * @param {number} businessId
+ * @returns {object|null}
+ */
+export function getActiveImportSession(db, businessId) {
+  return db
+    .query(
+      `SELECT id, import_started_at FROM shopify_import_sessions
+       WHERE business_id = ? AND state = 'IMPORTING'
+       ORDER BY id DESC LIMIT 1`
+    )
+    .get(businessId) ?? null;
+}
+
 // ── GraphQL helpers ───────────────────────────────────────────────────────
 
 const PAGE_SIZE = 50;
 
 /**
+ * Safe delay helper for throttle backoff.
+ * @param {number} ms
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Extract GraphQL error messages from a raw gateway response.
+ * Returns [] when the response has no errors.
+ * Detects THROTTLED errors and returns a sentinel.
+ *
+ * @param {any} rawResponse — result of gatewayGraphQL (may be { data, errors })
+ * @returns {{ isThrottled: boolean; messages: string[] }}
+ */
+function extractGraphQLErrors(rawResponse) {
+  const errors = rawResponse?.errors;
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return { isThrottled: false, messages: [] };
+  }
+  const isThrottled = errors.some(
+    e => e?.extensions?.code === "THROTTLED" || String(e?.message).includes("Throttled")
+  );
+  const messages = errors.map(e =>
+    e?.message ? String(e.message) : "Unknown GraphQL error"
+  );
+  return { isThrottled, messages };
+}
+
+/**
  * Fetch all products and variants from Shopify using GraphQL cursor pagination.
- * @returns {{ products: object[], shopifyCount: number }}
+ * @returns {{ products: object[], shopifyCount: number, graphqlErrors: string[] }}
  */
 async function fetchAllProducts(shopDomain, accessToken) {
   const products = [];
+  const graphqlErrors = [];
   let cursor = null;
   let hasNextPage = true;
 
@@ -239,7 +344,26 @@ async function fetchAllProducts(shopDomain, accessToken) {
       }
     `;
 
-    const data = await gatewayGraphQL("readonly", shopDomain, accessToken, query);
+    let raw;
+    try {
+      raw = await gatewayGraphQL("readonly", shopDomain, accessToken, query);
+    } catch (err) {
+      graphqlErrors.push(`products fetch error: ${err.message}`);
+      break;
+    }
+
+    const { isThrottled, messages } = extractGraphQLErrors(raw);
+    if (isThrottled) {
+      console.warn("[shopify-import] Products fetch THROTTLED — waiting 2s before retry");
+      await sleep(2000);
+      continue; // retry same cursor
+    }
+    if (messages.length > 0) {
+      graphqlErrors.push(...messages.map(m => `products: ${m}`));
+      break;
+    }
+
+    const data = raw?.data ?? raw; // gateway returns { data: {...} } or may unwrap
     const page = data?.products;
     if (!page) break;
 
@@ -251,15 +375,16 @@ async function fetchAllProducts(shopDomain, accessToken) {
     cursor = page.pageInfo?.endCursor ?? null;
   }
 
-  return { products, shopifyCount: products.length };
+  return { products, shopifyCount: products.length, graphqlErrors };
 }
 
 /**
  * Fetch all locations from Shopify via GraphQL.
- * @returns {{ locations: object[], shopifyCount: number }}
+ * @returns {{ locations: object[], shopifyCount: number, graphqlErrors: string[] }}
  */
 async function fetchAllLocations(shopDomain, accessToken) {
   const locations = [];
+  const graphqlErrors = [];
   let cursor = null;
   let hasNextPage = true;
 
@@ -281,7 +406,26 @@ async function fetchAllLocations(shopDomain, accessToken) {
       }
     `;
 
-    const data = await gatewayGraphQL("readonly", shopDomain, accessToken, query);
+    let raw;
+    try {
+      raw = await gatewayGraphQL("readonly", shopDomain, accessToken, query);
+    } catch (err) {
+      graphqlErrors.push(`locations fetch error: ${err.message}`);
+      break;
+    }
+
+    const { isThrottled, messages } = extractGraphQLErrors(raw);
+    if (isThrottled) {
+      console.warn("[shopify-import] Locations fetch THROTTLED — waiting 2s before retry");
+      await sleep(2000);
+      continue;
+    }
+    if (messages.length > 0) {
+      graphqlErrors.push(...messages.map(m => `locations: ${m}`));
+      break;
+    }
+
+    const data = raw?.data ?? raw;
     const page = data?.locations;
     if (!page) break;
 
@@ -293,16 +437,17 @@ async function fetchAllLocations(shopDomain, accessToken) {
     cursor = page.pageInfo?.endCursor ?? null;
   }
 
-  return { locations, shopifyCount: locations.length };
+  return { locations, shopifyCount: locations.length, graphqlErrors };
 }
 
 /**
  * Fetch inventory levels for a list of location GIDs.
  * @param {string[]} locationIds — Shopify GID strings (gid://shopify/Location/...)
- * @returns {{ levels: object[], shopifyCount: number }}
+ * @returns {{ levels: object[], shopifyCount: number, graphqlErrors: string[] }}
  */
 async function fetchAllInventoryLevels(shopDomain, accessToken, locationIds) {
   const levels = [];
+  const graphqlErrors = [];
 
   for (const locationGid of locationIds) {
     let cursor = null;
@@ -326,14 +471,37 @@ async function fetchAllInventoryLevels(shopDomain, accessToken, locationIds) {
         }
       `;
 
-      const data = await gatewayGraphQL("readonly", shopDomain, accessToken, query);
+      let raw;
+      try {
+        raw = await gatewayGraphQL("readonly", shopDomain, accessToken, query);
+      } catch (err) {
+        graphqlErrors.push(`inventory fetch error: ${err.message}`);
+        hasNextPage = false;
+        break;
+      }
+
+      const { isThrottled, messages } = extractGraphQLErrors(raw);
+      if (isThrottled) {
+        console.warn("[shopify-import] Inventory fetch THROTTLED — waiting 2s before retry");
+        await sleep(2000);
+        continue;
+      }
+      if (messages.length > 0) {
+        graphqlErrors.push(...messages.map(m => `inventory: ${m}`));
+        hasNextPage = false;
+        break;
+      }
+
+      const data = raw?.data ?? raw;
       const page = data?.location?.inventoryLevels;
-      if (!page) break;
+      if (!page) { hasNextPage = false; break; }
 
       for (const edge of page.edges || []) {
         levels.push({
           locationGid,
+          locationId: locationGid,
           inventoryItemGid: edge.node.item?.id,
+          inventoryItemId: edge.node.item?.id,
           available: edge.node.available ?? 0,
         });
       }
@@ -343,16 +511,17 @@ async function fetchAllInventoryLevels(shopDomain, accessToken, locationIds) {
     }
   }
 
-  return { levels, shopifyCount: levels.length };
+  return { levels, shopifyCount: levels.length, graphqlErrors };
 }
 
 /**
  * Fetch all accessible orders across all statuses via GraphQL cursor pagination.
  * Does NOT add read_all_orders — uses only the approved read_orders scope.
- * @returns {{ orders: object[], shopifyCount: number }}
+ * @returns {{ orders: object[], shopifyCount: number, graphqlErrors: string[] }}
  */
 async function fetchAllOrders(shopDomain, accessToken) {
   const orders = [];
+  const graphqlErrors = [];
   let cursor = null;
   let hasNextPage = true;
 
@@ -391,7 +560,26 @@ async function fetchAllOrders(shopDomain, accessToken) {
       }
     `;
 
-    const data = await gatewayGraphQL("readonly", shopDomain, accessToken, query);
+    let raw;
+    try {
+      raw = await gatewayGraphQL("readonly", shopDomain, accessToken, query);
+    } catch (err) {
+      graphqlErrors.push(`orders fetch error: ${err.message}`);
+      break;
+    }
+
+    const { isThrottled, messages } = extractGraphQLErrors(raw);
+    if (isThrottled) {
+      console.warn("[shopify-import] Orders fetch THROTTLED — waiting 2s before retry");
+      await sleep(2000);
+      continue;
+    }
+    if (messages.length > 0) {
+      graphqlErrors.push(...messages.map(m => `orders: ${m}`));
+      break;
+    }
+
+    const data = raw?.data ?? raw;
     const page = data?.orders;
     if (!page) break;
 
@@ -403,7 +591,7 @@ async function fetchAllOrders(shopDomain, accessToken) {
     cursor = page.pageInfo?.endCursor ?? null;
   }
 
-  return { orders, shopifyCount: orders.length };
+  return { orders, shopifyCount: orders.length, graphqlErrors };
 }
 
 // ── Persistence helpers ───────────────────────────────────────────────────
@@ -690,7 +878,26 @@ function upsertOrder(db, businessId, shopifyOrder) {
  * @returns {Promise<{ success: boolean; sessionId: number; summary: object; error?: string }>}
  */
 export async function runInitialImport(db, businessId) {
-  // Validate credentials and business match
+  // ── Step 0: Recover stale sessions ──────────────────────────────────────
+  recoverStaleSessions(db, businessId);
+
+  // ── Step 1: Concurrency guard ────────────────────────────────────────────
+  // Only one active import may run per business. Reject concurrent requests.
+  const activeSession = getActiveImportSession(db, businessId);
+  if (activeSession) {
+    return {
+      success: false,
+      sessionId: activeSession.id,
+      summary: {},
+      error:
+        `An import is already in progress for this business (session id=${activeSession.id}, ` +
+        `started: ${activeSession.import_started_at ?? "unknown"}). ` +
+        "Wait for it to complete or retry after the stale threshold.",
+      state: IMPORT_STATES.IMPORTING,
+    };
+  }
+
+  // ── Step 2: Validate credentials ─────────────────────────────────────────
   const creds = loadAndValidateCredentials(db, businessId);
   if (!creds) {
     return {
@@ -719,29 +926,34 @@ export async function runInitialImport(db, businessId) {
   );
 
   const summary = {
-    products: { shopify: 0, persisted: 0 },
-    variants: { shopify: 0, persisted: 0 },
-    locations: { shopify: 0, persisted: 0 },
-    inventoryLevels: { shopify: 0, persisted: 0 },
-    orders: { shopify: 0, persisted: 0 },
+    products: { shopify: 0, persisted: 0, ids: [] },
+    variants: { shopify: 0, persisted: 0, ids: [] },
+    locations: { shopify: 0, persisted: 0, ids: [] },
+    inventoryLevels: { shopify: 0, persisted: 0, pairs: [] },
+    orders: { shopify: 0, persisted: 0, ids: [] },
+    graphqlErrors: [],
     errors: [],
   };
 
   try {
     // ── 1. Products and variants ─────────────────────────────────────
-    const { products, shopifyCount: prodCount } = await fetchAllProducts(shopDomain, accessToken);
+    const { products, shopifyCount: prodCount, graphqlErrors: prodErrors } =
+      await fetchAllProducts(shopDomain, accessToken);
     summary.products.shopify = prodCount;
+    if (prodErrors?.length) summary.graphqlErrors.push(...prodErrors.map(e => `products: ${e}`));
 
     let variantShopifyCount = 0;
     let variantPersistedCount = 0;
 
     for (const shopifyProduct of products) {
+      summary.products.ids.push(shopifyProduct.id);
       try {
         const shimmerProductId = upsertProduct(db, businessId, shopifyProduct);
         summary.products.persisted++;
 
         for (const varEdge of shopifyProduct.variants?.edges || []) {
           variantShopifyCount++;
+          summary.variants.ids.push(varEdge.node.id);
           upsertVariant(db, businessId, shimmerProductId, varEdge.node);
           variantPersistedCount++;
         }
@@ -754,10 +966,13 @@ export async function runInitialImport(db, businessId) {
     summary.variants.persisted = variantPersistedCount;
 
     // ── 2. Locations ─────────────────────────────────────────────────
-    const { locations, shopifyCount: locCount } = await fetchAllLocations(shopDomain, accessToken);
+    const { locations, shopifyCount: locCount, graphqlErrors: locErrors } =
+      await fetchAllLocations(shopDomain, accessToken);
     summary.locations.shopify = locCount;
+    if (locErrors?.length) summary.graphqlErrors.push(...locErrors.map(e => `locations: ${e}`));
 
     for (const loc of locations) {
+      summary.locations.ids.push(loc.id);
       try {
         upsertLocation(db, businessId, loc);
         summary.locations.persisted++;
@@ -768,14 +983,16 @@ export async function runInitialImport(db, businessId) {
 
     // ── 3. Inventory levels ──────────────────────────────────────────
     const locationGids = locations.map(l => l.id);
-    const { levels, shopifyCount: levelsCount } = await fetchAllInventoryLevels(
-      shopDomain,
-      accessToken,
-      locationGids
-    );
+    const { levels, shopifyCount: levelsCount, graphqlErrors: invErrors } =
+      await fetchAllInventoryLevels(shopDomain, accessToken, locationGids);
     summary.inventoryLevels.shopify = levelsCount;
+    if (invErrors?.length) summary.graphqlErrors.push(...invErrors.map(e => `inventory: ${e}`));
 
     for (const level of levels) {
+      summary.inventoryLevels.pairs.push({
+        item: level.inventoryItemId,
+        loc: level.locationId,
+      });
       try {
         upsertInventoryLevel(db, businessId, level);
         summary.inventoryLevels.persisted++;
@@ -785,10 +1002,13 @@ export async function runInitialImport(db, businessId) {
     }
 
     // ── 4. Orders ────────────────────────────────────────────────────
-    const { orders, shopifyCount: ordersCount } = await fetchAllOrders(shopDomain, accessToken);
+    const { orders, shopifyCount: ordersCount, graphqlErrors: orderErrors } =
+      await fetchAllOrders(shopDomain, accessToken);
     summary.orders.shopify = ordersCount;
+    if (orderErrors?.length) summary.graphqlErrors.push(...orderErrors.map(e => `orders: ${e}`));
 
     for (const order of orders) {
+      summary.orders.ids.push(order.id);
       try {
         const orderId = upsertOrder(db, businessId, order);
         if (orderId) summary.orders.persisted++;
@@ -798,13 +1018,18 @@ export async function runInitialImport(db, businessId) {
     }
 
     // ── Determine final state ────────────────────────────────────────
+    // SYNCED requires: counts match, no errors, no GraphQL page errors.
+    // Equal counts alone are NOT sufficient — ID-set comparison is done
+    // in getReconciliationReport; here we prevent SYNCED when there are errors.
     const hasDiscrepancies =
       summary.products.shopify !== summary.products.persisted ||
       summary.variants.shopify !== summary.variants.persisted ||
       summary.locations.shopify !== summary.locations.persisted ||
       summary.orders.shopify !== summary.orders.persisted ||
-      summary.errors.length > 0;
+      summary.errors.length > 0 ||
+      summary.graphqlErrors.length > 0;
 
+    // Never mark SYNCED if any GraphQL page returned errors (partial data risk).
     const finalState = hasDiscrepancies
       ? IMPORT_STATES.RECONCILIATION_REQUIRED
       : IMPORT_STATES.SYNCED;
@@ -822,7 +1047,12 @@ export async function runInitialImport(db, businessId) {
       persisted_orders_count: summary.orders.persisted,
       persisted_locations_count: summary.locations.persisted,
       persisted_inventory_levels_count: summary.inventoryLevels.persisted,
-      discrepancies: JSON.stringify(summary.errors),
+      shopify_product_ids: JSON.stringify(summary.products.ids),
+      shopify_variant_ids: JSON.stringify(summary.variants.ids),
+      shopify_order_ids: JSON.stringify(summary.orders.ids),
+      shopify_location_ids: JSON.stringify(summary.locations.ids),
+      shopify_inventory_pairs: JSON.stringify(summary.inventoryLevels.pairs),
+      discrepancies: JSON.stringify([...summary.errors, ...summary.graphqlErrors]),
       reconciliation_status: hasDiscrepancies ? "NEEDS_REVIEW" : "RECONCILED",
     });
 
@@ -880,6 +1110,7 @@ export function getReconciliationReport(db, businessId) {
     };
   }
 
+  // ── Current DB counts ─────────────────────────────────────────────────
   const shimmerProductCount = db
     .query(`SELECT COUNT(*) as c FROM products WHERE business_id = ? AND shopify_product_id IS NOT NULL`)
     .get(businessId)?.c ?? 0;
@@ -900,7 +1131,77 @@ export function getReconciliationReport(db, businessId) {
     .query(`SELECT COUNT(*) as c FROM shopify_inventory_levels WHERE business_id = ?`)
     .get(businessId)?.c ?? 0;
 
-  // Duplicate Shopify IDs in ShimmerStock (indicates import corruption)
+  // ── Current DB ID sets (tenant-scoped) ────────────────────────────────
+  const dbProductIds = new Set(
+    db.query(`SELECT shopify_product_id FROM products WHERE business_id = ? AND shopify_product_id IS NOT NULL`)
+      .all(businessId).map(r => r.shopify_product_id)
+  );
+  const dbVariantIds = new Set(
+    db.query(`SELECT shopify_variant_id FROM product_variants WHERE business_id = ? AND shopify_variant_id IS NOT NULL`)
+      .all(businessId).map(r => r.shopify_variant_id)
+  );
+  const dbOrderIds = new Set(
+    db.query(`SELECT shopify_order_id FROM orders WHERE business_id = ? AND shopify_order_id IS NOT NULL`)
+      .all(businessId).map(r => r.shopify_order_id)
+  );
+  const dbLocationIds = new Set(
+    db.query(`SELECT shopify_location_id FROM shopify_locations WHERE business_id = ?`)
+      .all(businessId).map(r => r.shopify_location_id)
+  );
+  const dbInventoryPairs = new Set(
+    db.query(`SELECT shopify_inventory_item_id, shopify_location_id FROM shopify_inventory_levels WHERE business_id = ?`)
+      .all(businessId).map(r => `${r.shopify_inventory_item_id}:${r.shopify_location_id}`)
+  );
+
+  // ── Stored Shopify ID sets from the import session ────────────────────
+  // Populated by runInitialImport for sessions created after this version.
+  // If absent, fall back to count-only comparison with NEEDS_REVIEW state.
+  const sessionProductIds = session.shopify_product_ids
+    ? new Set(JSON.parse(session.shopify_product_ids))
+    : null;
+  const sessionVariantIds = session.shopify_variant_ids
+    ? new Set(JSON.parse(session.shopify_variant_ids))
+    : null;
+  const sessionOrderIds = session.shopify_order_ids
+    ? new Set(JSON.parse(session.shopify_order_ids))
+    : null;
+  const sessionLocationIds = session.shopify_location_ids
+    ? new Set(JSON.parse(session.shopify_location_ids))
+    : null;
+  const sessionInventoryPairs = session.shopify_inventory_pairs
+    ? new Set(
+        (JSON.parse(session.shopify_inventory_pairs) || []).map(
+          p => `${p.item ?? p.inventoryItemId}:${p.loc ?? p.locationId}`
+        )
+      )
+    : null;
+
+  // ── ID-set difference helpers ─────────────────────────────────────────
+  /** IDs in `setA` but not in `setB`. */
+  function setDiff(setA, setB) {
+    if (!setA || !setB) return [];
+    return [...setA].filter(id => !setB.has(id));
+  }
+
+  // ── ID-set comparisons ────────────────────────────────────────────────
+  // missingFromDb: Shopify reported these IDs but they're not in ShimmerStock
+  // unexpectedInDb: In ShimmerStock but not in the Shopify import set
+  const productsMissingFromDb = setDiff(sessionProductIds, dbProductIds);
+  const productsUnexpectedInDb = setDiff(dbProductIds, sessionProductIds);
+
+  const variantsMissingFromDb = setDiff(sessionVariantIds, dbVariantIds);
+  const variantsUnexpectedInDb = setDiff(dbVariantIds, sessionVariantIds);
+
+  const ordersMissingFromDb = setDiff(sessionOrderIds, dbOrderIds);
+  const ordersUnexpectedInDb = setDiff(dbOrderIds, sessionOrderIds);
+
+  const locationsMissingFromDb = setDiff(sessionLocationIds, dbLocationIds);
+  const locationsUnexpectedInDb = setDiff(dbLocationIds, sessionLocationIds);
+
+  const inventoryMissingFromDb = setDiff(sessionInventoryPairs, dbInventoryPairs);
+  const inventoryUnexpectedInDb = setDiff(dbInventoryPairs, sessionInventoryPairs);
+
+  // ── Duplicate Shopify IDs in ShimmerStock (import corruption) ─────────
   const dupProducts = db
     .query(
       `SELECT shopify_product_id, COUNT(*) as cnt FROM products
@@ -925,7 +1226,7 @@ export function getReconciliationReport(db, businessId) {
     )
     .all(businessId);
 
-  // Variants with empty SKUs
+  // ── Variants with empty SKUs ──────────────────────────────────────────
   const missingSkuVariants = db
     .query(
       `SELECT COUNT(*) as c FROM product_variants
@@ -935,23 +1236,76 @@ export function getReconciliationReport(db, businessId) {
 
   const discrepancyErrors = session.discrepancies ? JSON.parse(session.discrepancies) : [];
 
+  // ── Count-based mismatches (still useful as summaries) ────────────────
   const productsMismatch =
     (session.shopify_products_count || 0) !== (session.persisted_products_count || 0);
   const variantsMismatch =
     (session.shopify_variants_count || 0) !== (session.persisted_variants_count || 0);
   const ordersMismatch =
     (session.shopify_orders_count || 0) !== (session.persisted_orders_count || 0);
+  const locationsMismatch =
+    (session.shopify_locations_count ?? -1) !== shimmerLocationCount;
+  const inventoryMismatch =
+    (session.shopify_inventory_levels_count ?? -1) !== shimmerInventoryCount;
 
-  const overallStatus =
-    dupProducts.length > 0 ||
-    dupVariants.length > 0 ||
-    dupOrders.length > 0 ||
-    productsMismatch ||
-    variantsMismatch ||
-    ordersMismatch ||
-    discrepancyErrors.length > 0
-      ? "MISMATCH"
-      : "RECONCILED";
+  // ── Determine per-entity and overall status ───────────────────────────
+  // A RECONCILED entity requires:
+  //   - No count mismatch
+  //   - No duplicate IDs in ShimmerStock
+  //   - No missing IDs (Shopify IDs not found in ShimmerStock)
+  //   - No unexpected IDs (ShimmerStock IDs not in Shopify import set)
+  //   - If no session ID sets available: mark NEEDS_REVIEW (cannot verify)
+
+  const hasIdSets = sessionProductIds !== null;
+
+  const productsIdMismatch =
+    productsMissingFromDb.length > 0 || productsUnexpectedInDb.length > 0;
+  const variantsIdMismatch =
+    variantsMissingFromDb.length > 0 || variantsUnexpectedInDb.length > 0;
+  const ordersIdMismatch =
+    ordersMissingFromDb.length > 0 || ordersUnexpectedInDb.length > 0;
+  const locationsIdMismatch =
+    locationsMissingFromDb.length > 0 || locationsUnexpectedInDb.length > 0;
+  const inventoryIdMismatch =
+    inventoryMissingFromDb.length > 0 || inventoryUnexpectedInDb.length > 0;
+
+  function entityStatus(countMismatch, idMismatch, dups, hasReview = false) {
+    if (dups.length > 0 || countMismatch || idMismatch) return "MISMATCH";
+    if (!hasIdSets || hasReview) return "NEEDS_REVIEW";
+    return "RECONCILED";
+  }
+
+  const productsStatus = entityStatus(
+    productsMismatch, productsIdMismatch, dupProducts
+  );
+  const variantsStatus = entityStatus(
+    variantsMismatch, variantsIdMismatch, dupVariants, missingSkuVariants > 0
+  );
+  const ordersStatus = entityStatus(ordersMismatch, ordersIdMismatch, dupOrders);
+  const locationsStatus = entityStatus(locationsMismatch, locationsIdMismatch, []);
+  const inventoryStatus = entityStatus(inventoryMismatch, inventoryIdMismatch, []);
+
+  const anyMismatch =
+    productsStatus === "MISMATCH" ||
+    variantsStatus === "MISMATCH" ||
+    ordersStatus === "MISMATCH" ||
+    locationsStatus === "MISMATCH" ||
+    inventoryStatus === "MISMATCH" ||
+    discrepancyErrors.length > 0;
+
+  const anyNeedsReview =
+    productsStatus === "NEEDS_REVIEW" ||
+    variantsStatus === "NEEDS_REVIEW" ||
+    ordersStatus === "NEEDS_REVIEW" ||
+    locationsStatus === "NEEDS_REVIEW" ||
+    inventoryStatus === "NEEDS_REVIEW";
+
+  // SYNCED requires all entities RECONCILED with no errors.
+  const overallStatus = anyMismatch
+    ? "MISMATCH"
+    : anyNeedsReview
+    ? "NEEDS_REVIEW"
+    : "RECONCILED";
 
   return {
     status: overallStatus,
@@ -959,38 +1313,48 @@ export function getReconciliationReport(db, businessId) {
     importStartedAt: session.import_started_at,
     importCompletedAt: session.import_completed_at,
     lastSuccessfulImportAt: session.last_successful_import_at,
+    hasIdSets,
     products: {
       shopifyCount: session.shopify_products_count,
       shimmerCount: shimmerProductCount,
       duplicateIds: dupProducts.map(d => d.shopify_product_id),
-      mismatch: productsMismatch,
-      status: productsMismatch || dupProducts.length > 0 ? "MISMATCH" : "RECONCILED",
+      missingFromDb: productsMissingFromDb,
+      unexpectedInDb: productsUnexpectedInDb,
+      mismatch: productsMismatch || productsIdMismatch,
+      status: productsStatus,
     },
     variants: {
       shopifyCount: session.shopify_variants_count,
       shimmerCount: shimmerVariantCount,
       duplicateIds: dupVariants.map(d => d.shopify_variant_id),
+      missingFromDb: variantsMissingFromDb,
+      unexpectedInDb: variantsUnexpectedInDb,
       missingSkuCount: missingSkuVariants,
-      mismatch: variantsMismatch,
-      status: variantsMismatch || dupVariants.length > 0 || missingSkuVariants > 0 ? "NEEDS_REVIEW" : "RECONCILED",
+      mismatch: variantsMismatch || variantsIdMismatch,
+      status: variantsStatus,
     },
     orders: {
       shopifyCount: session.shopify_orders_count,
       shimmerCount: shimmerOrderCount,
       duplicateIds: dupOrders.map(d => d.shopify_order_id),
-      mismatch: ordersMismatch,
-      status: ordersMismatch || dupOrders.length > 0 ? "MISMATCH" : "RECONCILED",
+      missingFromDb: ordersMissingFromDb,
+      unexpectedInDb: ordersUnexpectedInDb,
+      mismatch: ordersMismatch || ordersIdMismatch,
+      status: ordersStatus,
     },
     locations: {
       shopifyCount: session.shopify_locations_count,
       shimmerCount: shimmerLocationCount,
-      status: session.shopify_locations_count !== shimmerLocationCount ? "MISMATCH" : "RECONCILED",
+      missingFromDb: locationsMissingFromDb,
+      unexpectedInDb: locationsUnexpectedInDb,
+      status: locationsStatus,
     },
     inventoryLevels: {
       shopifyCount: session.shopify_inventory_levels_count,
       shimmerCount: shimmerInventoryCount,
-      status:
-        session.shopify_inventory_levels_count !== shimmerInventoryCount ? "MISMATCH" : "RECONCILED",
+      missingFromDb: inventoryMissingFromDb,
+      unexpectedInDb: inventoryUnexpectedInDb,
+      status: inventoryStatus,
     },
     errors: discrepancyErrors,
   };
