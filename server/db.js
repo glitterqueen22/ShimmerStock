@@ -573,31 +573,48 @@ export function initDb(dbPath) {
     if (hasGlobalUnique && !hasTenantOrderIndex) {
       // Recreate orders table to remove the global UNIQUE column constraint.
       console.log("Migrating orders table: removing global shopify_order_id UNIQUE, adding tenant-scoped index...");
-      const existingOrderCols = db.query("PRAGMA table_info(orders)").all().map(c => c.name);
-      const selectCols = [
-        "id", "shopify_order_id", "order_number", "customer_name",
-        "customer_email", "shipping_address", "source", "status", "notes",
-        "total_amount", "created_by", "business_id", "created_at", "imported_at",
-      ].filter(c => existingOrderCols.includes(c)).join(", ");
+      const existingOrderColInfo = db.query("PRAGMA table_info(orders)").all();
+      const existingOrderColNames = existingOrderColInfo.map(c => c.name);
 
-      db.run(`
-        CREATE TABLE orders_tenant_migrate (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          shopify_order_id TEXT,
-          order_number INTEGER,
-          customer_name TEXT,
-          customer_email TEXT,
-          shipping_address TEXT,
-          source TEXT NOT NULL DEFAULT 'shopify',
-          status TEXT DEFAULT 'pending',
-          notes TEXT,
-          total_amount REAL,
-          created_by INTEGER REFERENCES users(id),
-          business_id INTEGER NOT NULL DEFAULT 1,
-          created_at TEXT DEFAULT (datetime('now')),
-          imported_at TEXT DEFAULT (datetime('now'))
-        )
-      `);
+      // Build a dynamic CREATE TABLE that preserves all existing columns.
+      // Always include a safe base schema for known required columns,
+      // then add any additional columns found in the live table.
+      const baseColDefs: Record<string, string> = {
+        id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+        shopify_order_id: "TEXT", // intentionally without UNIQUE
+        order_number: "INTEGER",
+        customer_name: "TEXT",
+        customer_email: "TEXT",
+        shipping_address: "TEXT",
+        source: "TEXT NOT NULL DEFAULT 'shopify'",
+        status: "TEXT DEFAULT 'pending'",
+        notes: "TEXT",
+        total_amount: "REAL",
+        created_by: "INTEGER REFERENCES users(id)",
+        business_id: "INTEGER NOT NULL DEFAULT 1",
+        created_at: "TEXT DEFAULT (datetime('now'))",
+        imported_at: "TEXT DEFAULT (datetime('now'))",
+      };
+
+      // Add any extra columns that exist in the live table but not in our base schema.
+      const extraColDefs: string[] = [];
+      for (const col of existingOrderColInfo) {
+        if (!baseColDefs[col.name]) {
+          const notNull = col.notnull ? " NOT NULL" : "";
+          const dflt = col.dflt_value !== null ? ` DEFAULT ${col.dflt_value}` : "";
+          extraColDefs.push(`${col.name} ${col.type}${notNull}${dflt}`);
+        }
+      }
+
+      const allColDefs = [
+        ...Object.entries(baseColDefs).map(([n, d]) => `${n} ${d}`),
+        ...extraColDefs,
+      ].join(",\n          ");
+
+      db.run(`CREATE TABLE orders_tenant_migrate (\n          ${allColDefs}\n        )`);
+
+      // Copy all columns that exist in both the old and new table.
+      const selectCols = existingOrderColNames.join(", ");
       db.run(`INSERT INTO orders_tenant_migrate (${selectCols}) SELECT ${selectCols} FROM orders`);
       db.run("DROP TABLE orders");
       db.run("ALTER TABLE orders_tenant_migrate RENAME TO orders");
