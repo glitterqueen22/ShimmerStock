@@ -473,10 +473,19 @@ This is safe but may complicate reconciliation. Approach chosen:
 
 | Status | Meaning |
 |--------|---------|
-| `RECONCILED` | Shopify count matches ShimmerStock count; no duplicates |
-| `MISMATCH` | Count difference between Shopify and ShimmerStock |
-| `NEEDS_REVIEW` | Variants with missing SKUs or other non-critical issues |
+| `RECONCILED` | Import completed without errors; Shopify ID sets exactly match ShimmerStock; no missing, unexpected, or duplicate IDs |
+| `MISMATCH` | Count difference OR ID-set drift (equal counts with different IDs) OR duplicate IDs in ShimmerStock |
+| `NEEDS_REVIEW` | Non-critical issues (e.g. variants with missing SKUs); or session predates ID-set storage and counts cannot be fully verified |
 | `NO_IMPORT` | No import has been run yet |
+
+**SYNCED requires all of the following:**
+- Import completed successfully (no GraphQL page errors, no throttle failures)
+- No missing Shopify IDs (IDs seen in Shopify but absent from ShimmerStock)
+- No unexpected ShimmerStock-only imported IDs (IDs in ShimmerStock not seen in this Shopify import)
+- No duplicate Shopify IDs within a tenant
+- All entity reconciliation rules pass (products, variants, orders, locations, inventory pairs)
+
+Equal counts alone are NOT sufficient proof of reconciliation. ID-set comparison is required.
 
 Endpoint: `GET /api/shopify/import/reconciliation` — read-only, returns structured report.
 

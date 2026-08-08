@@ -1036,7 +1036,10 @@ export async function runInitialImport(db, businessId) {
 
     updateImportSession(db, sessionId, finalState, {
       import_completed_at: new Date().toISOString(),
-      last_successful_import_at: new Date().toISOString(),
+      // Only record last_successful_import_at when the import truly completed without discrepancies.
+      ...(finalState === IMPORT_STATES.SYNCED
+        ? { last_successful_import_at: new Date().toISOString() }
+        : {}),
       shopify_products_count: summary.products.shopify,
       shopify_variants_count: summary.variants.shopify,
       shopify_orders_count: summary.orders.shopify,
