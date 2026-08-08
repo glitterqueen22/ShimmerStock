@@ -7,6 +7,7 @@ import Novi from "../components/Novi";
 import OperationsCenter from "../components/OperationsCenter";
 import NoviEngineInsight from "../components/novi/NoviEngineInsight";
 import { getDemoInsights } from "../lib/businessDna";
+import { filterInsightsByWorkspaceState, getSessionDemoType, type WorkspaceState } from "../lib/workspaceState";
 import { useTerms } from "../context/IndustryContext";
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -162,6 +163,7 @@ export default function Orders() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const isAdmin = user?.role === "admin" || user?.role === "owner";
+  const terms = useTerms();
 
   const [shopifyConfigured, setShopifyConfigured] = useState<boolean | null>(null);
   const [syncMode, setSyncMode] = useState<"readonly" | "full" | null>(null);
@@ -240,6 +242,8 @@ export default function Orders() {
     description: string;
     requiresSetup: boolean;
     connectionStatus: string;
+    syncStatus?: string | null;
+    syncError?: string | null;
     isActive: boolean;
     lastSyncedAt: string | null;
   }
@@ -490,6 +494,15 @@ export default function Orders() {
     };
     return map[status] || "info";
   }
+
+  const activeDemoType = getSessionDemoType();
+  const workspaceState: WorkspaceState = activeDemoType
+    ? "demo"
+    : (orders.length > 0 || shopifyConfigured ? "real" : "empty_real");
+  const noviInsights = filterInsightsByWorkspaceState(
+    getDemoInsights(activeDemoType || "craft_supplies", "orders"),
+    workspaceState,
+  );
 
   // ── New Order Flow ──────────────────────────────────────────────────
 
@@ -949,10 +962,6 @@ export default function Orders() {
 
   // ── Order list view ─────────────────────────────────────────────────
 
-  const noviInsights = getDemoInsights("craft_supplies", "orders");
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const terms = useTerms();
-
   return (
     <div className="space-y-4">
       <PageHeader title={terms.order + 's'}
@@ -1047,6 +1056,17 @@ export default function Orders() {
           ) : providers.map((provider) => {
             const isConnected = provider.connectionStatus === "connected";
             const isSyncing = syncingProvider === provider.slug;
+            const syncLabel = provider.syncStatus === "synced"
+              ? "Synced"
+              : provider.syncStatus === "syncing"
+                ? "Syncing"
+                : provider.connectionStatus === "pending_validation" || provider.syncStatus === "pending"
+                  ? "Pending validation"
+                  : provider.connectionStatus === "failed" || provider.syncStatus === "error"
+                    ? "Connection failed"
+                    : isConnected
+                      ? "Connected"
+                      : "Not connected";
             return (
               <div key={provider.slug}
                 className={`rounded-xl p-4 border-2 transition-all ${isConnected
@@ -1057,6 +1077,7 @@ export default function Orders() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-[#121212] truncate">{provider.label}</p>
                     <p className="text-xs text-rose-400">{provider.description}</p>
+                    <p className="text-[11px] text-rose-300 mt-0.5">{syncLabel}</p>
                   </div>
                   <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isConnected ? "bg-emerald-500" : "bg-rose-300"}`}
                     title={isConnected ? "Connected" : "Not connected"} />

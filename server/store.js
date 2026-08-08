@@ -106,6 +106,11 @@ export function refreshSessionExpiry(db, sessionId, newExpiresAt) {
   db.run("UPDATE sessions SET expires_at = ? WHERE id = ?", [newExpiresAt, sessionId]);
 }
 
+/** Pin an authenticated session to the newly selected business. */
+export function setSessionBusiness(db, sessionId, businessId) {
+  db.run("UPDATE sessions SET business_id = ? WHERE id = ?", [businessId, sessionId]);
+}
+
 /** Look up a session by token (lightweight — only returns id + expires_at). */
 export function getSessionExpiry(db, token) {
   return db

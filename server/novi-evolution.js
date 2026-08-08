@@ -36,6 +36,18 @@ function formatRelativeDate(dateStr) {
   return `${Math.floor(days / 365)} year(s) ago`;
 }
 
+function tableExists(db, tableName) {
+  const row = db
+    .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .get(tableName);
+  return Boolean(row);
+}
+
+function columnExists(db, tableName, columnName) {
+  const columns = db.query(`PRAGMA table_info(${tableName})`).all();
+  return columns.some((column) => column.name === columnName);
+}
+
 // ── Memory helpers ───────────────────────────────────────────────────
 
 function getMemoriesForBusiness(db, businessId, limit = 50) {
@@ -454,6 +466,11 @@ function getBusinessWrapped(db, businessId, year) {
 // ── Executive Summary ────────────────────────────────────────────────
 
 function getExecutiveSummary(db, businessId) {
+  const hasPurchaseOrders = tableExists(db, "purchase_orders");
+  const hasPackingRecipes = tableExists(db, "packing_recipes");
+  const ordersHaveUpdatedAt = columnExists(db, "orders", "updated_at");
+  const ordersHavePackedAt = columnExists(db, "orders", "packed_at");
+
   // Today
   const todayOrders = db.query(
     `SELECT COUNT(DISTINCT o.id) as count,
@@ -495,11 +512,20 @@ function getExecutiveSummary(db, businessId) {
     : null;
 
   // Shipments today
-  const todayShipments = (db.query(
-    `SELECT COUNT(*) as count FROM orders
-     WHERE business_id = ? AND status = 'complete'
-       AND date(updated_at) = date('now')`
-  ).get(businessId) || { count: 0 }).count;
+  const todayShipments = ordersHaveUpdatedAt
+    ? (db.query(
+      `SELECT COUNT(*) as count FROM orders
+       WHERE business_id = ? AND status = 'complete'
+         AND date(updated_at) = date('now')`
+    ).get(businessId) || { count: 0 }).count
+    : ordersHavePackedAt
+      ? (db.query(
+        `SELECT COUNT(*) as count FROM orders
+         WHERE business_id = ? AND status = 'complete'
+           AND packed_at IS NOT NULL
+           AND date(packed_at) = date('now')`
+      ).get(businessId) || { count: 0 }).count
+      : 0;
 
   // Issues (low stock + overdue POs + pending orders)
   const issues = [];
@@ -508,11 +534,13 @@ function getExecutiveSummary(db, businessId) {
   ).get(businessId) || { count: 0 }).count;
   if (lowStock > 0) issues.push(`${lowStock} product(s) low on stock`);
 
-  const overduePOs = (db.query(
-    `SELECT COUNT(*) as count FROM purchase_orders
-     WHERE business_id = ? AND status = 'ordered'
-       AND expected_delivery IS NOT NULL AND date(expected_delivery) < date('now')`
-  ).get(businessId) || { count: 0 }).count;
+  const overduePOs = hasPurchaseOrders
+    ? (db.query(
+      `SELECT COUNT(*) as count FROM purchase_orders
+       WHERE business_id = ? AND status = 'ordered'
+         AND expected_delivery IS NOT NULL AND date(expected_delivery) < date('now')`
+    ).get(businessId) || { count: 0 }).count
+    : 0;
   if (overduePOs > 0) issues.push(`${overduePOs} overdue PO(s)`);
 
   const pendingOrders = (db.query(
@@ -521,9 +549,11 @@ function getExecutiveSummary(db, businessId) {
   if (pendingOrders > 0) issues.push(`${pendingOrders} order(s) pending fulfillment`);
 
   // Check for packing recipes (Fulfillment 1.2)
-  const recipeCount = db.query(
-    "SELECT COUNT(*) as count FROM packing_recipes WHERE business_id = ? AND is_active = 1"
-  ).get(businessId)?.count || 0;
+  const recipeCount = hasPackingRecipes
+    ? (db.query(
+      "SELECT COUNT(*) as count FROM packing_recipes WHERE business_id = ? AND is_active = 1"
+    ).get(businessId)?.count || 0)
+    : 0;
   const hasRecipes = recipeCount > 0;
 
   // Health
