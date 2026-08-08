@@ -1,7 +1,7 @@
 /**
  * Shopify adapter implementing the CommerceProvider contract.
  *
- * Wraps Shopify Admin REST API (2024-01) behind a standardised interface so
+ * Wraps Shopify Admin REST API behind a standardised interface so
  * route code never touches Shopify-specific shapes — only ProviderOrder,
  * ProviderProduct, etc.
  *
