@@ -21,6 +21,7 @@ const DEFAULT_PERMISSIONS = {
     "purchasing.read", "purchasing.write",
     "affiliates.read", "affiliates.write",
     "customers.read",
+    "cs.inbox_read",
     "partners.read", "partners.write",
   ],
   admin: [
@@ -36,6 +37,7 @@ const DEFAULT_PERMISSIONS = {
     "purchasing.read", "purchasing.write",
     "affiliates.read", "affiliates.write",
     "customers.read",
+    "cs.inbox_read",
     "partners.read", "partners.write",
   ],
   manager: [
@@ -51,6 +53,7 @@ const DEFAULT_PERMISSIONS = {
     "purchasing.read", "purchasing.write",
     "affiliates.read",
     "customers.read",
+    "cs.inbox_read",
     "partners.read",
   ],
   warehouse: [
@@ -73,6 +76,7 @@ const DEFAULT_PERMISSIONS = {
     "users.read",
     "reports.read",
     "customers.read",
+    "cs.inbox_read",
   ],
   viewer: [
     "products.read",
@@ -1460,6 +1464,7 @@ export function initDb(dbPath) {
   const csPermRoles = ["owner", "admin", "manager", "customer_service"];
   for (const role of csPermRoles) {
     db.run("INSERT OR IGNORE INTO role_permissions (role, permission) VALUES (?, ?)", [role, "cs.write"]);
+    db.run("INSERT OR IGNORE INTO role_permissions (role, permission) VALUES (?, ?)", [role, "cs.inbox_read"]);
   }
 
   console.log("Customer Service (V3.5) tables ready");

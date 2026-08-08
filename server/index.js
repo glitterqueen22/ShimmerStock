@@ -725,7 +725,10 @@ app.post("/api/businesses/:id/activate", requireAuth(db), (req, res) => {
       return res.status(403).json({ error: "You are not a member of this business" });
     }
 
-    store.setActiveBusiness(db, req.user.id, businessId);
+    store.transaction(db, () => {
+      store.setActiveBusiness(db, req.user.id, businessId);
+      store.setSessionBusiness(db, req.sessionId, businessId);
+    });
 
     const activeBiz = businesses.find(b => b.business_id === businessId);
 

@@ -26,7 +26,7 @@ export function mountCommerceRoutes(app, db) {
       // Get stored credentials for this business
       const storedCreds = db
         .query(
-          "SELECT provider, is_active, last_synced_at FROM provider_credentials WHERE business_id = ?"
+          "SELECT provider, is_active, last_synced_at, sync_status, sync_error FROM provider_credentials WHERE business_id = ?"
         )
         .all(businessId);
 
@@ -38,11 +38,25 @@ export function mountCommerceRoutes(app, db) {
       const result = providers.map((p) => {
         const stored = credsMap[p.slug];
         let connectionStatus = "not_connected";
+        let syncStatus = stored?.sync_status || null;
+        let syncError = stored?.sync_error || null;
 
         if (p.slug === "shopify") {
           // Shopify uses the real provider
-          const shopifyStatus = getShopifyProvider(businessId, db).getStatus();
-          connectionStatus = shopifyStatus.configured ? "connected" : "not_connected";
+          const storedShopify = db
+            .query(
+              "SELECT sync_status, sync_error, last_synced_at, is_active FROM provider_credentials WHERE business_id = ? AND provider = 'shopify'"
+            )
+            .get(businessId);
+          syncStatus = storedShopify?.sync_status || syncStatus;
+          syncError = storedShopify?.sync_error || syncError;
+          connectionStatus = syncStatus === "connected" || syncStatus === "syncing" || syncStatus === "synced"
+            ? "connected"
+            : syncStatus === "pending"
+              ? "pending_validation"
+              : syncStatus === "failed" || syncStatus === "error"
+                ? "failed"
+                : "not_connected";
         } else if (stored && stored.is_active) {
           connectionStatus = "connected";
         }
@@ -50,6 +64,8 @@ export function mountCommerceRoutes(app, db) {
         return {
           ...p,
           connectionStatus,
+          syncStatus,
+          syncError,
           isActive: stored ? stored.is_active : false,
           lastSyncedAt: stored ? stored.last_synced_at : null,
         };
