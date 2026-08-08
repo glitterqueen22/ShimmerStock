@@ -5,6 +5,7 @@ import { PageHeader, Skeleton, EmptyState, ErrorBanner, Button, Modal, ConfirmMo
 import NoviEngineInsight from "../components/novi/NoviEngineInsight";
 import { getDemoInsights } from "../lib/businessDna";
 import { useTerms } from "../context/IndustryContext";
+import { deriveWorkspaceState, filterInsightsByWorkspaceState } from "../lib/workspaceState";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -171,7 +172,15 @@ export default function Products() {
 
   // ── Render ───────────────────────────────────────────────────────
 
-  const noviInsights = getDemoInsights("craft_supplies", "inventory");
+  // Only show demo insights in demo workspace — never in an empty real or connected workspace.
+  // Products from Shopify import have business_id set; use products count as proxy for real data.
+  const workspaceConfig = deriveWorkspaceState({
+    hasAnyProducts: products.length > 0,
+    hasAnyOrders: false,
+    hasCompletedOnboarding: false,
+  });
+  const allDemoInsights = getDemoInsights("craft_supplies", "inventory");
+  const noviInsights = filterInsightsByWorkspaceState(allDemoInsights, workspaceConfig.state);
   const terms = useTerms();
 
   return (

@@ -197,6 +197,29 @@ export function initDb(dbPath) {
     )
   `);
 
+  // Migration: add Shopify external ID columns to products
+  {
+    const prodCols = db.query("PRAGMA table_info(products)").all();
+    if (!prodCols.some(c => c.name === "shopify_product_id")) {
+      db.run("ALTER TABLE products ADD COLUMN shopify_product_id TEXT");
+      db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_products_shopify_id ON products(shopify_product_id) WHERE shopify_product_id IS NOT NULL");
+      console.log("Added shopify_product_id column to products");
+    }
+    if (!prodCols.some(c => c.name === "business_id")) {
+      db.run("ALTER TABLE products ADD COLUMN business_id INTEGER REFERENCES businesses(id)");
+      db.run("UPDATE products SET business_id = 1 WHERE business_id IS NULL");
+      console.log("Added business_id column to products");
+    }
+    if (!prodCols.some(c => c.name === "shopify_status")) {
+      db.run("ALTER TABLE products ADD COLUMN shopify_status TEXT");
+      console.log("Added shopify_status column to products");
+    }
+    if (!prodCols.some(c => c.name === "shopify_imported_at")) {
+      db.run("ALTER TABLE products ADD COLUMN shopify_imported_at TEXT");
+      console.log("Added shopify_imported_at column to products");
+    }
+  }
+
   // ── Product Variants ────────────────────────────────────────────
 
   db.run(`
@@ -230,6 +253,16 @@ export function initDb(dbPath) {
     db.run("ALTER TABLE product_variants ADD COLUMN business_id INTEGER REFERENCES businesses(id)");
     db.run("UPDATE product_variants SET business_id = 1 WHERE business_id IS NULL");
     console.log("Added business_id column to product_variants");
+  }
+  // Migration: add Shopify external ID columns to product_variants
+  if (!variantCols.some(c => c.name === "shopify_variant_id")) {
+    db.run("ALTER TABLE product_variants ADD COLUMN shopify_variant_id TEXT");
+    db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_variants_shopify_id ON product_variants(shopify_variant_id) WHERE shopify_variant_id IS NOT NULL");
+    console.log("Added shopify_variant_id column to product_variants");
+  }
+  if (!variantCols.some(c => c.name === "shopify_inventory_item_id")) {
+    db.run("ALTER TABLE product_variants ADD COLUMN shopify_inventory_item_id TEXT");
+    console.log("Added shopify_inventory_item_id column to product_variants");
   }
 
   console.log("Product variants table ready");
@@ -1741,6 +1774,91 @@ export function initDb(dbPath) {
   `);
 
   console.log("Shopify OAuth: shopify_webhook_deliveries table ready");
+
+  // ── Shopify Import Sessions — state machine for import tracking ────────
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS shopify_import_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      business_id INTEGER NOT NULL REFERENCES businesses(id),
+      state TEXT NOT NULL DEFAULT 'IMPORT_PENDING',
+      import_started_at TEXT,
+      import_completed_at TEXT,
+      last_successful_import_at TEXT,
+      shopify_products_count INTEGER,
+      shopify_variants_count INTEGER,
+      shopify_orders_count INTEGER,
+      shopify_locations_count INTEGER,
+      shopify_inventory_levels_count INTEGER,
+      persisted_products_count INTEGER,
+      persisted_variants_count INTEGER,
+      persisted_orders_count INTEGER,
+      persisted_locations_count INTEGER,
+      persisted_inventory_levels_count INTEGER,
+      discrepancies TEXT,
+      errors TEXT,
+      reconciliation_status TEXT DEFAULT 'PENDING',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`CREATE INDEX IF NOT EXISTS idx_import_sessions_business ON shopify_import_sessions(business_id)`);
+  console.log("Shopify import sessions table ready");
+
+  // ── Shopify Locations ──────────────────────────────────────────────────
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS shopify_locations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      business_id INTEGER NOT NULL REFERENCES businesses(id),
+      shopify_location_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      address TEXT,
+      imported_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(business_id, shopify_location_id)
+    )
+  `);
+
+  db.run(`CREATE INDEX IF NOT EXISTS idx_shopify_locations_business ON shopify_locations(business_id)`);
+  console.log("Shopify locations table ready");
+
+  // ── Shopify Inventory Levels ───────────────────────────────────────────
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS shopify_inventory_levels (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      business_id INTEGER NOT NULL REFERENCES businesses(id),
+      shopify_inventory_item_id TEXT NOT NULL,
+      shopify_location_id TEXT NOT NULL,
+      available INTEGER NOT NULL DEFAULT 0,
+      imported_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(business_id, shopify_inventory_item_id, shopify_location_id)
+    )
+  `);
+
+  db.run(`CREATE INDEX IF NOT EXISTS idx_shopify_inv_levels_business ON shopify_inventory_levels(business_id)`);
+  console.log("Shopify inventory levels table ready");
+
+  // ── Orders migration: add financial/fulfillment status columns ─────────
+  {
+    const orderCols = db.query("PRAGMA table_info(orders)").all();
+    if (!orderCols.some(c => c.name === "financial_status")) {
+      db.run("ALTER TABLE orders ADD COLUMN financial_status TEXT");
+      console.log("Added financial_status column to orders");
+    }
+    if (!orderCols.some(c => c.name === "fulfillment_status")) {
+      db.run("ALTER TABLE orders ADD COLUMN fulfillment_status TEXT");
+      console.log("Added fulfillment_status column to orders");
+    }
+    if (!orderCols.some(c => c.name === "shopify_created_at")) {
+      db.run("ALTER TABLE orders ADD COLUMN shopify_created_at TEXT");
+      console.log("Added shopify_created_at column to orders");
+    }
+  }
 
   // ── P4.3: Customer Hub — Email, Approvals, Customer Tags ─────────────
 

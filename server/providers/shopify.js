@@ -141,7 +141,10 @@ export default class ShopifyProvider extends CommerceProvider {
       throw new Error("Shopify is not configured — connect via OAuth or set SHOPIFY_API_TOKEN");
     }
 
-    const data = await shopifyGet(this._mode, this._shopDomain, this._accessToken, "/orders.json?status=open&limit=250");
+    // Import all accessible orders (status=any), not just open.
+    // read_orders scope provides access within Shopify's default history window.
+    // Do NOT use read_all_orders — that requires a separate approved scope milestone.
+    const data = await shopifyGet(this._mode, this._shopDomain, this._accessToken, "/orders.json?status=any&limit=250");
     const orders = data.orders || [];
 
     return orders.map((order) => ({
@@ -150,6 +153,8 @@ export default class ShopifyProvider extends CommerceProvider {
       customerName: order.customer
         ? `${order.customer.first_name || ""} ${order.customer.last_name || ""}`.trim() || order.customer.email
         : "Unknown",
+      financialStatus: order.financial_status || null,
+      fulfillmentStatus: order.fulfillment_status || null,
       lineItems: (order.line_items || []).map((item) => ({
         variantId: item.variant_id,
         sku: item.sku || "",
