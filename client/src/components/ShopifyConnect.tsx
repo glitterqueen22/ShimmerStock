@@ -399,7 +399,7 @@ export default function ShopifyConnect({
               loading={syncing}
               className="flex-1"
             >
-              {syncing ? (syncProgress || "Syncing...") : "Sync"}
+              {syncing ? (syncProgress || "Refreshing...") : "Refresh Read-Only Data"}
             </Button>
             <Button
               variant="ghost"

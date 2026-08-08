@@ -7,6 +7,11 @@
  *   POST /api/commerce/providers/:provider/sync — sync orders & products
  *   POST /api/commerce/sync-all — sync all active providers
  *   GET  /api/commerce/providers/:provider/status — connection status
+ *
+ * Shopify import endpoints (read-only pilot):
+ *   POST /api/shopify/import          — trigger initial import
+ *   GET  /api/shopify/import/status   — get import state machine status
+ *   GET  /api/shopify/import/reconciliation — reconciliation report
  */
 
 import { getProvider as getShopifyProvider } from "./providers/registry.js";
@@ -14,9 +19,121 @@ import * as commerceRegistry from "./commerce/index.js";
 import { requireAuth } from "./auth.js";
 import * as sync from "./sync.js";
 import * as store from "./store.js";
+import {
+  runInitialImport,
+  getEffectiveImportState,
+  getLatestImportSession,
+  getReconciliationReport,
+  IMPORT_STATES,
+} from "./shopify-import.js";
 
 export function mountCommerceRoutes(app, db) {
+  // ── Shopify import state ─────────────────────────────────────────────
+
+  app.get("/api/shopify/import/status", requireAuth(db, "shopify.read"), (req, res) => {
+    try {
+      const businessId = req.businessId;
+      if (!businessId) return res.status(401).json({ error: "No active business session" });
+      const state = getEffectiveImportState(db, businessId);
+      const session = getLatestImportSession(db, businessId);
+      res.json({
+        state,
+        importStartedAt: session?.import_started_at || null,
+        importCompletedAt: session?.import_completed_at || null,
+        lastSuccessfulImportAt: session?.last_successful_import_at || null,
+        shopifyCounts: {
+          products: session?.shopify_products_count || 0,
+          variants: session?.shopify_variants_count || 0,
+          orders: session?.shopify_orders_count || 0,
+          locations: session?.shopify_locations_count || 0,
+          inventoryLevels: session?.shopify_inventory_levels_count || 0,
+        },
+        persistedCounts: {
+          products: session?.persisted_products_count || 0,
+          variants: session?.persisted_variants_count || 0,
+          orders: session?.persisted_orders_count || 0,
+          locations: session?.persisted_locations_count || 0,
+          inventoryLevels: session?.persisted_inventory_levels_count || 0,
+        },
+        reconciliationStatus: session?.reconciliation_status || null,
+      });
+    } catch (err) {
+      console.error("GET /api/shopify/import/status error:", err);
+      res.status(500).json({ error: "Failed to get import status" });
+    }
+  });
+
+  // ── Trigger initial import ───────────────────────────────────────────
+
+  app.post("/api/shopify/import", requireAuth(db, "shopify.sync"), async (req, res) => {
+    try {
+      const businessId = req.businessId;
+      if (!businessId) return res.status(401).json({ error: "No active business session" });
+
+      // Block if already importing
+      const currentState = getEffectiveImportState(db, businessId);
+      if (currentState === IMPORT_STATES.IMPORTING) {
+        return res.status(409).json({
+          error: "Import already in progress",
+          state: IMPORT_STATES.IMPORTING,
+        });
+      }
+
+      // Verify credentials belong to this business (belt-and-suspenders)
+      const cred = db
+        .query(
+          `SELECT business_id FROM provider_credentials
+           WHERE provider = 'shopify' AND is_active = 1 AND business_id = ?`
+        )
+        .get(businessId);
+
+      if (!cred) {
+        return res.status(400).json({
+          error: "No active Shopify connection found for this business workspace. Connect Shopify first.",
+          state: IMPORT_STATES.DISCONNECTED,
+        });
+      }
+
+      if (Number(cred.business_id) !== Number(businessId)) {
+        return res.status(403).json({
+          error: "Shopify credential belongs to a different business workspace. Cannot import.",
+          state: IMPORT_STATES.CONNECTION_ERROR,
+        });
+      }
+
+      // Run import asynchronously — respond immediately with session info
+      res.json({
+        message: "Import started",
+        state: IMPORT_STATES.IMPORTING,
+        note: "Poll /api/shopify/import/status for progress",
+      });
+
+      // Run import in background (fire-and-forget in this request context)
+      runInitialImport(db, businessId).catch(err => {
+        console.error(`[shopify-import] Background import failed for business ${businessId}:`, err);
+      });
+    } catch (err) {
+      console.error("POST /api/shopify/import error:", err);
+      res.status(500).json({ error: "Failed to start import" });
+    }
+  });
+
+  // ── Reconciliation report ────────────────────────────────────────────
+
+  app.get("/api/shopify/import/reconciliation", requireAuth(db, "shopify.read"), (req, res) => {
+    try {
+      const businessId = req.businessId;
+      if (!businessId) return res.status(401).json({ error: "No active business session" });
+      const report = getReconciliationReport(db, businessId);
+      res.json(report);
+    } catch (err) {
+      console.error("GET /api/shopify/import/reconciliation error:", err);
+      res.status(500).json({ error: "Failed to get reconciliation report" });
+    }
+  });
+
   // ── List all available providers ────────────────────────────────────
+
 
   app.get("/api/commerce/providers", requireAuth(db, "shopify.read"), (req, res) => {
     try {
