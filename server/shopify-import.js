@@ -276,6 +276,21 @@ export function getActiveImportSession(db, businessId) {
 const PAGE_SIZE = 50;
 
 /**
+ * Maximum number of consecutive THROTTLED retries per paginated request.
+ * After this many consecutive throttle responses on a single page, the fetch
+ * is aborted and a descriptive error is pushed to graphqlErrors so the import
+ * surfaces as IMPORT_FAILED / RECONCILIATION_REQUIRED rather than looping
+ * indefinitely.
+ */
+export const MAX_THROTTLE_RETRIES = 5;
+
+/**
+ * Maximum backoff delay (ms) for a single throttle sleep.
+ * Actual delay is capped at this value regardless of retry count.
+ */
+export const MAX_THROTTLE_BACKOFF_MS = 16000;
+
+/**
  * Safe delay helper for throttle backoff.
  * @param {number} ms
  */
@@ -291,7 +306,7 @@ function sleep(ms) {
  * @param {any} rawResponse — result of gatewayGraphQL (may be { data, errors })
  * @returns {{ isThrottled: boolean; messages: string[] }}
  */
-function extractGraphQLErrors(rawResponse) {
+export function extractGraphQLErrors(rawResponse) {
   const errors = rawResponse?.errors;
   if (!Array.isArray(errors) || errors.length === 0) {
     return { isThrottled: false, messages: [] };
@@ -314,6 +329,7 @@ async function fetchAllProducts(shopDomain, accessToken) {
   const graphqlErrors = [];
   let cursor = null;
   let hasNextPage = true;
+  let throttleRetries = 0;
 
   while (hasNextPage) {
     const afterClause = cursor ? `, after: "${cursor}"` : "";
@@ -354,10 +370,19 @@ async function fetchAllProducts(shopDomain, accessToken) {
 
     const { isThrottled, messages } = extractGraphQLErrors(raw);
     if (isThrottled) {
-      console.warn("[shopify-import] Products fetch THROTTLED — waiting 2s before retry");
-      await sleep(2000);
+      throttleRetries++;
+      if (throttleRetries > MAX_THROTTLE_RETRIES) {
+        graphqlErrors.push(
+          `products: THROTTLED — exceeded ${MAX_THROTTLE_RETRIES} consecutive retries, aborting`
+        );
+        break;
+      }
+      const delay = Math.min(2000 * throttleRetries, MAX_THROTTLE_BACKOFF_MS);
+      console.warn(`[shopify-import] Products fetch THROTTLED (retry ${throttleRetries}/${MAX_THROTTLE_RETRIES}) — waiting ${delay}ms`);
+      await sleep(delay);
       continue; // retry same cursor
     }
+    throttleRetries = 0;
     if (messages.length > 0) {
       graphqlErrors.push(...messages.map(m => `products: ${m}`));
       break;
@@ -387,6 +412,7 @@ async function fetchAllLocations(shopDomain, accessToken) {
   const graphqlErrors = [];
   let cursor = null;
   let hasNextPage = true;
+  let throttleRetries = 0;
 
   while (hasNextPage) {
     const afterClause = cursor ? `, after: "${cursor}"` : "";
@@ -416,10 +442,19 @@ async function fetchAllLocations(shopDomain, accessToken) {
 
     const { isThrottled, messages } = extractGraphQLErrors(raw);
     if (isThrottled) {
-      console.warn("[shopify-import] Locations fetch THROTTLED — waiting 2s before retry");
-      await sleep(2000);
+      throttleRetries++;
+      if (throttleRetries > MAX_THROTTLE_RETRIES) {
+        graphqlErrors.push(
+          `locations: THROTTLED — exceeded ${MAX_THROTTLE_RETRIES} consecutive retries, aborting`
+        );
+        break;
+      }
+      const delay = Math.min(2000 * throttleRetries, MAX_THROTTLE_BACKOFF_MS);
+      console.warn(`[shopify-import] Locations fetch THROTTLED (retry ${throttleRetries}/${MAX_THROTTLE_RETRIES}) — waiting ${delay}ms`);
+      await sleep(delay);
       continue;
     }
+    throttleRetries = 0;
     if (messages.length > 0) {
       graphqlErrors.push(...messages.map(m => `locations: ${m}`));
       break;
@@ -452,6 +487,7 @@ async function fetchAllInventoryLevels(shopDomain, accessToken, locationIds) {
   for (const locationGid of locationIds) {
     let cursor = null;
     let hasNextPage = true;
+    let throttleRetries = 0;
 
     while (hasNextPage) {
       const afterClause = cursor ? `, after: "${cursor}"` : "";
@@ -482,10 +518,20 @@ async function fetchAllInventoryLevels(shopDomain, accessToken, locationIds) {
 
       const { isThrottled, messages } = extractGraphQLErrors(raw);
       if (isThrottled) {
-        console.warn("[shopify-import] Inventory fetch THROTTLED — waiting 2s before retry");
-        await sleep(2000);
+        throttleRetries++;
+        if (throttleRetries > MAX_THROTTLE_RETRIES) {
+          graphqlErrors.push(
+            `inventory: THROTTLED — exceeded ${MAX_THROTTLE_RETRIES} consecutive retries, aborting`
+          );
+          hasNextPage = false;
+          break;
+        }
+        const delay = Math.min(2000 * throttleRetries, MAX_THROTTLE_BACKOFF_MS);
+        console.warn(`[shopify-import] Inventory fetch THROTTLED (retry ${throttleRetries}/${MAX_THROTTLE_RETRIES}) — waiting ${delay}ms`);
+        await sleep(delay);
         continue;
       }
+      throttleRetries = 0;
       if (messages.length > 0) {
         graphqlErrors.push(...messages.map(m => `inventory: ${m}`));
         hasNextPage = false;
@@ -524,6 +570,7 @@ async function fetchAllOrders(shopDomain, accessToken) {
   const graphqlErrors = [];
   let cursor = null;
   let hasNextPage = true;
+  let throttleRetries = 0;
 
   while (hasNextPage) {
     const afterClause = cursor ? `, after: "${cursor}"` : "";
@@ -570,10 +617,19 @@ async function fetchAllOrders(shopDomain, accessToken) {
 
     const { isThrottled, messages } = extractGraphQLErrors(raw);
     if (isThrottled) {
-      console.warn("[shopify-import] Orders fetch THROTTLED — waiting 2s before retry");
-      await sleep(2000);
+      throttleRetries++;
+      if (throttleRetries > MAX_THROTTLE_RETRIES) {
+        graphqlErrors.push(
+          `orders: THROTTLED — exceeded ${MAX_THROTTLE_RETRIES} consecutive retries, aborting`
+        );
+        break;
+      }
+      const delay = Math.min(2000 * throttleRetries, MAX_THROTTLE_BACKOFF_MS);
+      console.warn(`[shopify-import] Orders fetch THROTTLED (retry ${throttleRetries}/${MAX_THROTTLE_RETRIES}) — waiting ${delay}ms`);
+      await sleep(delay);
       continue;
     }
+    throttleRetries = 0;
     if (messages.length > 0) {
       graphqlErrors.push(...messages.map(m => `orders: ${m}`));
       break;

@@ -200,6 +200,12 @@ export function initDb(dbPath) {
   // Migration: add Shopify external ID columns to products
   {
     const prodCols = db.query("PRAGMA table_info(products)").all();
+    // business_id must be added BEFORE the tenant-scoped index that references it.
+    if (!prodCols.some(c => c.name === "business_id")) {
+      db.run("ALTER TABLE products ADD COLUMN business_id INTEGER REFERENCES businesses(id)");
+      db.run("UPDATE products SET business_id = 1 WHERE business_id IS NULL");
+      console.log("Added business_id column to products");
+    }
     if (!prodCols.some(c => c.name === "shopify_product_id")) {
       db.run("ALTER TABLE products ADD COLUMN shopify_product_id TEXT");
       // Tenant-scoped unique index: two different businesses may have the same Shopify product ID.
@@ -231,11 +237,6 @@ export function initDb(dbPath) {
           "ON products(business_id, shopify_product_id) WHERE shopify_product_id IS NOT NULL"
         );
       }
-    }
-    if (!prodCols.some(c => c.name === "business_id")) {
-      db.run("ALTER TABLE products ADD COLUMN business_id INTEGER REFERENCES businesses(id)");
-      db.run("UPDATE products SET business_id = 1 WHERE business_id IS NULL");
-      console.log("Added business_id column to products");
     }
     if (!prodCols.some(c => c.name === "shopify_status")) {
       db.run("ALTER TABLE products ADD COLUMN shopify_status TEXT");
@@ -579,7 +580,7 @@ export function initDb(dbPath) {
       // Build a dynamic CREATE TABLE that preserves all existing columns.
       // Always include a safe base schema for known required columns,
       // then add any additional columns found in the live table.
-      const baseColDefs: Record<string, string> = {
+      const baseColDefs = {
         id: "INTEGER PRIMARY KEY AUTOINCREMENT",
         shopify_order_id: "TEXT", // intentionally without UNIQUE
         order_number: "INTEGER",
@@ -597,7 +598,7 @@ export function initDb(dbPath) {
       };
 
       // Add any extra columns that exist in the live table but not in our base schema.
-      const extraColDefs: string[] = [];
+      const extraColDefs = [];
       for (const col of existingOrderColInfo) {
         if (!baseColDefs[col.name]) {
           const notNull = col.notnull ? " NOT NULL" : "";
