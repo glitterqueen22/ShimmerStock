@@ -294,8 +294,15 @@ export const MAX_THROTTLE_BACKOFF_MS = 16000;
  * Safe delay helper for throttle backoff.
  * @param {number} ms
  */
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+let sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Override the sleep implementation — for tests only.
+ * Pass a no-op to eliminate real delays in unit tests.
+ * @param {(ms: number) => Promise<void>} fn
+ */
+export function _setThrottleSleepFn(fn) {
+  sleep = fn;
 }
 
 /**
