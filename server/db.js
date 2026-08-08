@@ -202,8 +202,35 @@ export function initDb(dbPath) {
     const prodCols = db.query("PRAGMA table_info(products)").all();
     if (!prodCols.some(c => c.name === "shopify_product_id")) {
       db.run("ALTER TABLE products ADD COLUMN shopify_product_id TEXT");
-      db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_products_shopify_id ON products(shopify_product_id) WHERE shopify_product_id IS NOT NULL");
+      // Tenant-scoped unique index: two different businesses may have the same Shopify product ID.
+      // Drop the old global index if it exists (from pre-tenant-aware migrations).
+      db.run("DROP INDEX IF EXISTS idx_products_shopify_id");
+      db.run(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_products_biz_shopify_id " +
+        "ON products(business_id, shopify_product_id) WHERE shopify_product_id IS NOT NULL"
+      );
       console.log("Added shopify_product_id column to products");
+    } else {
+      // Upgrade existing global index to tenant-scoped if not already done.
+      const hasOldGlobal = db
+        .query("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_products_shopify_id'")
+        .get();
+      const hasTenantIndex = db
+        .query("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_products_biz_shopify_id'")
+        .get();
+      if (hasOldGlobal && !hasTenantIndex) {
+        db.run("DROP INDEX IF EXISTS idx_products_shopify_id");
+        db.run(
+          "CREATE UNIQUE INDEX IF NOT EXISTS idx_products_biz_shopify_id " +
+          "ON products(business_id, shopify_product_id) WHERE shopify_product_id IS NOT NULL"
+        );
+        console.log("Upgraded products Shopify ID index to tenant-scoped");
+      } else if (!hasTenantIndex) {
+        db.run(
+          "CREATE UNIQUE INDEX IF NOT EXISTS idx_products_biz_shopify_id " +
+          "ON products(business_id, shopify_product_id) WHERE shopify_product_id IS NOT NULL"
+        );
+      }
     }
     if (!prodCols.some(c => c.name === "business_id")) {
       db.run("ALTER TABLE products ADD COLUMN business_id INTEGER REFERENCES businesses(id)");
@@ -257,8 +284,34 @@ export function initDb(dbPath) {
   // Migration: add Shopify external ID columns to product_variants
   if (!variantCols.some(c => c.name === "shopify_variant_id")) {
     db.run("ALTER TABLE product_variants ADD COLUMN shopify_variant_id TEXT");
-    db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_variants_shopify_id ON product_variants(shopify_variant_id) WHERE shopify_variant_id IS NOT NULL");
+    // Tenant-scoped unique index.
+    db.run("DROP INDEX IF EXISTS idx_variants_shopify_id");
+    db.run(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_variants_biz_shopify_id " +
+      "ON product_variants(business_id, shopify_variant_id) WHERE shopify_variant_id IS NOT NULL"
+    );
     console.log("Added shopify_variant_id column to product_variants");
+  } else {
+    // Upgrade existing global index to tenant-scoped if not already done.
+    const hasOldGlobal = db
+      .query("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_variants_shopify_id'")
+      .get();
+    const hasTenantIndex = db
+      .query("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_variants_biz_shopify_id'")
+      .get();
+    if (hasOldGlobal && !hasTenantIndex) {
+      db.run("DROP INDEX IF EXISTS idx_variants_shopify_id");
+      db.run(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_variants_biz_shopify_id " +
+        "ON product_variants(business_id, shopify_variant_id) WHERE shopify_variant_id IS NOT NULL"
+      );
+      console.log("Upgraded product_variants Shopify ID index to tenant-scoped");
+    } else if (!hasTenantIndex) {
+      db.run(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_variants_biz_shopify_id " +
+        "ON product_variants(business_id, shopify_variant_id) WHERE shopify_variant_id IS NOT NULL"
+      );
+    }
   }
   if (!variantCols.some(c => c.name === "shopify_inventory_item_id")) {
     db.run("ALTER TABLE product_variants ADD COLUMN shopify_inventory_item_id TEXT");
@@ -451,11 +504,11 @@ export function initDb(dbPath) {
   if (ordersNeedsMigration) {
     console.log("Migrating orders table for manual orders support (v3.1)...");
 
-    // Build the new schema
+    // Build the new schema (no column-level UNIQUE on shopify_order_id — use tenant-scoped index instead)
     db.run(`
       CREATE TABLE IF NOT EXISTS orders_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        shopify_order_id TEXT UNIQUE,
+        shopify_order_id TEXT,
         order_number INTEGER,
         customer_name TEXT,
         customer_email TEXT,
@@ -484,11 +537,11 @@ export function initDb(dbPath) {
     db.run("ALTER TABLE orders_new RENAME TO orders");
     console.log("  ✓ orders table migrated");
   } else if (ordersCols.length === 0) {
-    // Fresh install — create with full schema
+    // Fresh install — create with full schema (no global UNIQUE on shopify_order_id)
     db.run(`
       CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        shopify_order_id TEXT UNIQUE,
+        shopify_order_id TEXT,
         order_number INTEGER,
         customer_name TEXT,
         customer_email TEXT,
@@ -503,6 +556,61 @@ export function initDb(dbPath) {
         imported_at TEXT DEFAULT (datetime('now'))
       )
     `);
+  }
+
+  // Ensure tenant-scoped unique index on orders.shopify_order_id.
+  // Replaces any pre-existing global UNIQUE constraint (which prevents multi-tenant use).
+  {
+    // Detect if the orders table was created with a legacy global unique constraint.
+    const ordersCreate = db
+      .query("SELECT sql FROM sqlite_master WHERE type='table' AND name='orders'")
+      .get()?.sql || "";
+    const hasGlobalUnique = /shopify_order_id\s+TEXT\s+UNIQUE/i.test(ordersCreate);
+    const hasTenantOrderIndex = db
+      .query("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_orders_biz_shopify_id'")
+      .get();
+
+    if (hasGlobalUnique && !hasTenantOrderIndex) {
+      // Recreate orders table to remove the global UNIQUE column constraint.
+      console.log("Migrating orders table: removing global shopify_order_id UNIQUE, adding tenant-scoped index...");
+      const existingOrderCols = db.query("PRAGMA table_info(orders)").all().map(c => c.name);
+      const selectCols = [
+        "id", "shopify_order_id", "order_number", "customer_name",
+        "customer_email", "shipping_address", "source", "status", "notes",
+        "total_amount", "created_by", "business_id", "created_at", "imported_at",
+      ].filter(c => existingOrderCols.includes(c)).join(", ");
+
+      db.run(`
+        CREATE TABLE orders_tenant_migrate (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          shopify_order_id TEXT,
+          order_number INTEGER,
+          customer_name TEXT,
+          customer_email TEXT,
+          shipping_address TEXT,
+          source TEXT NOT NULL DEFAULT 'shopify',
+          status TEXT DEFAULT 'pending',
+          notes TEXT,
+          total_amount REAL,
+          created_by INTEGER REFERENCES users(id),
+          business_id INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT DEFAULT (datetime('now')),
+          imported_at TEXT DEFAULT (datetime('now'))
+        )
+      `);
+      db.run(`INSERT INTO orders_tenant_migrate (${selectCols}) SELECT ${selectCols} FROM orders`);
+      db.run("DROP TABLE orders");
+      db.run("ALTER TABLE orders_tenant_migrate RENAME TO orders");
+      console.log("  ✓ orders table re-created without global unique constraint");
+    }
+
+    if (!hasTenantOrderIndex) {
+      db.run(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_biz_shopify_id " +
+        "ON orders(business_id, shopify_order_id) WHERE shopify_order_id IS NOT NULL"
+      );
+      console.log("  ✓ Added tenant-scoped unique index for orders.shopify_order_id");
+    }
   }
 
   // Migrate order_items: add variant_id, unit_price, line_total, business_id columns
@@ -1795,6 +1903,11 @@ export function initDb(dbPath) {
       persisted_orders_count INTEGER,
       persisted_locations_count INTEGER,
       persisted_inventory_levels_count INTEGER,
+      shopify_product_ids TEXT,
+      shopify_variant_ids TEXT,
+      shopify_order_ids TEXT,
+      shopify_location_ids TEXT,
+      shopify_inventory_pairs TEXT,
       discrepancies TEXT,
       errors TEXT,
       reconciliation_status TEXT DEFAULT 'PENDING',
@@ -1804,6 +1917,17 @@ export function initDb(dbPath) {
   `);
 
   db.run(`CREATE INDEX IF NOT EXISTS idx_import_sessions_business ON shopify_import_sessions(business_id)`);
+
+  // Migration: add ID-set columns to existing import sessions tables.
+  {
+    const sisCols = db.query("PRAGMA table_info(shopify_import_sessions)").all().map(c => c.name);
+    for (const col of ["shopify_product_ids", "shopify_variant_ids", "shopify_order_ids",
+                        "shopify_location_ids", "shopify_inventory_pairs"]) {
+      if (!sisCols.includes(col)) {
+        db.run(`ALTER TABLE shopify_import_sessions ADD COLUMN ${col} TEXT`);
+      }
+    }
+  }
   console.log("Shopify import sessions table ready");
 
   // ── Shopify Locations ──────────────────────────────────────────────────
