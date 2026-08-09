@@ -1,7 +1,7 @@
 # Owner Effort Audit
 
-Date: 2026-08-09  
-Baseline: `origin/main` at `ddf2213`  
+Date: 2026-08-09
+Baseline: `origin/main` at `ddf2213`
 Primary question: **Why does the owner have to do this manually?**
 
 This audit describes the implemented product, not roadmap promises. Time and click counts are reasoned estimates for a practiced merchant using a populated workspace; they are not analytics measurements. Demo-only surfaces are excluded from operational truth.
