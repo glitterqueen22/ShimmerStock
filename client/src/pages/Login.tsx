@@ -22,6 +22,7 @@ export default function Login() {
   // Forgot password
   const [forgotUsername, setForgotUsername] = useState("");
   const [forgotToken, setForgotToken] = useState("");
+  const [forgotMessage, setForgotMessage] = useState("");
 
   // Register
   const [regUsername, setRegUsername] = useState("");
@@ -93,6 +94,7 @@ export default function Login() {
       if (result.resetToken) {
         setForgotToken(result.resetToken);
       }
+      setForgotMessage(result.message);
       setView("forgot-sent");
     } catch (err: any) {
       setError(err.message || "Request failed");
@@ -149,7 +151,7 @@ export default function Login() {
           <p className="text-rose-400 mt-2 text-sm font-medium">
             {view === "change-password" ? "Change your password" :
              view === "forgot-password" ? "Reset your password" :
-             view === "forgot-sent" ? "Check your email" :
+             view === "forgot-sent" ? "Recovery options" :
              view === "register" ? "Create your account" :
              "Sign in to continue"}
           </p>
@@ -244,7 +246,7 @@ export default function Login() {
               )}
 
               <p className="text-sm text-gray-600">
-                Enter your username and we'll generate a password reset link.
+                Enter your username to check the available recovery option.
               </p>
 
               <div>
@@ -268,7 +270,7 @@ export default function Login() {
               </div>
 
               <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full">
-                Send Reset Link
+                Check Recovery Options
               </Button>
 
               <div className="text-center">
@@ -286,9 +288,9 @@ export default function Login() {
           {/* ── FORGOT SENT CONFIRMATION ──────────────────── */}
           {view === "forgot-sent" && (
             <div className="space-y-5">
-              <div className="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 text-sm font-medium flex items-center gap-2">
-                <span>✅</span>
-                <span>If that account exists, a reset link has been sent.</span>
+              <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-sm font-medium flex items-start gap-2">
+                <span>ℹ️</span>
+                <span>{forgotMessage}</span>
               </div>
 
               {forgotToken && (

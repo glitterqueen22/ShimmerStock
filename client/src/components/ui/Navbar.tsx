@@ -318,13 +318,6 @@ export function Navbar() {
               {/* Brand */}
               <BrandMark inverse className="hidden sm:inline-flex" />
 
-              {/* Workspace switcher — always visible on desktop */}
-              {user.business_name && (
-                <div className="hidden lg:flex items-center gap-2 ml-1">
-                  <span className="text-white/50 text-lg font-light">·</span>
-                  <WorkspaceSwitcher />
-                </div>
-              )}
             </div>
 
             {/* ── Center: Desktop primary links + Commerce pill ──────── */}
@@ -454,11 +447,6 @@ export function Navbar() {
                 )}
               </div>
 
-              {/* User info — compact */}
-              <div className="hidden sm:flex items-center gap-2 text-xs text-white/70">
-                <span className="truncate max-w-[100px] font-medium">{user.display_name}</span>
-              </div>
-
               {/* User dropdown trigger */}
               <div className="relative">
                 <button
@@ -485,15 +473,27 @@ export function Navbar() {
                         <p className="text-xs text-rose-300 mt-0.5">{user.role}</p>
                       </div>
 
-                      {/* Mobile-only workspace switcher */}
+                      {/* Workspace switcher */}
                       {user.business_name && (
-                        <div className="lg:hidden border-b border-rose-50 px-4 py-3">
+                        <div className="border-b border-rose-50 px-4 py-3">
                           <p className="text-xs text-rose-400 font-medium uppercase tracking-wide mb-2">
                             Workspace
                           </p>
                           <WorkspaceSwitcher />
                         </div>
                       )}
+
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          navigate('/settings#support');
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm text-neutral-700 font-medium
+                                   hover:bg-neutral-50 transition-all duration-200 flex items-center gap-2"
+                      >
+                        <span>?</span>
+                        <span>Help / Contact ShimmerStock</span>
+                      </button>
 
                       {/* Logout */}
                       <button
