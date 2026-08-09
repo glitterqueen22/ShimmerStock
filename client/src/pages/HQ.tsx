@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiGet } from "../lib/api";
+import { apiGet, apiPut } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 import { PageHeader, Skeleton, ErrorBanner, Badge } from "../components/ui";
 import Novi from "../components/Novi";
-import { getDemoInsights, type DemoInsight } from "../lib/businessDna";
 import FirstDayChecklist from "../components/FirstDayChecklist";
-import { filterInsightsByWorkspaceState } from "../lib/workspaceState";
 import { useTerms } from "../context/IndustryContext";
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -87,6 +85,22 @@ interface Opportunity {
   engine: string;
 }
 
+interface CommandException {
+  key: string;
+  count: number;
+  title: string;
+  detail: string;
+  link: string;
+  tone: "pink" | "purple" | "green" | "amber" | "red";
+}
+
+interface NoviMission {
+  id: string;
+  title: string;
+  detail: string;
+  link: string;
+}
+
 interface HQData {
   whatHappened: {
     recentActivity: AuditEvent[];
@@ -100,6 +114,24 @@ interface HQData {
   };
   whatToDoNext: Recommendation[];
   opportunities: Opportunity[];
+  commandCenter: {
+    brief: {
+      ordersToday: number;
+      readyToPack: number;
+      productionWaiting: number;
+      lowStock: number;
+      oldestCustomerWaitHours: number;
+      message: string;
+    };
+    exceptions: CommandException[];
+    missions: NoviMission[];
+    preferences: {
+      preferred_workflow: string | null;
+      production_priority: string;
+      packing_preference: string | null;
+      updated_at: string | null;
+    };
+  };
 }
 
 // ── Time ago helper ─────────────────────────────────────────────────
@@ -137,6 +169,7 @@ export default function HQ() {
   const [data, setData] = useState<HQData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savingMemory, setSavingMemory] = useState(false);
 
   useEffect(() => {
     fetchHQ();
@@ -152,6 +185,25 @@ export default function HQ() {
       setError(err.message || "Could not load HQ data");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function updateNoviMemory(field: "preferred_workflow" | "production_priority", value: string) {
+    if (!data) return;
+    const nextPreferences = { ...data.commandCenter.preferences, [field]: value };
+    setSavingMemory(true);
+    setError(null);
+    try {
+      await apiPut("/api/hq/novi-preferences", {
+        preferredWorkflow: nextPreferences.preferred_workflow,
+        productionPriority: nextPreferences.production_priority,
+        packingPreference: nextPreferences.packing_preference,
+      });
+      setData({ ...data, commandCenter: { ...data.commandCenter, preferences: nextPreferences } });
+    } catch (err: any) {
+      setError(err.message || "Could not save Novi preferences");
+    } finally {
+      setSavingMemory(false);
     }
   }
 
@@ -188,16 +240,10 @@ export default function HQ() {
     data.needsAttention.lowStock.length +
     data.needsAttention.pendingBatches.length +
     data.needsAttention.overduePOs.length +
-    data.needsAttention.unfulfilledOrders.length;
-
-  // Demo insights gated through workspace state — empty_real gets no fake alerts
-  const allDemoInsights = getDemoInsights("craft_supplies");
-  // TODO: wire to real workspace state from API; using "demo" as default for beta
-  const workspaceState = (data.whatHappened.todayStats.orders > 0 || data.needsAttention.lowStock.length > 0) ? "real" as const : "demo" as const;
-  const demoInsights = workspaceState === "real" ? [] : filterInsightsByWorkspaceState(allDemoInsights, "demo");
-  const urgentCount = demoInsights.filter(i => i.severity === "urgent" || i.severity === "warning").length;
-  const celebration = demoInsights.find(i => i.severity === "celebration");
-  const noviExpression = urgentCount > 1 ? "concerned" as const : urgentCount === 1 ? "thinking" as const : "happy" as const;
+    data.needsAttention.unfulfilledOrders.length +
+    data.commandCenter.exceptions.filter((exception) => exception.key === "identifiers").length;
+  const noviExpression = data.commandCenter.exceptions.length > 2 ? "concerned" as const
+    : data.commandCenter.exceptions.length ? "thinking" as const : "happy" as const;
 
   return (
     <div className="space-y-6">
@@ -214,14 +260,14 @@ export default function HQ() {
 
       {/* ── SECTION 1: NOVI MORNING BRIEF ─────────────────────── */}
       <section aria-label="Novi Morning Brief">
-        <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-purple-50 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-violet-100 flex items-center justify-between">
+        <div className="rounded-2xl border border-pink-200 bg-gradient-to-br from-pink-50 via-white to-violet-50 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-pink-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-violet-500 uppercase tracking-widest">Novi Morning Brief</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-600 border border-violet-200">Demo</span>
+              <span className="text-xs font-bold text-pink-600 uppercase tracking-widest">Novi Morning Brief</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-neutral-600 border border-pink-200">Live workspace</span>
             </div>
             <button onClick={() => navigate("/novi")} className="text-xs font-medium text-violet-500 hover:text-violet-700 transition-colors">
-              All messages →
+              Novi history →
             </button>
           </div>
           <div className="p-5 flex flex-col sm:flex-row gap-5">
@@ -231,25 +277,89 @@ export default function HQ() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-base font-semibold text-neutral-900 mb-3">
-                {urgentCount === 0
-                  ? "Good morning. Operations look healthy — here's what's on my radar."
-                  : `Good morning. I found ${urgentCount} thing${urgentCount > 1 ? "s" : ""} that need your attention today.`}
+                {data.commandCenter.brief.message}
               </p>
-              <div className="space-y-2.5">
-                {demoInsights.filter(i => i.severity !== "celebration").slice(0, 4).map((insight, idx) => (
-                  <NoviInsightCard key={idx} insight={insight} onNavigate={navigate} />
-                ))}
-              </div>
-              {celebration && (
-                <div className="mt-3 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-2">
-                  <span aria-hidden>🎉</span>
-                  <p className="text-sm text-emerald-800">{celebration.summary}</p>
+              {data.commandCenter.exceptions.length ? (
+                <div className="space-y-2.5">
+                  {data.commandCenter.exceptions.map((exception) => (
+                    <NoviExceptionCard key={exception.key} exception={exception} onNavigate={navigate} />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-emerald-900">No operational exceptions right now.</p>
+                  <p className="text-xs text-emerald-700 mt-1">Novi checked orders, fulfillment, production, tracked inventory, customer wait time, and catalog identifiers.</p>
                 </div>
               )}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4" aria-label="Morning brief facts">
+                {[
+                  ["Orders today", data.commandCenter.brief.ordersToday],
+                  ["Ready to pack", data.commandCenter.brief.readyToPack],
+                  ["Production waiting", data.commandCenter.brief.productionWaiting],
+                  ["Low stock", data.commandCenter.brief.lowStock],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-neutral-200 bg-white px-3 py-2">
+                    <p className="text-lg font-bold text-neutral-900">{value}</p>
+                    <p className="text-[11px] text-neutral-500">{label}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </section>
+
+      <section aria-label="Novi Missions">
+        <div className="flex items-end justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Novi Missions</h2>
+            <p className="text-sm text-neutral-500 mt-1">Choose an outcome. Novi will hand you off to the module where you can review and approve the work.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {data.commandCenter.missions.map((mission) => (
+            <button key={mission.id} onClick={() => navigate(mission.link)}
+              className="text-left p-4 rounded-xl border border-neutral-200 bg-white hover:border-pink-300 hover:shadow-sm transition-all group">
+              <span className="text-[10px] font-bold uppercase text-pink-600">Preview mission</span>
+              <p className="text-sm font-semibold text-neutral-900 mt-1 group-hover:text-pink-700">{mission.title}</p>
+              <p className="text-xs text-neutral-500 mt-1">{mission.detail}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {(user?.role === "owner" || user?.role === "admin" || user?.business_role === "owner" || user?.business_role === "admin") && (
+        <section aria-label="What Novi remembers" className="border-y border-neutral-200 py-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_auto] gap-4 lg:items-end">
+            <div>
+              <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">What Novi remembers</h2>
+              <p className="text-sm text-neutral-500 mt-1">These preferences belong only to this business and guide how Novi sorts work. They never approve or execute changes.</p>
+            </div>
+            <label className="text-xs font-semibold text-neutral-600">
+              Default workflow
+              <select value={data.commandCenter.preferences.preferred_workflow || "exceptions_first"}
+                disabled={savingMemory}
+                onChange={(event) => updateNoviMemory("preferred_workflow", event.target.value)}
+                className="block mt-1 min-w-48 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900">
+                <option value="exceptions_first">Exceptions first</option>
+                <option value="orders_first">Orders first</option>
+                <option value="production_first">Production first</option>
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-neutral-600">
+              Production priority
+              <select value={data.commandCenter.preferences.production_priority}
+                disabled={savingMemory}
+                onChange={(event) => updateNoviMemory("production_priority", event.target.value)}
+                className="block mt-1 min-w-48 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900">
+                <option value="oldest_orders_first">Oldest orders first</option>
+                <option value="shortages_first">Shortages first</option>
+                <option value="best_sellers_first">Best sellers first</option>
+              </select>
+            </label>
+          </div>
+        </section>
+      )}
 
       {/* ── SECTION 2: FIRST DAY CHECKLIST ───────────────────── */}
       <FirstDayChecklist
@@ -361,42 +471,23 @@ export default function HQ() {
 
 // ── Sub-components ────────────────────────────────────────────────────
 
-function NoviInsightCard({ insight, onNavigate }: { insight: DemoInsight; onNavigate: (path: string) => void }) {
-  const [expanded, setExpanded] = useState(false);
+function NoviExceptionCard({ exception, onNavigate }: { exception: CommandException; onNavigate: (path: string) => void }) {
   const colors = {
-    urgent:      { bg: "bg-red-50", border: "border-red-200", icon: "🔴", badge: "bg-red-100 text-red-700" },
-    warning:     { bg: "bg-amber-50", border: "border-amber-200", icon: "⚠️", badge: "bg-amber-100 text-amber-700" },
-    celebration: { bg: "bg-emerald-50", border: "border-emerald-200", icon: "🎉", badge: "bg-emerald-100 text-emerald-700" },
-    info:        { bg: "bg-blue-50", border: "border-blue-200", icon: "ℹ️", badge: "bg-blue-100 text-blue-700" },
-  }[insight.severity] ?? { bg: "bg-blue-50", border: "border-blue-200", icon: "ℹ️", badge: "bg-blue-100 text-blue-700" };
-
+    pink: "bg-pink-50 border-pink-200",
+    purple: "bg-violet-50 border-violet-200",
+    green: "bg-emerald-50 border-emerald-200",
+    amber: "bg-amber-50 border-amber-200",
+    red: "bg-red-50 border-red-200",
+  }[exception.tone];
   return (
-    <div className={`rounded-xl border ${colors.border} ${colors.bg} p-3`}>
-      <div className="flex items-start gap-2">
-        <span className="flex-shrink-0 text-sm mt-0.5" aria-hidden>{colors.icon}</span>
+    <div className={`rounded-xl border ${colors} p-3`}>
+      <div className="flex items-start gap-3">
+        <span className="flex-shrink-0 w-7 h-7 rounded-full bg-white border border-current/10 flex items-center justify-center text-xs font-bold">{exception.count}</span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-semibold text-neutral-900 leading-tight">{insight.title}</p>
-            <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold ${colors.badge}`}>{insight.severity}</span>
-          </div>
-          <p className="text-xs text-neutral-600 mt-1">{insight.summary}</p>
-          {expanded && (
-            <div className="mt-2 space-y-1.5 border-t border-neutral-200 pt-2">
-              <p className="text-[11px] text-neutral-500 italic">Why: {insight.reasoning}</p>
-              <p className="text-[11px] text-neutral-700 font-medium">→ {insight.recommended_action}</p>
-            </div>
-          )}
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <button onClick={() => onNavigate(insight.action_link)}
-              className="px-2.5 py-1 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 transition-colors">
-              {insight.action_label}
-            </button>
-            <button onClick={() => setExpanded(e => !e)} className="text-xs text-violet-500 hover:text-violet-700 transition-colors">
-              {expanded ? "Less" : "Show me why"}
-            </button>
-            <span className="text-[10px] text-neutral-400 ml-auto">Demo · {insight.engine}</span>
-          </div>
+          <p className="text-sm font-semibold text-neutral-900 leading-tight">{exception.title}</p>
+          <p className="text-xs text-neutral-600 mt-1">{exception.detail}</p>
         </div>
+        <button onClick={() => onNavigate(exception.link)} className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-neutral-900 text-white text-xs font-semibold hover:bg-pink-700 transition-colors">Review</button>
       </div>
     </div>
   );

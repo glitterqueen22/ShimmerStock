@@ -3485,6 +3485,36 @@ app.get("/api/hq/summary", requireAuth(db, "reports.read"), (req, res) => {
   }
 });
 
+app.put("/api/hq/novi-preferences", requireAuth(db, "settings.write"), (req, res) => {
+  const allowedWorkflows = new Set([null, "exceptions_first", "orders_first", "production_first"]);
+  const allowedPriorities = new Set(["oldest_orders_first", "shortages_first", "best_sellers_first"]);
+  const preferredWorkflow = req.body?.preferredWorkflow ?? null;
+  const productionPriority = req.body?.productionPriority ?? "oldest_orders_first";
+  const packingPreference = typeof req.body?.packingPreference === "string" ? req.body.packingPreference.trim().slice(0, 120) || null : null;
+  if (!allowedWorkflows.has(preferredWorkflow) || !allowedPriorities.has(productionPriority)) {
+    return res.status(400).json({ error: "Choose supported Novi workflow preferences" });
+  }
+  const previous = db.query(
+    "SELECT preferred_workflow, production_priority, packing_preference FROM novi_business_preferences WHERE business_id = ?"
+  ).get(req.businessId);
+  db.run(`
+    INSERT INTO novi_business_preferences
+      (business_id, preferred_workflow, production_priority, packing_preference, updated_by, updated_at)
+    VALUES (?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(business_id) DO UPDATE SET preferred_workflow = excluded.preferred_workflow,
+      production_priority = excluded.production_priority, packing_preference = excluded.packing_preference,
+      updated_by = excluded.updated_by, updated_at = datetime('now')
+  `, [req.businessId, preferredWorkflow, productionPriority, packingPreference, req.user.id]);
+  store.logAuditEntry(db, {
+    businessId: req.businessId, userId: req.user.id,
+    actionType: "novi.preferences_updated", entityType: "novi_preferences",
+    previousValue: previous || null,
+    newValue: { preferred_workflow: preferredWorkflow, production_priority: productionPriority, packing_preference: packingPreference },
+    source: "novi_command_center",
+  });
+  res.json({ preferredWorkflow, productionPriority, packingPreference });
+});
+
 // ── Order Scan (barcode) ─────────────────────────────────────────────
 app.post("/api/orders/:id/scan", requireAuth(db, "orders.fulfill"), (req, res) => {
   try {

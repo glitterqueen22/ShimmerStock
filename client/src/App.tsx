@@ -51,7 +51,7 @@ function ProtectedApp() {
         <NoviContextualPanel />
         <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
           <Routes>
-            <Route path="/" element={<Navigate to="/bestie" replace />} />
+            <Route path="/" element={<Navigate to="/hq" replace />} />
             <Route path="/bestie" element={<BusinessBestie />} />
             <Route path="/hq" element={<HQ />} />
             <Route path="/products" element={<Products />} />

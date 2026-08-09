@@ -77,4 +77,48 @@ describe("canonical inventory truth", () => {
     expect(product.inventory_tracked).toBe(false);
     expect(store.getLowStockProducts(db, businessId)).toHaveLength(0);
   });
+
+  it("builds tenant-scoped Novi exceptions with operational action links", () => {
+    db.run("UPDATE product_variants SET sku_sync_state = 'MISSING', barcode_sync_state = 'REVIEW_REQUIRED' WHERE id = ?", [variantId]);
+    db.run(
+      "INSERT INTO orders (order_number, customer_name, source, status, business_id, created_at) VALUES (1001, 'Waiting Customer', 'manual', 'pending', ?, datetime('now', '-3 hours'))",
+      [businessId],
+    );
+    const otherProductId = Number(db.run(
+      "INSERT INTO products (name, sku, stock_count, business_id) VALUES ('Other Product', 'OTHER', 0, ?)",
+      [otherBusinessId],
+    ).lastInsertRowid);
+    db.run(`
+      INSERT INTO product_variants
+        (product_id, business_id, sku, variant_type, variant_value, stock_count, sku_sync_state, barcode_sync_state)
+      VALUES (?, ?, 'OTHER-A', 'option', 'A', 0, 'SHOPIFY_UPDATE_FAILED', 'SHOPIFY_UPDATE_FAILED')
+    `, [otherProductId, otherBusinessId]);
+    db.run(
+      "INSERT INTO orders (order_number, customer_name, source, status, business_id) VALUES (2001, 'Other Customer', 'manual', 'confirmed', ?)",
+      [otherBusinessId],
+    );
+    db.run(
+      "INSERT INTO novi_business_preferences (business_id, preferred_workflow, production_priority) VALUES (?, 'orders_first', 'shortages_first'), (?, 'production_first', 'best_sellers_first')",
+      [businessId, otherBusinessId],
+    );
+
+    const summary = getHQSummary(db, businessId);
+    const commandCenter = summary.commandCenter as {
+      brief: { oldestCustomerWaitHours: number; readyToPack: number };
+      exceptions: Array<{ key: string; link: string }>;
+      missions: Array<{ id: string; link: string }>;
+      preferences: { preferred_workflow: string; production_priority: string };
+    };
+
+    expect(commandCenter.brief.oldestCustomerWaitHours).toBeGreaterThanOrEqual(2);
+    expect(commandCenter.brief.readyToPack).toBe(0);
+    expect(commandCenter.exceptions.map((exception) => exception.key)).toContain("identifiers");
+    expect(commandCenter.exceptions.map((exception) => exception.key)).toContain("customer");
+    expect(commandCenter.exceptions.map((exception) => exception.key)).not.toContain("packing");
+    expect(commandCenter.exceptions.every((exception) => exception.link.startsWith("/"))).toBe(true);
+    expect(commandCenter.missions).toHaveLength(6);
+    expect(commandCenter.missions.every((mission) => mission.link.startsWith("/"))).toBe(true);
+    expect(commandCenter.preferences.preferred_workflow).toBe("orders_first");
+    expect(commandCenter.preferences.production_priority).toBe("shortages_first");
+  });
 });

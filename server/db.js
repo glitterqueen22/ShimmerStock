@@ -2460,6 +2460,17 @@ export function initDb(dbPath) {
   db.run(`CREATE INDEX IF NOT EXISTS idx_novi_memory_date ON novi_memory(business_id, occurred_at)`);
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS novi_business_preferences (
+      business_id INTEGER PRIMARY KEY REFERENCES businesses(id),
+      preferred_workflow TEXT,
+      production_priority TEXT NOT NULL DEFAULT 'oldest_orders_first',
+      packing_preference TEXT,
+      updated_by INTEGER REFERENCES users(id),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS novi_goals (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       business_id INTEGER NOT NULL,

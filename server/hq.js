@@ -27,6 +27,10 @@ export function getHQSummary(db, businessId) {
   const pendingBatches = store.getPendingBatches(db, businessId);
   const overduePOs = getOverduePOs(db, businessId);
   const unfulfilledOrders = getUnfulfilledOrders(db, businessId);
+  const identifierExceptions = getIdentifierExceptions(db, businessId);
+  const commandCenter = buildCommandCenter(db, businessId, {
+    lowStock, pendingBatches, unfulfilledOrders, identifierExceptions,
+  });
 
   // ── 3. WHAT TO DO NEXT ──────────────────────────────────────────
   const whatToDoNext = buildRecommendations(db, businessId, {
@@ -53,9 +57,86 @@ export function getHQSummary(db, businessId) {
       pendingBatches,
       overduePOs,
       unfulfilledOrders,
+      identifierExceptions,
     },
+    commandCenter,
     whatToDoNext,
     opportunities,
+  };
+}
+
+function getIdentifierExceptions(db, businessId) {
+  return db.query(`
+    SELECT v.id, v.product_id, p.name AS product_name, v.variant_value,
+      v.sku_sync_state, v.barcode_sync_state
+    FROM product_variants v
+    JOIN products p ON p.id = v.product_id AND p.business_id = v.business_id
+    WHERE v.business_id = ? AND v.is_active = 1
+      AND (v.sku_sync_state IN ('MISSING','REVIEW_REQUIRED','SHOPIFY_UPDATE_FAILED')
+        OR v.barcode_sync_state IN ('MISSING','REVIEW_REQUIRED','SHOPIFY_UPDATE_FAILED'))
+    ORDER BY p.name COLLATE NOCASE, v.variant_value COLLATE NOCASE
+    LIMIT 25
+  `).all(businessId);
+}
+
+function buildCommandCenter(db, businessId, { lowStock, pendingBatches, unfulfilledOrders, identifierExceptions }) {
+  const ordersToday = db.query(
+    "SELECT COUNT(*) AS count FROM orders WHERE business_id = ? AND date(created_at) = date('now')"
+  ).get(businessId).count;
+  const readyToPack = db.query(
+    "SELECT COUNT(*) AS count FROM orders WHERE business_id = ? AND status = 'confirmed'"
+  ).get(businessId).count;
+  const oldestWaiting = unfulfilledOrders[0];
+  const waitingHours = oldestWaiting
+    ? Math.max(0, Math.floor((Date.now() - new Date(`${oldestWaiting.created_at}Z`).getTime()) / 3600000))
+    : 0;
+  const exceptions = [];
+  if (identifierExceptions.length) exceptions.push({
+    key: "identifiers", count: identifierExceptions.length,
+    title: `${identifierExceptions.length} product variant${identifierExceptions.length === 1 ? "" : "s"} need identifier review`,
+    detail: "Novi prepared the catalog exceptions without changing Shopify.", link: "/products/sku-label-studio", tone: "pink",
+  });
+  if (pendingBatches.length) exceptions.push({
+    key: "production", count: pendingBatches.length,
+    title: `${pendingBatches.length} production batch${pendingBatches.length === 1 ? "" : "es"} waiting`,
+    detail: "Review materials and approve production before anything is consumed.", link: "/production", tone: "purple",
+  });
+  if (readyToPack) exceptions.push({
+    key: "packing", count: readyToPack,
+    title: `${readyToPack} order${readyToPack === 1 ? " is" : "s are"} ready to pack`,
+    detail: "Open fulfillment to verify items and packing steps.", link: "/fulfillment", tone: "green",
+  });
+  if (lowStock.length) exceptions.push({
+    key: "stock", count: lowStock.length,
+    title: `${lowStock.length} tracked product${lowStock.length === 1 ? " is" : "s are"} low on stock`,
+    detail: "Inventory uses the same location-aware totals shown across ShimmerStock.", link: "/purchasing", tone: "amber",
+  });
+  if (oldestWaiting && waitingHours >= 1) exceptions.push({
+    key: "customer", count: 1,
+    title: `One customer has been waiting ${waitingHours} hour${waitingHours === 1 ? "" : "s"}`,
+    detail: `Order #${oldestWaiting.order_number || oldestWaiting.id} is the oldest pending order.`, link: "/orders", tone: "red",
+  });
+  const preferences = db.query(
+    "SELECT preferred_workflow, production_priority, packing_preference, updated_at FROM novi_business_preferences WHERE business_id = ?"
+  ).get(businessId) || { preferred_workflow: null, production_priority: "oldest_orders_first", packing_preference: null, updated_at: null };
+  return {
+    brief: {
+      ordersToday, readyToPack, productionWaiting: pendingBatches.length,
+      lowStock: lowStock.length, oldestCustomerWaitHours: waitingHours,
+      message: exceptions.length
+        ? `Good morning. ${ordersToday} order${ordersToday === 1 ? " came" : "s came"} in today. I found ${exceptions.length} operational exception${exceptions.length === 1 ? "" : "s"} and sorted them by urgency.`
+        : `Good morning. ${ordersToday} order${ordersToday === 1 ? " came" : "s came"} in today. You're caught up. Go do literally anything more fun than inventory.`,
+    },
+    exceptions,
+    missions: [
+      { id: "ship-today", title: "Get today's orders out", detail: "Review fulfillment queues and verify every packed item.", link: "/fulfillment" },
+      { id: "restock", title: "Restock my best sellers", detail: "Review low stock and purchasing recommendations before ordering.", link: "/purchasing" },
+      { id: "new-products", title: "Set up my new Shopify products", detail: "Review Novi's SKU, barcode, and label recommendations.", link: "/products/sku-label-studio" },
+      { id: "launch", title: "Prepare for a launch", detail: "Coordinate production, inventory, and launch assets.", link: "/studio" },
+      { id: "inventory", title: "Clean up my inventory", detail: "Review identifiers, stock truth, bins, and exceptions.", link: "/products" },
+      { id: "catch-up", title: "Catch me up after vacation", detail: "Start with the real exceptions and recent activity already sorted here.", link: "/timeline" },
+    ],
+    preferences,
   };
 }
 
@@ -84,6 +165,7 @@ function classifyAuditEngine(actionType) {
   if (actionType.startsWith("calculation.")) return { name: "calculation", icon: "🧮", label: "Calculation", color: "purple" };
   if (actionType.startsWith("orders.") || actionType.startsWith("order.")) return { name: "orders", icon: "📋", label: "Orders", color: "green" };
   if (actionType.startsWith("scan.") || actionType.startsWith("inventory.")) return { name: "scan", icon: "📷", label: "Scan", color: "pink" };
+  if (actionType.startsWith("novi.")) return { name: "novi", icon: "✦", label: "Novi", color: "purple" };
   if (actionType.startsWith("auth.")) return { name: "system", icon: "🔧", label: "System", color: "slate" };
   if (actionType.startsWith("supplier.")) return { name: "purchasing", icon: "📦", label: "Purchasing", color: "blue" };
   return { name: "system", icon: "🔧", label: "System", color: "slate" };
@@ -121,6 +203,7 @@ function formatAuditDescription(entry) {
   if (type === "auth.login") return `${user} logged in`;
   if (type === "scan.in") return `${user} scanned in${context ? ` ${context}` : ""}`;
   if (type === "scan.out") return `${user} scanned out${context ? ` ${context}` : ""}`;
+  if (type === "novi.preferences_updated") return `${user} updated what Novi remembers for this business`;
   if (entry.entity_type === "order") return `${user} ${entry.action_type} order${context ? ` #${context}` : ""}`;
   if (entry.entity_type === "product") return `${user} ${entry.action_type} product${context ? ` ${context}` : ""}`;
 
