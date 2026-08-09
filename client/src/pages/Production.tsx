@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { apiGet, apiPost, apiPut, apiDelete } from "../lib/api";
 import { PageHeader, Button, Badge, Tabs, Modal, ConfirmModal, Skeleton, EmptyState, ErrorBanner, SearchBar, useToast } from "../components/ui";
 import Novi from "../components/Novi";
-import NoviEngineInsight from "../components/novi/NoviEngineInsight";
-import { getDemoInsights } from "../lib/businessDna";
 import { useTerms } from "../context/IndustryContext";
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -94,6 +92,7 @@ function mapStatus(status: string): "success" | "warning" | "danger" | "info" {
 
 export default function Production() {
   const { toast } = useToast();
+  const terms = useTerms();
   const [tab, setTab] = useState<string>("pending");
   const [boms, setBoms] = useState<Bom[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -317,14 +316,9 @@ export default function Production() {
 
   // ── Render ─────────────────────────────────────────────────────────
 
-  const noviInsights = getDemoInsights("craft_supplies", "production");
-  const terms = useTerms();
-
   return (
     <div className="space-y-6">
       <PageHeader title={terms.production} novi={<Novi size="sm" accessory="production" />} actions={<Button onClick={openCreateBom}>+ New BOM</Button>} />
-
-      <NoviEngineInsight insights={noviInsights} />
 
       <Tabs tabs={tabConfig} active={tab} onChange={setTab} />
 
@@ -335,7 +329,16 @@ export default function Production() {
             <div className="bg-rose-50 rounded-xl px-4 py-3 text-sm text-rose-600 font-medium">{pending.summary}</div>
           )}
           {(!pending || pending.pending.length === 0) ? (
-            <EmptyState icon="✅" title="Nothing to manufacture" description="Create a BOM and start a batch to begin production" />
+            <EmptyState
+              icon="🏭"
+              title={batches.length === 0 ? "No production batches yet" : "No pending production"}
+              description={batches.length === 0
+                ? "Create a BOM, then start a batch when you're ready to begin production."
+                : "All production batches are completed or cancelled."}
+              action={boms.length === 0
+                ? { label: "+ Create First BOM", onClick: openCreateBom }
+                : { label: "View BOMs", onClick: () => setTab("boms") }}
+            />
           ) : (
             pending.pending.map((batch) => (
               <div key={batch.id} className="bg-white rounded-2xl shadow-sm border border-rose-100 overflow-hidden card-lift">

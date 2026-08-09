@@ -131,6 +131,51 @@ describe("Tenant isolation — Inventory / Movements", () => {
   });
 });
 
+describe("Tenant isolation — Production", () => {
+  it("active business sessions see only their own production batches", async () => {
+    const bomAResponse = await authReq("POST", "/api/production/boms", tokenA, {
+      name: "Business A BOM",
+      outputProductId: 1,
+      outputQuantity: 1,
+      business_id: 2,
+    });
+    expect(bomAResponse.status).toBe(201);
+    const bomA = await bomAResponse.json() as { id: number };
+
+    const bomBResponse = await authReq("POST", "/api/production/boms", tokenB, {
+      name: "Business B BOM",
+      outputProductId: 4,
+      outputQuantity: 1,
+      business_id: 1,
+    });
+    expect(bomBResponse.status).toBe(201);
+    const bomB = await bomBResponse.json() as { id: number };
+
+    expect((await authReq("POST", "/api/production/batches", tokenA, {
+      bomId: bomA.id,
+      batchSize: 1,
+      business_id: 2,
+    })).status).toBe(201);
+    expect((await authReq("POST", "/api/production/batches", tokenB, {
+      bomId: bomB.id,
+      batchSize: 1,
+      business_id: 1,
+    })).status).toBe(201);
+
+    const batchesAResponse = await authGet("/api/production/batches?business_id=2", tokenA);
+    const batchesBResponse = await authGet("/api/production/batches?business_id=1", tokenB);
+    expect(batchesAResponse.status).toBe(200);
+    expect(batchesBResponse.status).toBe(200);
+    const batchesA = await batchesAResponse.json() as { bom_name: string }[];
+    const batchesB = await batchesBResponse.json() as { bom_name: string }[];
+
+    expect(batchesA.map(batch => batch.bom_name)).toContain("Business A BOM");
+    expect(batchesA.map(batch => batch.bom_name)).not.toContain("Business B BOM");
+    expect(batchesB.map(batch => batch.bom_name)).toContain("Business B BOM");
+    expect(batchesB.map(batch => batch.bom_name)).not.toContain("Business A BOM");
+  });
+});
+
 describe("Tenant isolation — Users", () => {
   it("user A sees only Business A users", async () => {
     const res = await authGet("/api/users", tokenA);
