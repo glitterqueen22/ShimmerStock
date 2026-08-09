@@ -32,7 +32,11 @@ if (!/^[0-9a-f]{64}$/i.test(process.env.ENCRYPTION_KEY || "")) {
 
 import { describe, expect, it } from "bun:test";
 import { Database } from "bun:sqlite";
-import { initDb, rebuildProductsForTenantScoping } from "../server/db.js";
+import {
+  initDb,
+  rebuildProductsForTenantScoping,
+  rebuildProductVariantsForShopifyIdentity,
+} from "../server/db.js";
 import {
   IMPORT_STATES,
   loadAndValidateCredentials,
@@ -271,6 +275,7 @@ describe("shopify pilot import — canonical pipeline", () => {
     insertFakeCredential(db, business.id, "test.myshopify.com");
     const originalFetch = globalThis.fetch;
     const operations: string[] = [];
+    let inventoryPage = 0;
 
     globalThis.fetch = (async (_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
       expect(init?.method).toBe("POST");
@@ -286,14 +291,40 @@ describe("shopify pilot import — canonical pipeline", () => {
             id: "gid://shopify/Product/101",
             title: "Imported Product",
             status: "ACTIVE",
-            variants: { edges: [{ node: {
-              id: "gid://shopify/ProductVariant/201",
-              sku: "IMPORT-201",
-              barcode: null,
-              title: "Default Title",
-              inventoryItem: { id: "gid://shopify/InventoryItem/301" },
-              inventoryQuantity: 7,
-            } }] },
+            variants: { edges: [
+              { node: {
+                id: "gid://shopify/ProductVariant/201",
+                sku: null,
+                barcode: null,
+                title: "Null SKU",
+                inventoryItem: { id: "gid://shopify/InventoryItem/301" },
+                inventoryQuantity: 7,
+              } },
+              { node: {
+                id: "gid://shopify/ProductVariant/202",
+                sku: "",
+                barcode: null,
+                title: "Blank SKU",
+                inventoryItem: { id: "gid://shopify/InventoryItem/302" },
+                inventoryQuantity: 3,
+              } },
+              { node: {
+                id: "gid://shopify/ProductVariant/203",
+                sku: "DUPLICATE-SKU",
+                barcode: null,
+                title: "Duplicate SKU A",
+                inventoryItem: { id: "gid://shopify/InventoryItem/303" },
+                inventoryQuantity: 2,
+              } },
+              { node: {
+                id: "gid://shopify/ProductVariant/204",
+                sku: "DUPLICATE-SKU",
+                barcode: null,
+                title: "Duplicate SKU B",
+                inventoryItem: { id: "gid://shopify/InventoryItem/304" },
+                inventoryQuantity: 1,
+              } },
+            ] },
           } }],
         } } });
       }
@@ -311,12 +342,37 @@ describe("shopify pilot import — canonical pipeline", () => {
       }
       if (query.includes("location(id:")) {
         operations.push("inventory");
+        expect(query).toContain('quantities(names: ["available"])');
+        expect(query).not.toMatch(/\n\s+available\s*\n/);
+        inventoryPage++;
+        if (inventoryPage === 1) {
+          expect(query).not.toContain('after: "inventory-page-2"');
+          return Response.json({ data: { location: { inventoryLevels: {
+            pageInfo: { hasNextPage: true, endCursor: "inventory-page-2" },
+            edges: [
+              { node: {
+                quantities: [{ name: "available", quantity: 7 }],
+                item: { id: "gid://shopify/InventoryItem/301" },
+              } },
+              { node: {
+                quantities: [
+                  { name: "on_hand", quantity: 8 },
+                  { name: "available", quantity: 3 },
+                ],
+                item: { id: "gid://shopify/InventoryItem/302" },
+              } },
+            ],
+          } } } });
+        }
+        expect(query).toContain('after: "inventory-page-2"');
         return Response.json({ data: { location: { inventoryLevels: {
           pageInfo: { hasNextPage: false, endCursor: null },
-          edges: [{ node: {
-            available: 7,
-            item: { id: "gid://shopify/InventoryItem/301" },
-          } }],
+          edges: [
+            { node: {
+              quantities: [{ name: "on_hand", quantity: 4 }],
+              item: { id: "gid://shopify/InventoryItem/303" },
+            } },
+          ],
         } } } });
       }
       if (query.includes("orders(")) {
@@ -342,19 +398,114 @@ describe("shopify pilot import — canonical pipeline", () => {
 
       expect(result.success).toBe(true);
       expect(result.state).toBe(IMPORT_STATES.SYNCED);
-      expect(operations).toEqual(["products", "locations", "inventory", "orders"]);
+      expect(operations).toEqual(["products", "locations", "inventory", "inventory", "orders"]);
       const session = getLatestImportSession(db, business.id) as any;
+      const summary = result.summary as any;
       expect(session.state).toBe(IMPORT_STATES.SYNCED);
       expect(session.reconciliation_status).toBe("RECONCILED");
       expect((db.query("SELECT COUNT(*) AS count FROM products WHERE business_id = ? AND shopify_product_id = '101'").get(business.id) as { count: number }).count).toBe(1);
-      expect((db.query("SELECT COUNT(*) AS count FROM product_variants WHERE business_id = ? AND shopify_variant_id = '201'").get(business.id) as { count: number }).count).toBe(1);
+      expect(summary.variants.shopify).toBe(4);
+      expect(summary.variants.persisted).toBe(4);
+      expect(summary.inventoryLevels.persisted).toBe(3);
+      const variants = db.query(
+        "SELECT shopify_variant_id, sku FROM product_variants WHERE business_id = ? ORDER BY shopify_variant_id"
+      ).all(business.id) as { shopify_variant_id: string; sku: string | null }[];
+      expect(variants).toEqual([
+        { shopify_variant_id: "201", sku: null },
+        { shopify_variant_id: "202", sku: "" },
+        { shopify_variant_id: "203", sku: "DUPLICATE-SKU" },
+        { shopify_variant_id: "204", sku: "DUPLICATE-SKU" },
+      ]);
       expect((db.query("SELECT COUNT(*) AS count FROM shopify_locations WHERE business_id = ? AND shopify_location_id = '401'").get(business.id) as { count: number }).count).toBe(1);
-      expect((db.query("SELECT COUNT(*) AS count FROM shopify_inventory_levels WHERE business_id = ? AND shopify_inventory_item_id = '301'").get(business.id) as { count: number }).count).toBe(1);
+      const inventory = db.query(
+        `SELECT shopify_inventory_item_id, shopify_location_id, available
+         FROM shopify_inventory_levels WHERE business_id = ? ORDER BY shopify_inventory_item_id`
+      ).all(business.id) as { shopify_inventory_item_id: string; shopify_location_id: string; available: number }[];
+      expect(inventory).toEqual([
+        { shopify_inventory_item_id: "301", shopify_location_id: "401", available: 7 },
+        { shopify_inventory_item_id: "302", shopify_location_id: "401", available: 3 },
+        { shopify_inventory_item_id: "303", shopify_location_id: "401", available: 0 },
+      ]);
       expect((db.query("SELECT COUNT(*) AS count FROM orders WHERE business_id = ? AND shopify_order_id = '501'").get(business.id) as { count: number }).count).toBe(1);
+
+      operations.length = 0;
+      inventoryPage = 0;
+      const rerun = await runInitialImport(db, business.id);
+      expect(rerun.state).toBe(IMPORT_STATES.SYNCED);
+      expect((db.query("SELECT COUNT(*) AS count FROM product_variants WHERE business_id = ?").get(business.id) as { count: number }).count).toBe(4);
+      expect((db.query("SELECT COUNT(*) AS count FROM shopify_inventory_levels WHERE business_id = ?").get(business.id) as { count: number }).count).toBe(3);
     } finally {
       globalThis.fetch = originalFetch;
       db.close();
     }
+  });
+});
+
+describe("shopify pilot import — variant schema migration", () => {
+  it("preserves legacy rows while removing SKU identity constraints", () => {
+    const db = new Database(":memory:");
+    db.run("CREATE TABLE businesses (id INTEGER PRIMARY KEY)");
+    db.run("CREATE TABLE products (id INTEGER PRIMARY KEY)");
+    db.run(`CREATE TABLE product_variants (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL REFERENCES products(id),
+      business_id INTEGER NOT NULL REFERENCES businesses(id),
+      sku TEXT NOT NULL,
+      barcode TEXT,
+      variant_type TEXT NOT NULL,
+      variant_value TEXT NOT NULL,
+      stock_count INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      shopify_variant_id TEXT,
+      shopify_inventory_item_id TEXT
+    )`);
+    db.run("CREATE UNIQUE INDEX idx_variants_sku ON product_variants(business_id, sku)");
+    db.run("INSERT INTO businesses (id) VALUES (1)");
+    db.run("INSERT INTO products (id) VALUES (1)");
+    db.run(`INSERT INTO product_variants
+      (id, product_id, business_id, sku, variant_type, variant_value, shopify_variant_id)
+      VALUES (9, 1, 1, 'LEGACY', 'shopify', 'Legacy', '900')`);
+
+    rebuildProductVariantsForShopifyIdentity(db);
+    rebuildProductVariantsForShopifyIdentity(db);
+
+    const legacy = db.query("SELECT id, sku, shopify_variant_id FROM product_variants").get() as any;
+    expect(legacy).toEqual({ id: 9, sku: "LEGACY", shopify_variant_id: "900" });
+    const skuColumn = db.query("PRAGMA table_info(product_variants)").all()
+      .find((column: any) => column.name === "sku") as any;
+    expect(skuColumn.notnull).toBe(0);
+    expect(db.query("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_variants_sku'").get()).toBeNull();
+    db.run(`INSERT INTO product_variants
+      (product_id, business_id, sku, variant_type, variant_value, shopify_variant_id)
+      VALUES (1, 1, NULL, 'shopify', 'Null', '901'),
+             (1, 1, '', 'shopify', 'Blank', '902'),
+             (1, 1, 'LEGACY', 'shopify', 'Duplicate', '903')`);
+    expect((db.query("SELECT COUNT(*) AS count FROM product_variants").get() as { count: number }).count).toBe(4);
+    db.close();
+  });
+
+  it("enforces Shopify variant identity per business, not globally", () => {
+    const db = initTestDb();
+    const firstBusiness = db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number };
+    db.run("INSERT INTO businesses (name, slug) VALUES ('Variant Business B', 'variant-business-b')");
+    const secondBusiness = db.query("SELECT id FROM businesses WHERE slug = 'variant-business-b'").get() as { id: number };
+    const firstProduct = insertFakeProduct(db, firstBusiness.id, "variant-product-a", "Variant Product A");
+    const secondProduct = insertFakeProduct(db, secondBusiness.id, "variant-product-b", "Variant Product B");
+    const insertVariant = db.query(`INSERT INTO product_variants
+      (product_id, business_id, sku, variant_type, variant_value, shopify_variant_id)
+      VALUES (?, ?, ?, 'shopify', 'Default', 'same-shopify-variant')`);
+
+    insertVariant.run(firstProduct, firstBusiness.id, "SHARED-SKU");
+    expect(() => insertVariant.run(firstProduct, firstBusiness.id, "OTHER-SKU")).toThrow();
+    insertVariant.run(secondProduct, secondBusiness.id, "SHARED-SKU");
+
+    const rows = db.query(
+      "SELECT business_id FROM product_variants WHERE shopify_variant_id = 'same-shopify-variant' ORDER BY business_id"
+    ).all() as { business_id: number }[];
+    expect(rows.map(row => row.business_id)).toEqual([firstBusiness.id, secondBusiness.id]);
+    db.close();
   });
 });
 
@@ -980,6 +1131,43 @@ describe("shopify pilot — ID-set reconciliation (counts match but IDs differ)"
     // Without ID sets, we can't confirm RECONCILED — must be NEEDS_REVIEW
     expect(report.status).not.toBe("RECONCILED");
     expect(["NEEDS_REVIEW", "MISMATCH"]).toContain(report.status);
+  });
+
+  it("26 fetched variants with only 4 persisted cannot reconcile or report SYNCED", () => {
+    const db = initTestDb();
+    const businessId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
+    const productId = insertFakeProduct(db, businessId, "count-product", "Count Product");
+    for (let index = 1; index <= 4; index++) {
+      db.run(`INSERT INTO product_variants
+        (product_id, business_id, sku, variant_type, variant_value, shopify_variant_id)
+        VALUES (?, ?, ?, 'shopify', ?, ?)`, [productId, businessId, `SKU-${index}`, `Variant ${index}`, String(index)]);
+    }
+    const sessionId = createImportSession(db, businessId);
+    updateImportSession(db, sessionId, IMPORT_STATES.RECONCILIATION_REQUIRED, {
+      shopify_products_count: 1,
+      persisted_products_count: 1,
+      shopify_variants_count: 26,
+      persisted_variants_count: 4,
+      shopify_orders_count: 0,
+      persisted_orders_count: 0,
+      shopify_locations_count: 0,
+      persisted_locations_count: 0,
+      shopify_inventory_levels_count: 0,
+      persisted_inventory_levels_count: 0,
+      shopify_product_ids: JSON.stringify(["count-product"]),
+      shopify_variant_ids: JSON.stringify(Array.from({ length: 26 }, (_, index) => String(index + 1))),
+      shopify_order_ids: JSON.stringify([]),
+      shopify_location_ids: JSON.stringify([]),
+      shopify_inventory_pairs: JSON.stringify([]),
+      reconciliation_status: "NEEDS_REVIEW",
+    });
+
+    const report = getReconciliationReport(db, businessId);
+    expect(report.status).toBe("MISMATCH");
+    expect(report.variants.shimmerCount).toBe(4);
+    expect(report.variants.missingFromDb).toHaveLength(22);
+    expect(getEffectiveImportState(db, businessId)).not.toBe(IMPORT_STATES.SYNCED);
+    db.close();
   });
 });
 

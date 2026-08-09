@@ -505,7 +505,10 @@ async function fetchAllInventoryLevels(shopDomain, accessToken, locationIds) {
               pageInfo { hasNextPage endCursor }
               edges {
                 node {
-                  available
+                  quantities(names: ["available"]) {
+                    name
+                    quantity
+                  }
                   item { id }
                 }
               }
@@ -550,12 +553,15 @@ async function fetchAllInventoryLevels(shopDomain, accessToken, locationIds) {
       if (!page) { hasNextPage = false; break; }
 
       for (const edge of page.edges || []) {
+        const availableQuantity = edge.node.quantities?.find(
+          quantity => quantity?.name === "available"
+        );
         levels.push({
           locationGid,
           locationId: locationGid,
           inventoryItemGid: edge.node.item?.id,
           inventoryItemId: edge.node.item?.id,
-          available: edge.node.available ?? 0,
+          available: availableQuantity?.quantity ?? 0,
         });
       }
 
@@ -736,7 +742,7 @@ function upsertProduct(db, businessId, shopifyProduct) {
 function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) {
   const shopifyVariantId = gidToId(shopifyVariant.id);
   const shopifyInventoryItemId = gidToId(shopifyVariant.inventoryItem?.id);
-  const sku = shopifyVariant.sku || "";
+  const sku = shopifyVariant.sku ?? null;
   const barcode = shopifyVariant.barcode || null;
   const title = shopifyVariant.title || "Default Title";
 
@@ -763,44 +769,25 @@ function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) {
     return existing.id;
   }
 
-  try {
-    const res = db
-      .query(
-        `INSERT INTO product_variants
-           (product_id, business_id, sku, barcode, variant_type, variant_value,
-            stock_count, shopify_variant_id, shopify_inventory_item_id,
-            is_active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 'shopify', ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`
-      )
-      .run(
-        shimmerProductId,
-        businessId,
-        sku,
-        barcode,
-        title,
-        shopifyVariant.inventoryQuantity || 0,
-        shopifyVariantId,
-        shopifyInventoryItemId
-      );
-    return Number(res.lastInsertRowid);
-  } catch (err) {
-    if (String(err.message).includes("UNIQUE constraint failed")) {
-      // SKU collision within this business — update the existing row
-      const existingBySku = db
-        .query(`SELECT id FROM product_variants WHERE business_id = ? AND sku = ?`)
-        .get(businessId, sku);
-      if (existingBySku) {
-        db.run(
-          `UPDATE product_variants SET shopify_variant_id = ?, shopify_inventory_item_id = ?,
-           barcode = ?, variant_value = ?, stock_count = ?, updated_at = datetime('now')
-           WHERE id = ?`,
-          [shopifyVariantId, shopifyInventoryItemId, barcode, title, shopifyVariant.inventoryQuantity || 0, existingBySku.id]
-        );
-        return existingBySku.id;
-      }
-    }
-    throw err;
-  }
+  const res = db
+    .query(
+      `INSERT INTO product_variants
+         (product_id, business_id, sku, barcode, variant_type, variant_value,
+          stock_count, shopify_variant_id, shopify_inventory_item_id,
+          is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'shopify', ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`
+    )
+    .run(
+      shimmerProductId,
+      businessId,
+      sku,
+      barcode,
+      title,
+      shopifyVariant.inventoryQuantity || 0,
+      shopifyVariantId,
+      shopifyInventoryItemId
+    );
+  return Number(res.lastInsertRowid);
 }
 
 /**
@@ -836,7 +823,7 @@ function upsertLocation(db, businessId, shopifyLocation) {
 function upsertInventoryLevel(db, businessId, level) {
   const locationId = gidToId(level.locationGid);
   const inventoryItemId = gidToId(level.inventoryItemGid);
-  if (!locationId || !inventoryItemId) return;
+  if (!locationId || !inventoryItemId) return false;
 
   db.run(
     `INSERT INTO shopify_inventory_levels
@@ -847,6 +834,7 @@ function upsertInventoryLevel(db, businessId, level) {
        updated_at = datetime('now')`,
     [businessId, inventoryItemId, locationId, level.available]
   );
+  return true;
 }
 
 /**
@@ -1005,28 +993,33 @@ export async function runInitialImport(db, businessId) {
     summary.products.shopify = prodCount;
     if (prodErrors?.length) summary.graphqlErrors.push(...prodErrors);
 
-    let variantShopifyCount = 0;
-    let variantPersistedCount = 0;
+    const persistedProductIds = new Set();
+    const persistedVariantIds = new Set();
 
     for (const shopifyProduct of products) {
       summary.products.ids.push(gidToId(shopifyProduct.id));
       try {
         const shimmerProductId = upsertProduct(db, businessId, shopifyProduct);
-        summary.products.persisted++;
+        persistedProductIds.add(gidToId(shopifyProduct.id));
 
         for (const varEdge of shopifyProduct.variants?.edges || []) {
-          variantShopifyCount++;
-          summary.variants.ids.push(gidToId(varEdge.node.id));
-          upsertVariant(db, businessId, shimmerProductId, varEdge.node);
-          variantPersistedCount++;
+          const variantId = gidToId(varEdge.node.id);
+          summary.variants.ids.push(variantId);
+          try {
+            upsertVariant(db, businessId, shimmerProductId, varEdge.node);
+            persistedVariantIds.add(variantId);
+          } catch (err) {
+            summary.errors.push(`variant ${varEdge.node.id}: ${err.message}`);
+          }
         }
       } catch (err) {
         summary.errors.push(`product ${shopifyProduct.id}: ${err.message}`);
       }
     }
 
-    summary.variants.shopify = variantShopifyCount;
-    summary.variants.persisted = variantPersistedCount;
+    summary.products.persisted = persistedProductIds.size;
+    summary.variants.shopify = summary.variants.ids.length;
+    summary.variants.persisted = persistedVariantIds.size;
 
     // ── 2. Locations ─────────────────────────────────────────────────
     const { locations, shopifyCount: locCount, graphqlErrors: locErrors } =
@@ -1034,15 +1027,17 @@ export async function runInitialImport(db, businessId) {
     summary.locations.shopify = locCount;
     if (locErrors?.length) summary.graphqlErrors.push(...locErrors);
 
+    const persistedLocationIds = new Set();
     for (const loc of locations) {
       summary.locations.ids.push(gidToId(loc.id));
       try {
         upsertLocation(db, businessId, loc);
-        summary.locations.persisted++;
+        persistedLocationIds.add(gidToId(loc.id));
       } catch (err) {
         summary.errors.push(`location ${loc.id}: ${err.message}`);
       }
     }
+    summary.locations.persisted = persistedLocationIds.size;
 
     // ── 3. Inventory levels ──────────────────────────────────────────
     const locationGids = locations.map(l => l.id);
@@ -1051,18 +1046,22 @@ export async function runInitialImport(db, businessId) {
     summary.inventoryLevels.shopify = levelsCount;
     if (invErrors?.length) summary.graphqlErrors.push(...invErrors);
 
+    const persistedInventoryPairs = new Set();
     for (const level of levels) {
-      summary.inventoryLevels.pairs.push({
+      const pair = {
         item: gidToId(level.inventoryItemId),
         loc: gidToId(level.locationId),
-      });
+      };
+      summary.inventoryLevels.pairs.push(pair);
       try {
-        upsertInventoryLevel(db, businessId, level);
-        summary.inventoryLevels.persisted++;
+        if (upsertInventoryLevel(db, businessId, level)) {
+          persistedInventoryPairs.add(`${pair.item}:${pair.loc}`);
+        }
       } catch (err) {
         summary.errors.push(`inventory level: ${err.message}`);
       }
     }
+    summary.inventoryLevels.persisted = persistedInventoryPairs.size;
 
     // ── 4. Orders ────────────────────────────────────────────────────
     const { orders, shopifyCount: ordersCount, graphqlErrors: orderErrors } =
@@ -1070,15 +1069,17 @@ export async function runInitialImport(db, businessId) {
     summary.orders.shopify = ordersCount;
     if (orderErrors?.length) summary.graphqlErrors.push(...orderErrors);
 
+    const persistedOrderIds = new Set();
     for (const order of orders) {
       summary.orders.ids.push(gidToId(order.id));
       try {
         const orderId = upsertOrder(db, businessId, order);
-        if (orderId) summary.orders.persisted++;
+        if (orderId) persistedOrderIds.add(gidToId(order.id));
       } catch (err) {
         summary.errors.push(`order ${order.id}: ${err.message}`);
       }
     }
+    summary.orders.persisted = persistedOrderIds.size;
 
     // Persist the imported ID sets before reconciliation so the report can
     // compare tenant-scoped Shopify IDs against tenant-scoped database IDs.
@@ -1356,7 +1357,7 @@ export function getReconciliationReport(db, businessId) {
     productsMismatch, productsIdMismatch, dupProducts
   );
   const variantsStatus = entityStatus(
-    variantsMismatch, variantsIdMismatch, dupVariants, missingSkuVariants > 0
+    variantsMismatch, variantsIdMismatch, dupVariants
   );
   const ordersStatus = entityStatus(ordersMismatch, ordersIdMismatch, dupOrders);
   const locationsStatus = entityStatus(locationsMismatch, locationsIdMismatch, []);
