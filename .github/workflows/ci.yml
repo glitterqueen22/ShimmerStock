@@ -37,6 +37,6 @@ jobs:
         run: bun run build
 
       - name: Run tests
-        run: bun test
+        run: bun test --isolate
         env:
           ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
