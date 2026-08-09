@@ -938,7 +938,7 @@ function upsertOrder(db, businessId, shopifyOrder) {
  *
  * @param {import("bun:sqlite").Database} db
  * @param {number} businessId
- * @returns {Promise<{ success: boolean; sessionId: number; summary: object; error?: string }>}
+ * @returns {Promise<{ success: boolean; sessionId: number; summary: object; error?: string; state?: string }>}
  */
 export async function runInitialImport(db, businessId) {
   // ── Step 0: Recover stale sessions ──────────────────────────────────────
@@ -1159,7 +1159,7 @@ export async function runInitialImport(db, businessId) {
  *
  * @param {import("bun:sqlite").Database} db
  * @param {number} businessId
- * @returns {object} reconciliation report
+ * @returns {any} reconciliation report
  */
 export function getReconciliationReport(db, businessId) {
   const session = getLatestImportSession(db, businessId);

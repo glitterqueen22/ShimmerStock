@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch();
+const context = await browser.newContext({ viewport: { width: 768, height: 1024 } });
+const page = await context.newPage();
+await page.goto('http://localhost:3000/resources/integrations', { waitUntil: 'networkidle', timeout: 10000 });
+await page.waitForTimeout(1000);
+await page.screenshot({ path: './qa-results/integrations-768px-tablet.png' });
+await context.close();
+await browser.close();
+console.log('✅ integrations 768px-tablet');
