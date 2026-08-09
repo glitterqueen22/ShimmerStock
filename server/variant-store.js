@@ -6,21 +6,35 @@
  */
 
 /** List all variants for a product, scoped to business. */
+import { getVariantInventory, listVariantInventory } from "./inventory-truth.js";
+
+function withInventory(rows, inventoryRows) {
+  const inventory = new Map(inventoryRows.map(row => [row.id, row]));
+  return rows.map(row => {
+    const truth = inventory.get(row.id);
+    return truth ? { ...row, stock_count: truth.available, inventory_tracked: truth.available !== null } : row;
+  });
+}
+
 export function listVariants(db, productId, businessId) {
-  return db
+  const rows = db
     .query(
       "SELECT id, product_id, business_id, sku, barcode, variant_type, variant_value, price, cost, stock_count, weight_oz, is_active, created_at, updated_at FROM product_variants WHERE product_id = ? AND business_id = ? ORDER BY variant_type, variant_value"
     )
     .all(productId, businessId);
+  return withInventory(rows, listVariantInventory(db, businessId));
 }
 
 /** Get a single variant by ID, scoped to business. */
 export function getVariant(db, variantId, businessId) {
-  return db
+  const row = db
     .query(
       "SELECT id, product_id, business_id, sku, barcode, variant_type, variant_value, price, cost, stock_count, weight_oz, is_active, created_at, updated_at FROM product_variants WHERE id = ? AND business_id = ?"
     )
     .get(variantId, businessId);
+  if (!row) return null;
+  const truth = getVariantInventory(db, businessId, variantId);
+  return truth ? { ...row, stock_count: truth.available, inventory_tracked: truth.available !== null } : row;
 }
 
 /** Get a variant by SKU, scoped to business. */

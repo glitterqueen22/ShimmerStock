@@ -15,7 +15,8 @@ interface Product {
   name: string;
   sku: string;
   barcode: string | null;
-  stock_count: number;
+  stock_count: number | null;
+  inventory_tracked?: boolean;
 }
 
 interface ProductFormData {
@@ -43,7 +44,7 @@ const formFromProduct = (p: Product): ProductFormData => ({
   name: p.name,
   sku: p.sku,
   barcode: p.barcode ?? "",
-  stock_count: p.stock_count,
+  stock_count: p.stock_count ?? 0,
 });
 
 // ── Page Component ──────────────────────────────────────────────────
@@ -308,14 +309,16 @@ export default function Products() {
                     <td className="px-6 py-4 text-sm text-right">
                       <span
                         className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
-                          product.stock_count <= 5
+                          product.stock_count == null
+                            ? "bg-neutral-100 text-neutral-600"
+                            : product.stock_count <= 5
                             ? product.stock_count === 0
                               ? "bg-red-50 text-red-700"
                               : "bg-amber-50 text-amber-700"
                             : "bg-emerald-50 text-emerald-700"
                         }`}
                       >
-                        {product.stock_count}
+                        {product.stock_count ?? "Not tracked"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -357,14 +360,16 @@ export default function Products() {
                   </div>
                   <span
                     className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
-                      product.stock_count <= 5
+                      product.stock_count == null
+                        ? "bg-neutral-100 text-neutral-600"
+                        : product.stock_count <= 5
                         ? product.stock_count === 0
                           ? "bg-red-50 text-red-700"
                           : "bg-amber-50 text-amber-700"
                         : "bg-emerald-50 text-emerald-700"
                     }`}
                   >
-                    {product.stock_count}
+                    {product.stock_count ?? "Not tracked"}
                   </span>
                 </div>
                 <div className="flex gap-2 pt-1">

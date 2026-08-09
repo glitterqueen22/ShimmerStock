@@ -29,6 +29,7 @@
 import { gatewayGraphQL } from "./providers/shopify-gateway.js";
 import { decryptToken } from "./crypto-utils.js";
 import { recordCatalogAudit } from "./sku-label-studio.js";
+import { projectShopifyInventory } from "./inventory-truth.js";
 
 // ── Import state constants ────────────────────────────────────────────────
 
@@ -153,6 +154,7 @@ export function updateImportSession(db, sessionId, state, extra = {}) {
     "shopify_order_ids",
     "shopify_location_ids",
     "shopify_inventory_pairs",
+    "shopify_inventory_snapshot",
     "discrepancies",
     "errors",
     "reconciliation_status",
@@ -357,7 +359,7 @@ async function fetchAllProducts(shopDomain, accessToken) {
                     sku
                     barcode
                     title
-                    inventoryItem { id }
+                    inventoryItem { id tracked }
                     inventoryQuantity
                   }
                 }
@@ -743,6 +745,9 @@ function upsertProduct(db, businessId, shopifyProduct) {
 export function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) {
   const shopifyVariantId = gidToId(shopifyVariant.id);
   const shopifyInventoryItemId = gidToId(shopifyVariant.inventoryItem?.id);
+  const inventoryTracked = typeof shopifyVariant.inventoryItem?.tracked === "boolean"
+    ? Number(shopifyVariant.inventoryItem.tracked)
+    : null;
   const sku = shopifyVariant.sku ?? null;
   const barcode = shopifyVariant.barcode || null;
   const title = shopifyVariant.title || "Default Title";
@@ -757,7 +762,7 @@ export function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) 
          SET sku = CASE WHEN sku IS shopify_sku THEN ? ELSE sku END,
            barcode = CASE WHEN barcode IS shopify_barcode THEN ? ELSE barcode END,
            shopify_sku = ?, shopify_barcode = ?,
-           variant_value = ?, shopify_inventory_item_id = ?,
+           variant_value = ?, shopify_inventory_item_id = ?, inventory_tracked = ?,
            stock_count = ?, updated_at = datetime('now')
        WHERE id = ? AND business_id = ?`,
       [
@@ -767,6 +772,7 @@ export function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) 
         barcode,
         title,
         shopifyInventoryItemId,
+        inventoryTracked,
         shopifyVariant.inventoryQuantity || 0,
         existing.id,
         businessId,
@@ -779,9 +785,10 @@ export function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) 
     .query(
       `INSERT INTO product_variants
          (product_id, business_id, sku, barcode, variant_type, variant_value,
-         stock_count, shopify_variant_id, shopify_inventory_item_id, shopify_sku, shopify_barcode,
+         stock_count, shopify_variant_id, shopify_inventory_item_id, inventory_tracked,
+         shopify_sku, shopify_barcode,
           is_active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'shopify', ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`
+       VALUES (?, ?, ?, ?, 'shopify', ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`
     )
     .run(
       shimmerProductId,
@@ -792,6 +799,7 @@ export function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) 
       shopifyVariant.inventoryQuantity || 0,
       shopifyVariantId,
       shopifyInventoryItemId,
+      inventoryTracked,
       sku,
       barcode
     );
@@ -843,6 +851,19 @@ function upsertInventoryLevel(db, businessId, level) {
     [businessId, inventoryItemId, locationId, level.available]
   );
   return true;
+}
+
+function pruneInventoryLevels(db, businessId, importedPairs) {
+  const stale = db.query(
+    `SELECT id, shopify_inventory_item_id, shopify_location_id
+     FROM shopify_inventory_levels WHERE business_id = ?`
+  ).all(businessId);
+  const remove = db.query("DELETE FROM shopify_inventory_levels WHERE id = ? AND business_id = ?");
+  for (const row of stale) {
+    if (!importedPairs.has(`${row.shopify_inventory_item_id}:${row.shopify_location_id}`)) {
+      remove.run(row.id, businessId);
+    }
+  }
 }
 
 /**
@@ -1059,6 +1080,7 @@ export async function runInitialImport(db, businessId) {
       const pair = {
         item: gidToId(level.inventoryItemId),
         loc: gidToId(level.locationId),
+        available: Number(level.available) || 0,
       };
       summary.inventoryLevels.pairs.push(pair);
       try {
@@ -1070,6 +1092,10 @@ export async function runInitialImport(db, businessId) {
       }
     }
     summary.inventoryLevels.persisted = persistedInventoryPairs.size;
+    if (!invErrors?.length) {
+      pruneInventoryLevels(db, businessId, persistedInventoryPairs);
+      projectShopifyInventory(db, businessId);
+    }
 
     // ── 4. Orders ────────────────────────────────────────────────────
     const { orders, shopifyCount: ordersCount, graphqlErrors: orderErrors } =
@@ -1118,6 +1144,7 @@ export async function runInitialImport(db, businessId) {
       shopify_order_ids: JSON.stringify(summary.orders.ids),
       shopify_location_ids: JSON.stringify(summary.locations.ids),
       shopify_inventory_pairs: JSON.stringify(summary.inventoryLevels.pairs),
+      shopify_inventory_snapshot: JSON.stringify(summary.inventoryLevels.pairs),
       discrepancies: JSON.stringify([...summary.errors, ...summary.graphqlErrors]),
       reconciliation_status: "PENDING",
     });
@@ -1239,6 +1266,11 @@ export function getReconciliationReport(db, businessId) {
     db.query(`SELECT shopify_inventory_item_id, shopify_location_id FROM shopify_inventory_levels WHERE business_id = ?`)
       .all(businessId).map(r => `${r.shopify_inventory_item_id}:${r.shopify_location_id}`)
   );
+  const dbInventorySnapshot = new Map(
+    db.query(`SELECT shopify_inventory_item_id, shopify_location_id, available
+      FROM shopify_inventory_levels WHERE business_id = ?`).all(businessId)
+      .map(row => [`${row.shopify_inventory_item_id}:${row.shopify_location_id}`, Number(row.available)])
+  );
 
   // ── Stored Shopify ID sets from the import session ────────────────────
   // Populated by runInitialImport for sessions created after this version.
@@ -1261,6 +1293,11 @@ export function getReconciliationReport(db, businessId) {
           p => `${p.item ?? p.inventoryItemId}:${p.loc ?? p.locationId}`
         )
       )
+    : null;
+  const sessionInventorySnapshot = session.shopify_inventory_snapshot
+    ? new Map((JSON.parse(session.shopify_inventory_snapshot) || []).map(
+        row => [`${row.item ?? row.inventoryItemId}:${row.loc ?? row.locationId}`, Number(row.available) || 0]
+      ))
     : null;
 
   // ── ID-set difference helpers ─────────────────────────────────────────
@@ -1287,6 +1324,10 @@ export function getReconciliationReport(db, businessId) {
 
   const inventoryMissingFromDb = setDiff(sessionInventoryPairs, dbInventoryPairs);
   const inventoryUnexpectedInDb = setDiff(dbInventoryPairs, sessionInventoryPairs);
+  const inventoryQuantityMismatches = sessionInventorySnapshot
+    ? [...sessionInventorySnapshot].filter(([key, available]) => dbInventorySnapshot.get(key) !== available)
+        .map(([key, available]) => ({ key, shopifyAvailable: available, persistedAvailable: dbInventorySnapshot.get(key) ?? null }))
+    : [];
 
   // ── Duplicate Shopify IDs in ShimmerStock (import corruption) ─────────
   const dupProducts = db
@@ -1354,7 +1395,7 @@ export function getReconciliationReport(db, businessId) {
   const locationsIdMismatch =
     locationsMissingFromDb.length > 0 || locationsUnexpectedInDb.length > 0;
   const inventoryIdMismatch =
-    inventoryMissingFromDb.length > 0 || inventoryUnexpectedInDb.length > 0;
+    inventoryMissingFromDb.length > 0 || inventoryUnexpectedInDb.length > 0 || inventoryQuantityMismatches.length > 0;
 
   function entityStatus(countMismatch, idMismatch, dups, hasReview = false) {
     if (dups.length > 0 || countMismatch || idMismatch) return "MISMATCH";
@@ -1441,6 +1482,7 @@ export function getReconciliationReport(db, businessId) {
       shimmerCount: shimmerInventoryCount,
       missingFromDb: inventoryMissingFromDb,
       unexpectedInDb: inventoryUnexpectedInDb,
+      quantityMismatches: inventoryQuantityMismatches,
       status: inventoryStatus,
     },
     errors: discrepancyErrors,

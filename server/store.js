@@ -29,6 +29,12 @@
  *   3. All route files continue working with zero changes.
  */
 
+import {
+  getLowStockProducts as getCanonicalLowStockProducts,
+  getProductWithInventory,
+  listProductsWithInventory,
+} from "./inventory-truth.js";
+
 // ═══════════════════════════════════════════════════════════════════════
 // TRANSACTION WRAPPER
 // ═══════════════════════════════════════════════════════════════════════
@@ -346,9 +352,7 @@ export function getActiveBusiness(db, userId) {
 
 /** List all products for a business. */
 export function listProducts(db, businessId) {
-  return db
-    .query("SELECT id, name, sku, barcode, stock_count FROM products WHERE business_id = ? ORDER BY name ASC")
-    .all(businessId);
+  return listProductsWithInventory(db, businessId);
 }
 
 /** Get a product by SKU, scoped to business. */
@@ -360,9 +364,7 @@ export function getProductBySku(db, sku, businessId) {
 
 /** Get a product by ID, scoped to business. */
 export function getProductById(db, id, businessId) {
-  return db
-    .query("SELECT id, name, sku, barcode, stock_count FROM products WHERE id = ? AND business_id = ?")
-    .get(id, businessId);
+  return getProductWithInventory(db, businessId, id);
 }
 
 /** Get a product by barcode, scoped to business. */
@@ -444,11 +446,7 @@ export function deleteProductCascade(db, id, businessId) {
 
 /** Get low-stock products for a business. */
 export function getLowStockProducts(db, businessId) {
-  return db
-    .query(
-      "SELECT id, name, sku, barcode, stock_count FROM products WHERE stock_count <= 5 AND business_id = ? ORDER BY stock_count ASC"
-    )
-    .all(businessId);
+  return getCanonicalLowStockProducts(db, businessId);
 }
 
 /** Count total products for a business. */

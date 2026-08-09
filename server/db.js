@@ -484,6 +484,10 @@ export function initDb(dbPath) {
     db.run("ALTER TABLE product_variants ADD COLUMN shopify_barcode TEXT");
     console.log("Added shopify_barcode column to product_variants");
   }
+  if (!variantCols.some(c => c.name === "inventory_tracked")) {
+    db.run("ALTER TABLE product_variants ADD COLUMN inventory_tracked INTEGER");
+    console.log("Added inventory_tracked column to product_variants");
+  }
 
   rebuildProductVariantsForShopifyIdentity(db);
   db.run(`CREATE INDEX IF NOT EXISTS idx_variants_product ON product_variants(product_id)`);
@@ -2217,6 +2221,7 @@ export function initDb(dbPath) {
       shopify_order_ids TEXT,
       shopify_location_ids TEXT,
       shopify_inventory_pairs TEXT,
+      shopify_inventory_snapshot TEXT,
       discrepancies TEXT,
       errors TEXT,
       reconciliation_status TEXT DEFAULT 'PENDING',
@@ -2231,7 +2236,7 @@ export function initDb(dbPath) {
   {
     const sisCols = db.query("PRAGMA table_info(shopify_import_sessions)").all().map(c => c.name);
     for (const col of ["shopify_product_ids", "shopify_variant_ids", "shopify_order_ids",
-                        "shopify_location_ids", "shopify_inventory_pairs"]) {
+                        "shopify_location_ids", "shopify_inventory_pairs", "shopify_inventory_snapshot"]) {
       if (!sisCols.includes(col)) {
         db.run(`ALTER TABLE shopify_import_sessions ADD COLUMN ${col} TEXT`);
       }
