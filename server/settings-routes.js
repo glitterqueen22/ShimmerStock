@@ -12,7 +12,7 @@ function cleanText(value, min, max) {
 }
 
 function containsSensitiveMaterial(value) {
-  return /authorization\s*:\s*bearer|(?:password|access[_ -]?token|api[_ -]?key|encryption[_ -]?key)\s*[:=]|\b[0-9a-f]{64}\b/i.test(value);
+  return /authorization\s*:\s*(?:bearer|basic)|(?:password|access[_ -]?token|api[_ -]?key|encryption[_ -]?key|cookie|session)\s*[:=]|\b[0-9a-f]{64}\b|\bshp(?:at|ca|pa|ss)_[a-z0-9_-]{8,}|\beyJ[a-z0-9_-]+\.[a-z0-9_-]+\.[a-z0-9_-]+|-----BEGIN [A-Z ]*PRIVATE KEY-----|\bgh(?:p|o|u|s|r)_[a-z0-9]{20,}|\bgithub_pat_[a-z0-9_]{20,}|\bsk_(?:live|test)_[a-z0-9]{12,}|\bsk-[a-z0-9_-]{20,}|\b(?:AKIA|ASIA)[A-Z0-9]{16}\b|\bxox(?:b|p|a|r|s)-[a-z0-9-]{12,}/i.test(value);
 }
 
 function getSettingsOverview(db, businessId, user) {
@@ -36,6 +36,7 @@ function getSettingsOverview(db, businessId, user) {
   };
   const shopify = db.query(`
     SELECT pc.shop_domain, pc.shop_name, pc.sync_status, pc.sync_mode, pc.scopes,
+      pc.sync_error, pc.is_active, pc.access_token_encrypted,
       si.state AS latest_import_state, si.last_successful_import_at
     FROM provider_credentials pc
     LEFT JOIN shopify_import_sessions si ON si.id = (
@@ -44,18 +45,23 @@ function getSettingsOverview(db, businessId, user) {
     WHERE pc.business_id = ? AND pc.provider = 'shopify'
     LIMIT 1
   `).get(businessId) || null;
+  const shopifyConnected = shopify?.is_active === 1 && Boolean(shopify?.access_token_encrypted);
+  const shopifyConnectionState = shopifyConnected ? "connected"
+    : shopify?.sync_status === "pending" ? "pending_validation"
+      : shopify?.sync_status === "failed" ? "failed" : "disconnected";
   return {
     account: { id: user.id, username: user.username, displayName: user.display_name, role: user.business_role || user.role },
     business,
     access: getBusinessAccess(db, businessId),
     integrations: {
       shopify: shopify ? {
-        connected: true, shopDomain: shopify.shop_domain, shopName: shopify.shop_name,
+        connected: shopifyConnected, connectionState: shopifyConnectionState,
+        shopDomain: shopify.shop_domain, shopName: shopify.shop_name,
         connectionMode: shopify.sync_mode === "full" ? "product_writeback" : "read_only",
         syncStatus: shopify.sync_status, latestImportState: shopify.latest_import_state,
-        lastSuccessfulImportAt: shopify.last_successful_import_at,
+        lastSuccessfulImportAt: shopifyConnected ? shopify.last_successful_import_at : null,
         grantedScopes: String(shopify.scopes || "").split(",").map(scope => scope.trim()).filter(Boolean),
-      } : { connected: false },
+      } : { connected: false, connectionState: "disconnected" },
     },
     noviPreferences: {
       preferredWorkflow: novi.preferred_workflow, productionPriority: novi.production_priority,
