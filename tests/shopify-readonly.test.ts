@@ -773,6 +773,22 @@ describe("Shopify OAuth — granted scope verification", () => {
     expect(result.verifiedScopes).toContain("read_locations");
   });
 
+  it("accepts optional write_products and its implied product read capability", async () => {
+    const { verifyGrantedScopes } = await import(
+      "../server/shopify-oauth-routes.js?scope-verify-product-writeback"
+    );
+    const explicitReads = verifyGrantedScopes(
+      "read_orders,read_products,read_inventory,read_locations,write_products"
+    );
+    const impliedRead = verifyGrantedScopes(
+      "read_orders,read_inventory,read_locations,write_products"
+    );
+    expect(explicitReads.ok).toBe(true);
+    expect(explicitReads.mode).toBe("product_writeback");
+    expect(impliedRead.ok).toBe(true);
+    expect(impliedRead.mode).toBe("product_writeback");
+  });
+
   it("rejects read_all_orders — not in P0 exact approved scope set", async () => {
     const { verifyGrantedScopes } = await import(
       "../server/shopify-oauth-routes.js?scope-verify-all-orders"
@@ -786,7 +802,7 @@ describe("Shopify OAuth — granted scope verification", () => {
     expect(result.error).toContain("read_all_orders");
   });
 
-  it("SHOPIFY_SCOPES contains exactly the P0 read-only scopes", async () => {
+  it("keeps four required read scopes and only write_products as optional", async () => {
     const src = await Bun.file("server/shopify-oauth-config.js").text();
 
     const match = src.match(/export const SHOPIFY_OAUTH_REQUIRED_SCOPES = Object\.freeze\(\[/);
@@ -797,7 +813,10 @@ describe("Shopify OAuth — granted scope verification", () => {
     expect(src).toContain("read_products");
     expect(src).toContain("read_inventory");
     expect(src).toContain("read_locations");
-    expect(src).not.toContain("write_");
+    expect(src).toContain('SHOPIFY_OAUTH_OPTIONAL_SCOPES = Object.freeze(["write_products"])');
+    expect(src).not.toContain("write_inventory");
+    expect(src).not.toContain("write_orders");
+    expect(src).not.toContain("write_locations");
     expect(src).not.toContain("read_all_orders");
     expect(src).not.toContain("read_customers");
     expect(src).not.toContain("read_fulfillments");
@@ -1109,7 +1128,7 @@ describe("Shopify Admin API version — 2026-07 pilot preflight", () => {
     expect(src).toContain("shopify-gateway");
   });
 
-  it("approved OAuth scopes are still exactly the four read-only scopes", async () => {
+  it("default OAuth scopes stay read-only while write_products is optional", async () => {
     const src = await Bun.file("server/shopify-oauth-config.js").text();
     const match = src.match(/export const SHOPIFY_OAUTH_REQUIRED_SCOPES = Object\.freeze\(\[/);
     expect(match).toBeTruthy();
@@ -1118,7 +1137,10 @@ describe("Shopify Admin API version — 2026-07 pilot preflight", () => {
     expect(src).toContain("read_products");
     expect(src).toContain("read_inventory");
     expect(src).toContain("read_locations");
-    expect(src).not.toContain("write_");
+    expect(src).toContain('SHOPIFY_OAUTH_OPTIONAL_SCOPES = Object.freeze(["write_products"])');
+    expect(src).not.toContain("write_inventory");
+    expect(src).not.toContain("write_orders");
+    expect(src).not.toContain("write_locations");
     expect(src).not.toContain("read_all_orders");
     expect(src).not.toContain("read_customers");
     expect(src).not.toContain("read_fulfillments");

@@ -10,6 +10,7 @@ export interface ShopifyStatus {
   connectionState: "disconnected" | "pending_validation" | "connected" | "failed";
   syncMode: "readonly" | "full";
   canWrite: boolean;
+  identifierWritebackEnabled: boolean;
   shopDomain: string | null;
   shopName: string | null;
   shopOwner?: string | null;
@@ -638,7 +639,7 @@ export default function ShopifyConnect({
       </div>
 
       {/* Novi Safe Mode message */}
-      {isConnected && status!.syncMode === "readonly" && !safeModeDismissed && (
+      {isConnected && status!.syncMode === "readonly" && !status!.identifierWritebackEnabled && !safeModeDismissed && (
         <div className="bg-gradient-to-br from-purple-100 to-purple-50 rounded-2xl shadow-sm border-2 border-purple-300 p-5 card-lift">
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0 text-4xl">💜</div>
@@ -713,10 +714,12 @@ export default function ShopifyConnect({
                   <div className="flex items-center gap-2 mb-2">
                     <span className={`w-2.5 h-2.5 rounded-full ${status!.syncMode === "readonly" ? "bg-emerald-500" : "bg-rose-300"}`} />
                     <span className={`text-xs font-bold ${status!.syncMode === "readonly" ? "text-emerald-700" : "text-rose-400"}`}>
-                      Safe Mode
+                      {status!.identifierWritebackEnabled ? "Product Writeback Enabled" : "Safe Mode"}
                     </span>
                     {status!.syncMode === "readonly" && (
-                      <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold">Read Only</span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold">
+                        {status!.identifierWritebackEnabled ? "SKU/Barcode Only" : "Read Only"}
+                      </span>
                     )}
                   </div>
                   <ul className="space-y-1">

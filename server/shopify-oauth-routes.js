@@ -35,6 +35,7 @@ import {
   buildShopifyAuthorizationUrl,
   resolveShopifyOAuthConfig,
   SHOPIFY_OAUTH_REQUIRED_SCOPES,
+  SHOPIFY_OAUTH_OPTIONAL_SCOPES,
 } from "./shopify-oauth-config.js";
 
 // ── Rate limiters for OAuth endpoints ──────────────────────────────────────
@@ -63,9 +64,7 @@ const oauthCallbackLimiter = rateLimit({
 // ── P0 OAuth scope policy ────────────────────────────────────────────────────
 // Exactly these four read scopes — no more, no fewer.
 
-// P0 policy: the approved set is exactly SHOPIFY_OAUTH_REQUIRED_SCOPES — no additional scopes.
-// read_all_orders is NOT approved for P0; it belongs in a separate owner-approved scope milestone.
-const APPROVED_SCOPES = new Set(SHOPIFY_OAUTH_REQUIRED_SCOPES);
+const APPROVED_SCOPES = new Set([...SHOPIFY_OAUTH_REQUIRED_SCOPES, ...SHOPIFY_OAUTH_OPTIONAL_SCOPES]);
 
 // API_VERSION is centralized in server/providers/shopify-gateway.js as SHOPIFY_API_VERSION.
 // The unused local constant previously declared here has been removed.
@@ -175,10 +174,9 @@ async function fetchShopInfo(shopDomain, accessToken) {
 // ── Scope verification ────────────────────────────────────────────────────
 
 /**
- * Verify granted scopes against P0 policy:
- *  - No write_* scope is permitted.
- *  - Granted scopes must exactly match APPROVED_SCOPES (same as SHOPIFY_OAUTH_REQUIRED_SCOPES for P0).
- *  - All SHOPIFY_OAUTH_REQUIRED_SCOPES must be present.
+ * Verify either the default read-only scope set or the narrowly approved
+ * product-writeback set. Shopify may omit read_products when write_products
+ * is granted because the write capability implies the related read capability.
  *
  * Exported for unit testing.
  *
@@ -191,12 +189,13 @@ export function verifyGrantedScopes(grantedScopeString) {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  // Reject any write scope
-  const writeScopesFound = grantedList.filter((s) => s.startsWith("write_"));
+  const writeScopesFound = grantedList.filter(
+    (scope) => scope.startsWith("write_") && !SHOPIFY_OAUTH_OPTIONAL_SCOPES.includes(scope)
+  );
   if (writeScopesFound.length > 0) {
     return {
       ok: false,
-      error: `Connection rejected: Shopify granted write scopes that are not permitted: ${writeScopesFound.join(", ")}`,
+      error: `Connection rejected: Shopify granted unapproved write scopes: ${writeScopesFound.join(", ")}`,
       verifiedScopes: [],
     };
   }
@@ -212,7 +211,10 @@ export function verifyGrantedScopes(grantedScopeString) {
   }
 
   // Check all required scopes are present
-  const missing = SHOPIFY_OAUTH_REQUIRED_SCOPES.filter((req) => !grantedList.includes(req));
+  const hasProductCapability = grantedList.includes("read_products") || grantedList.includes("write_products");
+  const missing = SHOPIFY_OAUTH_REQUIRED_SCOPES.filter((required) => (
+    required === "read_products" ? !hasProductCapability : !grantedList.includes(required)
+  ));
 
   if (missing.length > 0) {
     return {
@@ -222,7 +224,11 @@ export function verifyGrantedScopes(grantedScopeString) {
     };
   }
 
-  return { ok: true, verifiedScopes: grantedList };
+  return {
+    ok: true,
+    verifiedScopes: grantedList,
+    mode: grantedList.includes("write_products") ? "product_writeback" : "readonly",
+  };
 }
 
 // ── State management ──────────────────────────────────────────────────────
@@ -238,15 +244,16 @@ export function verifyGrantedScopes(grantedScopeString) {
  * @param {string} expectedShop
  * @returns {string} opaque state token
  */
-function createOAuthState(db, userId, businessId, sessionId, expectedShop) {
+function createOAuthState(db, userId, businessId, sessionId, expectedShop, requestedCapability = "readonly") {
   const stateToken = crypto.randomBytes(32).toString("hex");
   const stateHash = crypto.createHash("sha256").update(stateToken).digest("hex");
   const expiresAt = new Date(Date.now() + STATE_TTL_SECONDS * 1000).toISOString();
 
   db.run(
-    `INSERT INTO shopify_oauth_state (state_hash, user_id, business_id, session_id, expected_shop, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [stateHash, userId, businessId, sessionId ?? null, expectedShop, expiresAt]
+    `INSERT INTO shopify_oauth_state
+       (state_hash, user_id, business_id, session_id, expected_shop, requested_capability, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [stateHash, userId, businessId, sessionId ?? null, expectedShop, requestedCapability, expiresAt]
   );
 
   return stateToken;
@@ -416,13 +423,15 @@ export function mountShopifyOauthRoutes(app, db) {
       }
 
       // Create opaque state bound to user + business + session + shop
-      const stateToken = createOAuthState(db, userId, businessId, sessionId, shop);
+      const requestedCapability = req.query.capability === "product_writeback" ? "product_writeback" : "readonly";
+      const stateToken = createOAuthState(db, userId, businessId, sessionId, shop, requestedCapability);
 
       const destination = buildShopifyAuthorizationUrl({
         shopDomain: shop,
         clientId: oauthConfig.clientId,
         redirectUri: oauthConfig.redirectUri,
         state: stateToken,
+        includeProductWriteback: requestedCapability === "product_writeback",
       });
 
       console.log(`[shopify-oauth] Redirecting business ${businessId} to Shopify OAuth (shop: ${shop})`);
@@ -487,6 +496,9 @@ export function mountShopifyOauthRoutes(app, db) {
       if (!scopeCheck.ok) {
         console.error(`[shopify-oauth] Scope verification failed for ${shop}: ${scopeCheck.error}`);
         return res.status(403).json({ error: scopeCheck.error });
+      }
+      if (scopeCheck.mode === "product_writeback" && stateRecord.requested_capability !== "product_writeback") {
+        return res.status(403).json({ error: "Connection rejected: Product Editing permission was not requested" });
       }
 
       // Persist only the exact verified scope list

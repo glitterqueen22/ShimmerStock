@@ -8,6 +8,7 @@ import { measurePageLoad } from "./lib/perf";
 import HQ from "./pages/HQ";
 import BusinessBestie from "./pages/BusinessBestie";
 import Products from "./pages/Products";
+import SkuLabelStudio from "./pages/SkuLabelStudio";
 import Scan from "./pages/Scan";
 import Orders from "./pages/Orders";
 import AuditLog from "./pages/AuditLog";
@@ -54,6 +55,7 @@ function ProtectedApp() {
             <Route path="/bestie" element={<BusinessBestie />} />
             <Route path="/hq" element={<HQ />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/products/sku-label-studio" element={<SkuLabelStudio />} />
             <Route path="/products/:id" element={<ProductHQ />} />
             <Route path="/scan" element={<Scan />} />
             <Route path="/orders" element={<Orders />} />

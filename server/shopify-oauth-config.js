@@ -8,6 +8,8 @@ export const SHOPIFY_OAUTH_REQUIRED_SCOPES = Object.freeze([
   "read_locations",
 ]);
 
+export const SHOPIFY_OAUTH_OPTIONAL_SCOPES = Object.freeze(["write_products"]);
+
 export const SHOPIFY_OAUTH_SCOPE_STRING = SHOPIFY_OAUTH_REQUIRED_SCOPES.join(",");
 export const SHOPIFY_OAUTH_CLIENT_ID_ENV = "SHOPIFY_CLIENT_ID";
 export const SHOPIFY_OAUTH_CLIENT_SECRET_ENV = "SHOPIFY_CLIENT_SECRET";
@@ -253,10 +255,13 @@ export function resolveShopifyOAuthConfig(env = process.env, options = {}) {
   };
 }
 
-export function buildShopifyAuthorizationUrl({ shopDomain, clientId, redirectUri, state }) {
+export function buildShopifyAuthorizationUrl({ shopDomain, clientId, redirectUri, state, includeProductWriteback = false }) {
   const url = new URL(`https://${shopDomain}/admin/oauth/authorize`);
   url.searchParams.set("client_id", clientId);
-  url.searchParams.set("scope", SHOPIFY_OAUTH_SCOPE_STRING);
+  const scopes = includeProductWriteback
+    ? [...SHOPIFY_OAUTH_REQUIRED_SCOPES, ...SHOPIFY_OAUTH_OPTIONAL_SCOPES]
+    : SHOPIFY_OAUTH_REQUIRED_SCOPES;
+  url.searchParams.set("scope", scopes.join(","));
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("state", state);
   return url.toString();

@@ -25,6 +25,13 @@ interface ProductFormData {
   stock_count: number;
 }
 
+interface SetupInsight {
+  total: number;
+  missingSkus: number;
+  missingBarcodes: number;
+  needsReview: number;
+}
+
 const emptyForm = (): ProductFormData => ({
   name: "",
   sku: "",
@@ -46,6 +53,7 @@ export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [setupInsight, setSetupInsight] = useState<SetupInsight | null>(null);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -68,6 +76,12 @@ export default function Products() {
     try {
       const data = await apiGet("/api/products");
       setProducts(data);
+      try {
+        const studio = await apiGet<{ audit: SetupInsight }>("/api/sku-label-studio");
+        setSetupInsight(studio.audit);
+      } catch {
+        setSetupInsight(null);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load products");
     } finally {
@@ -201,12 +215,19 @@ export default function Products() {
         title={terms.products}
         description={`Manage your ${terms.products.toLowerCase()}, SKUs, and barcodes`}
         actions={
-          <Button variant="primary" onClick={openAdd} title={addProductNote ?? undefined}>
-            <span className="text-lg mr-1">＋</span>
-            {addProductLabel}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => navigate("/products/sku-label-studio")}>SKU & Labels</Button>
+            <Button variant="primary" onClick={openAdd} title={addProductNote ?? undefined}><span className="text-lg mr-1">＋</span>{addProductLabel}</Button>
+          </div>
         }
       />
+
+      {setupInsight && (setupInsight.missingSkus > 0 || setupInsight.missingBarcodes > 0 || setupInsight.needsReview > 0) && (
+        <div className="rounded-lg border border-purple-200 bg-gradient-to-r from-purple-50 to-emerald-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div><p className="font-semibold text-neutral-900">Novi found {setupInsight.missingSkus + setupInsight.missingBarcodes} identifier gaps across your catalog.</p><p className="text-sm text-neutral-600">New Shopify products can be prepared with your usual SKU and label setup.</p></div>
+          <Button onClick={() => navigate("/products/sku-label-studio")}>Set them up</Button>
+        </div>
+      )}
 
       {isShopifyPilot && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

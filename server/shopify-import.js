@@ -28,6 +28,7 @@
 
 import { gatewayGraphQL } from "./providers/shopify-gateway.js";
 import { decryptToken } from "./crypto-utils.js";
+import { recordCatalogAudit } from "./sku-label-studio.js";
 
 // ── Import state constants ────────────────────────────────────────────────
 
@@ -739,7 +740,7 @@ function upsertProduct(db, businessId, shopifyProduct) {
  * @param {object} shopifyVariant — node from GraphQL response
  * @returns {number} ShimmerStock variant id
  */
-function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) {
+export function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) {
   const shopifyVariantId = gidToId(shopifyVariant.id);
   const shopifyInventoryItemId = gidToId(shopifyVariant.inventoryItem?.id);
   const sku = shopifyVariant.sku ?? null;
@@ -753,10 +754,15 @@ function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) {
   if (existing) {
     db.run(
       `UPDATE product_variants
-       SET sku = ?, barcode = ?, variant_value = ?, shopify_inventory_item_id = ?,
+         SET sku = CASE WHEN sku IS shopify_sku THEN ? ELSE sku END,
+           barcode = CASE WHEN barcode IS shopify_barcode THEN ? ELSE barcode END,
+           shopify_sku = ?, shopify_barcode = ?,
+           variant_value = ?, shopify_inventory_item_id = ?,
            stock_count = ?, updated_at = datetime('now')
        WHERE id = ? AND business_id = ?`,
       [
+        sku,
+        barcode,
         sku,
         barcode,
         title,
@@ -773,9 +779,9 @@ function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) {
     .query(
       `INSERT INTO product_variants
          (product_id, business_id, sku, barcode, variant_type, variant_value,
-          stock_count, shopify_variant_id, shopify_inventory_item_id,
+         stock_count, shopify_variant_id, shopify_inventory_item_id, shopify_sku, shopify_barcode,
           is_active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'shopify', ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`
+       VALUES (?, ?, ?, ?, 'shopify', ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`
     )
     .run(
       shimmerProductId,
@@ -785,7 +791,9 @@ function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) {
       title,
       shopifyVariant.inventoryQuantity || 0,
       shopifyVariantId,
-      shopifyInventoryItemId
+      shopifyInventoryItemId,
+      sku,
+      barcode
     );
   return Number(res.lastInsertRowid);
 }
@@ -1133,6 +1141,7 @@ export async function runInitialImport(db, businessId) {
          WHERE business_id = ? AND provider = 'shopify'`,
         [businessId]
       );
+      recordCatalogAudit(db, businessId, sessionId);
     } else {
       db.run(
         `UPDATE provider_credentials

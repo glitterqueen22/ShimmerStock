@@ -193,6 +193,57 @@ export async function gatewayGraphQL(mode, shopDomain, accessToken, document, va
   return res.json();
 }
 
+const PRODUCT_VARIANTS_BULK_UPDATE = `
+  mutation NoviSkuBarcodeUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+    productVariantsBulkUpdate(productId: $productId, variants: $variants, allowPartialUpdates: false) {
+      productVariants { id barcode inventoryItem { id sku } }
+      userErrors { field message code }
+    }
+  }
+`;
+
+function requireShopifyGid(value, type) {
+  const normalized = String(value || "");
+  if (!new RegExp(`^gid://shopify/${type}/[0-9]+$`).test(normalized)) {
+    throw new Error(`[shopify-gateway] Invalid ${type} identifier`);
+  }
+  return normalized;
+}
+
+/**
+ * The only Shopify mutation allowed by SKU & Label Studio. Callers provide
+ * structured identifiers and attributes, never a GraphQL document.
+ */
+export async function gatewayProductVariantsBulkUpdate(shopDomain, accessToken, productId, variants) {
+  const normalizedShopDomain = canonicalizeShopDomain(shopDomain);
+  if (!isCanonicalShopDomain(normalizedShopDomain)) throw new Error("[shopify-gateway] Invalid shop domain");
+  const safeProductId = requireShopifyGid(productId, "Product");
+  if (!Array.isArray(variants) || variants.length === 0 || variants.length > 100) {
+    throw new Error("[shopify-gateway] Variant update batch must contain 1-100 variants");
+  }
+  const safeVariants = variants.map((variant) => {
+    const input = { id: requireShopifyGid(variant.id, "ProductVariant") };
+    if (variant.barcode !== undefined) input.barcode = variant.barcode === null ? null : String(variant.barcode);
+    if (variant.sku !== undefined) input.inventoryItem = { sku: variant.sku === null ? "" : String(variant.sku) };
+    if (input.barcode === undefined && input.inventoryItem === undefined) {
+      throw new Error("[shopify-gateway] SKU or barcode update required");
+    }
+    return input;
+  });
+  const url = `https://${normalizedShopDomain}/admin/api/${API_VERSION}/graphql.json`;
+  console.log(`[shopify-gateway] GraphQL approved productVariantsBulkUpdate ${normalizedShopDomain}`);
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "X-Shopify-Access-Token": accessToken, "Content-Type": "application/json" },
+    body: JSON.stringify({ query: PRODUCT_VARIANTS_BULK_UPDATE, variables: { productId: safeProductId, variants: safeVariants } }),
+  });
+  if (!response.ok) {
+    console.warn(`[shopify-gateway] Approved variant update failed (${response.status})`);
+    throw new Error(`Shopify variant update failed (${response.status})`);
+  }
+  return response.json();
+}
+
 // ── Error type ────────────────────────────────────────────────────────────
 
 /**
