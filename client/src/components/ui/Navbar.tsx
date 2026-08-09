@@ -6,6 +6,7 @@ import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { RADIUS } from '../../design/tokens';
 import { MOTION } from '../../design/motion';
 import { apiGet } from '../../lib/api';
+import BrandMark from '../BrandMark';
 
 // ── Link Configuration ────────────────────────────────────────────
 interface NavLinkConfig {
@@ -315,10 +316,7 @@ export function Navbar() {
               </button>
 
               {/* Brand */}
-              <span className="text-2xl drop-shadow-sm hidden sm:inline">✨</span>
-              <span className="text-xl font-bold tracking-tight animate-shimmer font-[family-name:var(--font-heading)] hidden sm:inline">
-                ShimmerStock
-              </span>
+              <BrandMark inverse className="hidden sm:inline-flex" />
 
               {/* Workspace switcher — always visible on desktop */}
               {user.business_name && (
@@ -547,10 +545,7 @@ export function Navbar() {
             {/* Drawer header */}
             <div className="flex items-center justify-between p-4 border-b border-rose-100">
               <div className="flex items-center gap-2">
-                <span className="text-2xl">✨</span>
-                <span className="text-lg font-bold font-[family-name:var(--font-heading)] text-rose-500">
-                  ShimmerStock
-                </span>
+                <BrandMark />
               </div>
               <button
                 onClick={() => setMobileOpen(false)}
