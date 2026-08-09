@@ -48,6 +48,7 @@ import { mountPartnerRoutes } from "./partner-routes.js";
 import { mountAffiliateAttributionRoutes } from "./affiliate-attribution-routes.js";
 import { mountBrandSetupRoutes } from "./ai-brand-setup-routes.js";
 import { mountNoviMessageRoutes } from "./novi-messages.js";
+import { mountSkuLabelRoutes } from "./sku-label-routes.js";
 import { initNoviDetection } from "./novi-detection.js";
 import { initOpportunityBridge } from "./opportunity-bridge.js";
 import { mountStoreCreditRoutes } from "./store-credit-routes.js";
@@ -775,6 +776,10 @@ app.get("/api/shopify/status", requireAuth(db, "shopify.read"), (req, res) => {
         ? "failed"
         : "disconnected";
   const isActive = creds?.is_active === 1 && isConnected;
+  const identifierWritebackEnabled = String(creds?.scopes || "")
+    .split(",")
+    .map(scope => scope.trim())
+    .includes("write_products");
   const importState = getEffectiveImportState(db, req.businessId);
   const importSession = getLatestImportSession(db, req.businessId);
   const syncError = importSession?.errors
@@ -788,6 +793,7 @@ app.get("/api/shopify/status", requireAuth(db, "shopify.read"), (req, res) => {
       connectionState,
       syncMode: creds?.sync_mode || "readonly",
       canWrite: false,
+      identifierWritebackEnabled: false,
       shopDomain: creds?.shop_domain || null,
       shopName: creds?.shop_name || null,
       shopOwner: creds?.shop_owner || null,
@@ -806,6 +812,7 @@ app.get("/api/shopify/status", requireAuth(db, "shopify.read"), (req, res) => {
     connectionState,
     syncMode: creds.sync_mode || status.mode,
     canWrite: status.canWrite,
+    identifierWritebackEnabled,
     shopDomain: creds.shop_domain || null,
     shopName: creds.shop_name || null,
     shopOwner: creds.shop_owner || null,
@@ -3549,6 +3556,7 @@ mountBestieRoutes(app, db);
 mountOpportunityRoutes(app, db);
 mountHealthRoutes(app, db);
 mountVariantRoutes(app, db, requireAuth);
+mountSkuLabelRoutes(app, db);
 mountWarehouseRoutes(app, db, requireAuth);
 mountCsRoutes(app, db);
 mountIndustryRoutes(app, db);

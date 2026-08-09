@@ -476,6 +476,14 @@ export function initDb(dbPath) {
     db.run("ALTER TABLE product_variants ADD COLUMN shopify_inventory_item_id TEXT");
     console.log("Added shopify_inventory_item_id column to product_variants");
   }
+  if (!variantCols.some(c => c.name === "shopify_sku")) {
+    db.run("ALTER TABLE product_variants ADD COLUMN shopify_sku TEXT");
+    console.log("Added shopify_sku column to product_variants");
+  }
+  if (!variantCols.some(c => c.name === "shopify_barcode")) {
+    db.run("ALTER TABLE product_variants ADD COLUMN shopify_barcode TEXT");
+    console.log("Added shopify_barcode column to product_variants");
+  }
 
   rebuildProductVariantsForShopifyIdentity(db);
   db.run(`CREATE INDEX IF NOT EXISTS idx_variants_product ON product_variants(product_id)`);
@@ -2030,6 +2038,117 @@ export function initDb(dbPath) {
 
   console.log("Shopify OAuth: provider_credentials migration complete");
 
+  // ── Novi SKU & Label Studio ────────────────────────────────────────
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS product_identity_settings (
+      business_id INTEGER PRIMARY KEY REFERENCES businesses(id),
+      sku_pattern TEXT NOT NULL DEFAULT '{PRODUCT}-{VARIANT}-{NUMBER}',
+      sku_separator TEXT NOT NULL DEFAULT '-',
+      sku_case TEXT NOT NULL DEFAULT 'upper' CHECK(sku_case IN ('upper', 'lower')),
+      number_start INTEGER NOT NULL DEFAULT 1,
+      number_padding INTEGER NOT NULL DEFAULT 3,
+      preserve_existing INTEGER NOT NULL DEFAULT 1,
+      writeback_enabled INTEGER NOT NULL DEFAULT 0,
+      preferred_label_size TEXT NOT NULL DEFAULT '2x1',
+      label_fields TEXT NOT NULL DEFAULT '["product","variant","sku","barcode"]',
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS generated_internal_barcodes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      business_id INTEGER NOT NULL REFERENCES businesses(id),
+      variant_id INTEGER NOT NULL REFERENCES product_variants(id),
+      barcode_value TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(business_id, variant_id),
+      UNIQUE(business_id, barcode_value)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS label_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      business_id INTEGER NOT NULL REFERENCES businesses(id),
+      name TEXT NOT NULL,
+      width_inches REAL NOT NULL,
+      height_inches REAL NOT NULL,
+      fields TEXT NOT NULL,
+      custom_text TEXT,
+      is_default INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(business_id, name)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS label_print_jobs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      business_id INTEGER NOT NULL REFERENCES businesses(id),
+      template_id INTEGER REFERENCES label_templates(id),
+      requested_by INTEGER NOT NULL REFERENCES users(id),
+      status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','printing','completed','cancelled','failed')),
+      items TEXT NOT NULL,
+      total_labels INTEGER NOT NULL,
+      is_test INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS product_setup_audits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      business_id INTEGER NOT NULL REFERENCES businesses(id),
+      import_session_id INTEGER REFERENCES shopify_import_sessions(id),
+      summary TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS shopify_identifier_writeback_audit (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      business_id INTEGER NOT NULL REFERENCES businesses(id),
+      shop TEXT NOT NULL,
+      shopify_product_id TEXT NOT NULL,
+      shopify_variant_id TEXT NOT NULL,
+      previous_sku TEXT,
+      previous_barcode TEXT,
+      requested_sku TEXT,
+      requested_barcode TEXT,
+      result TEXT NOT NULL,
+      shopify_user_errors TEXT NOT NULL DEFAULT '[]',
+      initiated_by INTEGER NOT NULL REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS shopify_identifier_writeback_previews (
+      id TEXT PRIMARY KEY,
+      business_id INTEGER NOT NULL REFERENCES businesses(id),
+      initiated_by INTEGER NOT NULL REFERENCES users(id),
+      payload TEXT NOT NULL,
+      accepted_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      executed_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run("CREATE INDEX IF NOT EXISTS idx_internal_barcodes_business ON generated_internal_barcodes(business_id)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_label_templates_business ON label_templates(business_id)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_label_print_jobs_business ON label_print_jobs(business_id)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_product_setup_audits_business ON product_setup_audits(business_id)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_identifier_writeback_business ON shopify_identifier_writeback_audit(business_id)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_identifier_previews_business ON shopify_identifier_writeback_previews(business_id)");
+
+  console.log("Novi SKU & Label Studio tables ready");
+
   // ── Shopify OAuth State table — CSRF / replay protection ─────────────
   // Stores server-side hashes of opaque state tokens for OAuth callbacks.
   // Each row is single-use and expires after a short TTL.
@@ -2042,11 +2161,17 @@ export function initDb(dbPath) {
       business_id INTEGER NOT NULL,
       session_id INTEGER,
       expected_shop TEXT NOT NULL,
+      requested_capability TEXT NOT NULL DEFAULT 'readonly',
       expires_at TEXT NOT NULL,
       used_at TEXT DEFAULT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
+
+  const oauthStateColumns = db.query("PRAGMA table_info(shopify_oauth_state)").all();
+  if (!oauthStateColumns.some(column => column.name === "requested_capability")) {
+    db.run("ALTER TABLE shopify_oauth_state ADD COLUMN requested_capability TEXT NOT NULL DEFAULT 'readonly'");
+  }
 
   console.log("Shopify OAuth: shopify_oauth_state table ready");
 

@@ -103,4 +103,17 @@ describe("Shopify OAuth authorization URL builder", () => {
     expect(url.searchParams.get("state")).toBe("state-token-value");
     expect(url.searchParams.has("client_secret")).toBe(false);
   });
+
+  it("requests write_products only during the explicit Product Editing flow", () => {
+    const url = new URL(buildShopifyAuthorizationUrl({
+      shopDomain: "craft-supply-test.myshopify.com",
+      clientId: "valid_client_id_1234567890",
+      redirectUri: "https://app.example.com/api/shopify/auth/callback",
+      state: "state-token-value",
+      includeProductWriteback: true,
+    }));
+    expect(url.searchParams.get("scope")).toBe(`${SHOPIFY_OAUTH_SCOPE_STRING},write_products`);
+    expect(url.searchParams.get("scope")).not.toContain("write_inventory");
+    expect(url.searchParams.get("scope")).not.toContain("read_all_orders");
+  });
 });
