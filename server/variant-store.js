@@ -7,19 +7,20 @@
 
 /** List all variants for a product, scoped to business. */
 import { getVariantInventory, listVariantInventory } from "./inventory-truth.js";
+import { getLocalSkuSaveState, withSkuTruth } from "./sku-truth.js";
 
 function withInventory(rows, inventoryRows) {
   const inventory = new Map(inventoryRows.map(row => [row.id, row]));
   return rows.map(row => {
     const truth = inventory.get(row.id);
-    return truth ? { ...row, stock_count: truth.available, inventory_tracked: truth.available !== null } : row;
+    return withSkuTruth(truth ? { ...row, stock_count: truth.available, inventory_tracked: truth.available !== null } : row);
   });
 }
 
 export function listVariants(db, productId, businessId) {
   const rows = db
     .query(
-      "SELECT id, product_id, business_id, sku, barcode, variant_type, variant_value, price, cost, stock_count, weight_oz, is_active, created_at, updated_at FROM product_variants WHERE product_id = ? AND business_id = ? ORDER BY variant_type, variant_value"
+      "SELECT id, product_id, business_id, sku, shopify_sku, shopify_variant_id, sku_sync_state, barcode, variant_type, variant_value, price, cost, stock_count, weight_oz, is_active, created_at, updated_at FROM product_variants WHERE product_id = ? AND business_id = ? ORDER BY variant_type, variant_value"
     )
     .all(productId, businessId);
   return withInventory(rows, listVariantInventory(db, businessId));
@@ -29,19 +30,19 @@ export function listVariants(db, productId, businessId) {
 export function getVariant(db, variantId, businessId) {
   const row = db
     .query(
-      "SELECT id, product_id, business_id, sku, barcode, variant_type, variant_value, price, cost, stock_count, weight_oz, is_active, created_at, updated_at FROM product_variants WHERE id = ? AND business_id = ?"
+      "SELECT id, product_id, business_id, sku, shopify_sku, shopify_variant_id, sku_sync_state, barcode, variant_type, variant_value, price, cost, stock_count, weight_oz, is_active, created_at, updated_at FROM product_variants WHERE id = ? AND business_id = ?"
     )
     .get(variantId, businessId);
   if (!row) return null;
   const truth = getVariantInventory(db, businessId, variantId);
-  return truth ? { ...row, stock_count: truth.available, inventory_tracked: truth.available !== null } : row;
+  return withSkuTruth(truth ? { ...row, stock_count: truth.available, inventory_tracked: truth.available !== null } : row);
 }
 
 /** Get a variant by SKU, scoped to business. */
 export function getVariantBySku(db, sku, businessId) {
   return db
     .query(
-      "SELECT id, product_id, business_id, sku, barcode, variant_type, variant_value, price, cost, stock_count, weight_oz, is_active, created_at, updated_at FROM product_variants WHERE sku = ? AND business_id = ?"
+      "SELECT id, product_id, business_id, sku, shopify_sku, shopify_variant_id, sku_sync_state, barcode, variant_type, variant_value, price, cost, stock_count, weight_oz, is_active, created_at, updated_at FROM product_variants WHERE sku = ? AND business_id = ?"
     )
     .get(sku, businessId);
 }
@@ -49,9 +50,9 @@ export function getVariantBySku(db, sku, businessId) {
 /** Create a variant. Returns lastInsertRowid. */
 export function createVariant(db, { productId, businessId, sku, barcode, variantType, variantValue, price, cost, stockCount, weightOz }) {
   const result = db.run(
-    `INSERT INTO product_variants (product_id, business_id, sku, barcode, variant_type, variant_value, price, cost, stock_count, weight_oz)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [productId, businessId, sku, barcode ?? null, variantType, variantValue, price ?? null, cost ?? null, stockCount ?? 0, weightOz ?? null]
+    `INSERT INTO product_variants (product_id, business_id, sku, barcode, variant_type, variant_value, price, cost, stock_count, weight_oz, sku_sync_state)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [productId, businessId, sku, barcode ?? null, variantType, variantValue, price ?? null, cost ?? null, stockCount ?? 0, weightOz ?? null, getLocalSkuSaveState(null, sku)]
   );
   return result.lastInsertRowid;
 }
@@ -61,7 +62,14 @@ export function updateVariant(db, variantId, businessId, fields) {
   const updates = [];
   const values = [];
 
-  if (fields.sku !== undefined) { updates.push("sku = ?"); values.push(fields.sku); }
+  if (fields.sku !== undefined) {
+    const existing = db.query(`
+      SELECT shopify_sku, shopify_variant_id, sku_sync_state
+      FROM product_variants WHERE id = ? AND business_id = ?
+    `).get(variantId, businessId);
+    updates.push("sku = ?", "sku_sync_state = ?");
+    values.push(fields.sku, getLocalSkuSaveState(existing, fields.sku));
+  }
   if (fields.barcode !== undefined) { updates.push("barcode = ?"); values.push(fields.barcode ?? null); }
   if (fields.variantType !== undefined) { updates.push("variant_type = ?"); values.push(fields.variantType); }
   if (fields.variantValue !== undefined) { updates.push("variant_value = ?"); values.push(fields.variantValue); }
@@ -128,25 +136,26 @@ export function bulkProductImport(db, businessId, productsArray) {
 
       if (p.variants && Array.isArray(p.variants)) {
         for (const v of p.variants) {
-          if (!v.sku) continue;
+          const variantSku = String(v.sku ?? "").trim();
+          if (!variantSku) continue;
 
           // Check if variant SKU already exists (idempotent)
           const existingVariant = txnDb
             .query("SELECT id FROM product_variants WHERE sku = ? AND business_id = ?")
-            .get(v.sku, businessId);
+            .get(variantSku, businessId);
 
           if (existingVariant) {
-            variantResults.push({ variantId: existingVariant.id, sku: v.sku, action: "skipped" });
+            variantResults.push({ variantId: existingVariant.id, sku: variantSku, action: "skipped" });
             continue;
           }
 
           const variantResult = txnDb.run(
-            `INSERT INTO product_variants (product_id, business_id, sku, barcode, variant_type, variant_value, price, cost, stock_count, weight_oz)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO product_variants (product_id, business_id, sku, barcode, variant_type, variant_value, price, cost, stock_count, weight_oz, sku_sync_state)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SAVED_LOCAL')`,
             [
               productId,
               businessId,
-              v.sku.trim(),
+              variantSku,
               v.barcode ?? null,
               v.variantType || "default",
               v.variantValue || "default",
@@ -157,7 +166,7 @@ export function bulkProductImport(db, businessId, productsArray) {
             ]
           );
 
-          variantResults.push({ variantId: variantResult.lastInsertRowid, sku: v.sku, action: "created" });
+          variantResults.push({ variantId: variantResult.lastInsertRowid, sku: variantSku, action: "created" });
         }
       }
 
