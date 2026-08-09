@@ -249,6 +249,68 @@ export function rebuildProductsForTenantScoping(db) {
   }
 }
 
+export function rebuildProductVariantsForShopifyIdentity(db) {
+  const columns = db.query("PRAGMA table_info(product_variants)").all();
+  if (columns.length === 0) return;
+
+  const skuColumn = columns.find(column => column.name === "sku");
+  const hasUniqueSkuIndex = Boolean(db.query(
+    "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_variants_sku'"
+  ).get());
+  if (!skuColumn?.notnull && !hasUniqueSkuIndex) return;
+
+  const columnNames = columns.map(column => column.name).join(", ");
+  const extraColumns = columns.filter(column => ![
+    "id", "product_id", "business_id", "sku", "barcode", "variant_type",
+    "variant_value", "price", "cost", "stock_count", "weight_oz", "is_active",
+    "created_at", "updated_at", "shopify_variant_id", "shopify_inventory_item_id",
+  ].includes(column.name));
+  const before = db.query("SELECT COUNT(*) AS count FROM product_variants").get().count;
+
+  db.run("PRAGMA foreign_keys=OFF");
+  db.run("BEGIN IMMEDIATE");
+  try {
+    db.run(`
+      CREATE TABLE product_variants_rebuilt (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER NOT NULL REFERENCES products(id),
+        business_id INTEGER NOT NULL REFERENCES businesses(id),
+        sku TEXT,
+        barcode TEXT,
+        variant_type TEXT NOT NULL,
+        variant_value TEXT NOT NULL,
+        price REAL,
+        cost REAL,
+        stock_count INTEGER NOT NULL DEFAULT 0,
+        weight_oz REAL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        shopify_variant_id TEXT,
+        shopify_inventory_item_id TEXT${extraColumns.map(column =>
+          `,\n        ${column.name} ${column.type || "TEXT"}${column.notnull ? " NOT NULL" : ""}${column.dflt_value !== null ? ` DEFAULT ${column.dflt_value}` : ""}`
+        ).join("")}
+      )
+    `);
+    db.run(`INSERT INTO product_variants_rebuilt (${columnNames}) SELECT ${columnNames} FROM product_variants`);
+
+    const after = db.query("SELECT COUNT(*) AS count FROM product_variants_rebuilt").get().count;
+    if (after !== before) {
+      throw new Error(`Product variant migration row count mismatch: before=${before} after=${after}`);
+    }
+
+    db.run("DROP TABLE product_variants");
+    db.run("ALTER TABLE product_variants_rebuilt RENAME TO product_variants");
+    db.run("COMMIT");
+    console.log(`Rebuilt product_variants for Shopify identity (${after} rows preserved)`);
+  } catch (err) {
+    db.run("ROLLBACK");
+    throw err;
+  } finally {
+    db.run("PRAGMA foreign_keys=ON");
+  }
+}
+
 export function initDb(dbPath) {
   const db = new Database(dbPath || DB_PATH);
 
@@ -352,7 +414,7 @@ export function initDb(dbPath) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       product_id INTEGER NOT NULL REFERENCES products(id),
       business_id INTEGER NOT NULL REFERENCES businesses(id),
-      sku TEXT NOT NULL,
+      sku TEXT,
       barcode TEXT,
       variant_type TEXT NOT NULL,
       variant_value TEXT NOT NULL,
@@ -368,7 +430,6 @@ export function initDb(dbPath) {
 
   db.run(`CREATE INDEX IF NOT EXISTS idx_variants_product ON product_variants(product_id)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_variants_business ON product_variants(business_id)`);
-  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_variants_sku ON product_variants(business_id, sku)`);
 
   // Migration: add product_variants table to existing databases
   const variantCols = db.query("PRAGMA table_info(product_variants)").all();
@@ -415,6 +476,14 @@ export function initDb(dbPath) {
     db.run("ALTER TABLE product_variants ADD COLUMN shopify_inventory_item_id TEXT");
     console.log("Added shopify_inventory_item_id column to product_variants");
   }
+
+  rebuildProductVariantsForShopifyIdentity(db);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_variants_product ON product_variants(product_id)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_variants_business ON product_variants(business_id)`);
+  db.run(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_variants_biz_shopify_id " +
+    "ON product_variants(business_id, shopify_variant_id) WHERE shopify_variant_id IS NOT NULL"
+  );
 
   console.log("Product variants table ready");
 

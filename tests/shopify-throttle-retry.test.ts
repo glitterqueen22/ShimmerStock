@@ -242,4 +242,48 @@ describe("runInitialImport — throttle retry exhaustion", () => {
     // Email-like patterns must not appear
     expect(resultStr).not.toMatch(/@[a-z]+\.[a-z]{2,}/);
   });
+
+  it("inventory GraphQL errors cannot report SYNCED", async () => {
+    const db = initTestDb();
+    insertFakeCredential(db, 1, "inventory-error.myshopify.com");
+
+    mockGatewayImpl = (_mode, _domain, _token, query) => {
+      if (String(query).includes("products(")) return emptyProductsResponse();
+      if (String(query).includes("locations(")) {
+        return {
+          data: {
+            locations: {
+              pageInfo: { hasNextPage: false, endCursor: null },
+              edges: [{ node: {
+                id: "gid://shopify/Location/401",
+                name: "Inventory Error Location",
+                isActive: true,
+                address: { formatted: [] },
+              } }],
+            },
+          },
+        };
+      }
+      if (String(query).includes("location(id:")) {
+        return {
+          errors: [{
+            message: "Field 'available' doesn't exist on type 'InventoryLevel'",
+            extensions: { code: "GRAPHQL_VALIDATION_FAILED" },
+          }],
+        };
+      }
+      if (String(query).includes("orders(")) return emptyOrdersResponse();
+      return { data: {} };
+    };
+
+    const result = await runInitialImport(db, 1);
+    const summary = result.summary as any;
+
+    expect(result.state).toBe(IMPORT_STATES.RECONCILIATION_REQUIRED);
+    expect(result.state).not.toBe(IMPORT_STATES.SYNCED);
+    expect(summary.graphqlErrors).toContain(
+      "inventory: Field 'available' doesn't exist on type 'InventoryLevel'"
+    );
+    db.close();
+  });
 });
