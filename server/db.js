@@ -492,7 +492,7 @@ export function initDb(dbPath) {
     db.run("ALTER TABLE product_variants ADD COLUMN sku_sync_state TEXT NOT NULL DEFAULT 'MISSING'");
     db.run(`UPDATE product_variants SET sku_sync_state = CASE
       WHEN sku IS NULL OR trim(sku) = '' THEN 'MISSING'
-      WHEN shopify_variant_id IS NOT NULL AND sku IS shopify_sku THEN 'SHOPIFY_UPDATED'
+      WHEN shopify_variant_id IS NOT NULL AND sku IS shopify_sku THEN 'IMPORTED'
       ELSE 'SAVED_LOCAL' END`);
     console.log("Added sku_sync_state column to product_variants");
   }
@@ -2171,6 +2171,34 @@ export function initDb(dbPath) {
   db.run("CREATE INDEX IF NOT EXISTS idx_product_setup_audits_business ON product_setup_audits(business_id)");
   db.run("CREATE INDEX IF NOT EXISTS idx_identifier_writeback_business ON shopify_identifier_writeback_audit(business_id)");
   db.run("CREATE INDEX IF NOT EXISTS idx_identifier_previews_business ON shopify_identifier_writeback_previews(business_id)");
+
+  db.run(`CREATE TABLE IF NOT EXISTS schema_migrations (
+    name TEXT PRIMARY KEY,
+    applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+  const skuImportedStateMigration = "2026-03-sku-imported-state-truth";
+  if (!db.query("SELECT 1 FROM schema_migrations WHERE name = ?").get(skuImportedStateMigration)) {
+    db.transaction(() => {
+      db.run(`UPDATE product_variants AS variant
+        SET sku_sync_state = 'IMPORTED'
+        WHERE variant.sku_sync_state = 'SHOPIFY_UPDATED'
+          AND variant.shopify_variant_id IS NOT NULL
+          AND variant.sku IS variant.shopify_sku
+          AND variant.sku IS NOT NULL
+          AND trim(variant.sku) != ''
+          AND NOT EXISTS (
+            SELECT 1 FROM shopify_identifier_writeback_audit AS audit
+            WHERE audit.business_id = variant.business_id
+              AND audit.result = 'SHOPIFY_UPDATED'
+              AND audit.requested_sku IS variant.sku
+              AND (
+                audit.shopify_variant_id = variant.shopify_variant_id
+                OR audit.shopify_variant_id = 'gid://shopify/ProductVariant/' || variant.shopify_variant_id
+              )
+          )`);
+      db.run("INSERT INTO schema_migrations (name) VALUES (?)", [skuImportedStateMigration]);
+    })();
+  }
 
   console.log("Novi SKU & Label Studio tables ready");
 

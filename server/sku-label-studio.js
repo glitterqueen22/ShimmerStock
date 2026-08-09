@@ -1,4 +1,5 @@
 import { getVariantInventory } from "./inventory-truth.js";
+import { getLocalSkuSaveState, withSkuTruth } from "./sku-truth.js";
 
 const DEFAULT_SETTINGS = Object.freeze({
   skuPattern: "{PRODUCT}-{VARIANT}-{NUMBER}",
@@ -94,7 +95,7 @@ export function listCatalogVariants(db, businessId) {
       ON ib.variant_id = v.id AND ib.business_id = v.business_id
     WHERE v.business_id = ? AND v.is_active = 1
     ORDER BY p.name COLLATE NOCASE, v.variant_value COLLATE NOCASE, v.id
-  `).all(businessId);
+  `).all(businessId).map(withSkuTruth);
 }
 
 function duplicateValues(rows, field) {
@@ -118,11 +119,11 @@ export function analyzeCatalog(db, businessId) {
     const duplicateSku = Boolean(sku && duplicateSkus.has(sku));
     const duplicateBarcode = Boolean(barcode && duplicateBarcodes.has(barcode));
     const differsFromShopify = (
-      String(variant.shopify_sku ?? "").trim() !== sku ||
+      variant.skuTruth.mismatch ||
       String(variant.shopify_barcode ?? "").trim() !== barcode
     );
     const needsReview = duplicateSku || duplicateBarcode ||
-      variant.sku_sync_state === "SHOPIFY_UPDATE_FAILED" || variant.barcode_sync_state === "SHOPIFY_UPDATE_FAILED";
+      variant.skuTruth.needsReview || variant.barcode_sync_state === "SHOPIFY_UPDATE_FAILED";
     const ready = !missingSku && (!missingBarcode || Boolean(variant.internal_barcode)) && !needsReview;
     return { ...variant, missingSku, missingBarcode, duplicateSku, duplicateBarcode, differsFromShopify, ready, needsReview };
   });
@@ -271,7 +272,7 @@ export function saveLocalIdentifiers(db, businessId, items, options = {}) {
     const requestBarcodes = new Set();
     for (const item of items) {
       const variant = db.query(
-        `SELECT id, sku, barcode, shopify_sku, shopify_barcode, shopify_variant_id
+        `SELECT id, sku, barcode, shopify_sku, shopify_barcode, shopify_variant_id, sku_sync_state
          FROM product_variants WHERE id = ? AND business_id = ? AND is_active = 1`
       ).get(item.variantId, businessId);
       if (!variant) throw new Error(`Variant ${item.variantId} not found`);
@@ -307,8 +308,7 @@ export function saveLocalIdentifiers(db, businessId, items, options = {}) {
         requestBarcodes.add(nextBarcode);
       }
 
-      const skuState = !nextSku ? "MISSING"
-        : variant.shopify_variant_id && nextSku === variant.shopify_sku ? "SHOPIFY_UPDATED" : "SAVED_LOCAL";
+      const skuState = getLocalSkuSaveState(variant, nextSku);
       const barcodeState = !nextBarcode ? "MISSING"
         : variant.shopify_variant_id && nextBarcode === variant.shopify_barcode ? "SHOPIFY_UPDATED" : "SAVED_LOCAL";
       db.run(`
@@ -335,6 +335,7 @@ export function resolveScan(db, businessId, value) {
   if (!normalized) return { status: "not_found", matches: [] };
   const select = `
         SELECT v.id, v.sku, v.barcode, v.variant_value, v.stock_count,
+          v.shopify_sku, v.shopify_variant_id, v.sku_sync_state,
           v.shopify_inventory_item_id, v.inventory_tracked,
           p.id AS product_id, p.name AS product_name, p.bin_location,
            ib.barcode_value AS internal_barcode
@@ -365,12 +366,12 @@ export function resolveScan(db, businessId, value) {
           ORDER BY l.name COLLATE NOCASE, l.shopify_location_id
         `).all(businessId, match.shopify_inventory_item_id)
       : [];
-    return {
+    return withSkuTruth({
       ...match,
       stock_count: inventory?.available ?? null,
       inventory_tracked: inventory?.available !== null,
       locations,
-    };
+    });
   });
   if (withInventory.length > 1) return { status: "ambiguous", matchedBy, matches: withInventory };
   return { status: "found", matchedBy, match: withInventory[0], matches: withInventory };

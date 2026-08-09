@@ -10,6 +10,7 @@
  */
 
 import * as store from "./store.js";
+import { listVariantSkuTruth } from "./sku-truth.js";
 
 /**
  * GET /api/hq/summary
@@ -66,17 +67,15 @@ export function getHQSummary(db, businessId) {
 }
 
 function getIdentifierExceptions(db, businessId) {
-  return db.query(`
-    SELECT v.id, v.product_id, p.name AS product_name, v.variant_value,
-      v.sku_sync_state, v.barcode_sync_state
-    FROM product_variants v
-    JOIN products p ON p.id = v.product_id AND p.business_id = v.business_id
-    WHERE v.business_id = ? AND v.is_active = 1
-      AND (v.sku_sync_state IN ('MISSING','REVIEW_REQUIRED','SHOPIFY_UPDATE_FAILED')
-        OR v.barcode_sync_state IN ('MISSING','REVIEW_REQUIRED','SHOPIFY_UPDATE_FAILED'))
-    ORDER BY p.name COLLATE NOCASE, v.variant_value COLLATE NOCASE
-    LIMIT 25
-  `).all(businessId);
+  const barcodeStates = new Map(db.query(`
+    SELECT id, barcode_sync_state FROM product_variants
+    WHERE business_id = ? AND is_active = 1
+  `).all(businessId).map(row => [row.id, row.barcode_sync_state]));
+  return listVariantSkuTruth(db, businessId)
+    .map(variant => ({ ...variant, barcode_sync_state: barcodeStates.get(variant.id) }))
+    .filter(variant => variant.skuTruth.needsReview || variant.sku_sync_state === "MISSING"
+      || ["MISSING", "REVIEW_REQUIRED", "SHOPIFY_UPDATE_FAILED"].includes(variant.barcode_sync_state))
+    .slice(0, 25);
 }
 
 function buildCommandCenter(db, businessId, { lowStock, pendingBatches, unfulfilledOrders, identifierExceptions }) {

@@ -30,6 +30,7 @@ import { gatewayGraphQL } from "./providers/shopify-gateway.js";
 import { decryptToken } from "./crypto-utils.js";
 import { recordCatalogAudit } from "./sku-label-studio.js";
 import { projectShopifyInventory } from "./inventory-truth.js";
+import { normalizeSku, reconcileImportedSku } from "./sku-truth.js";
 
 // ── Import state constants ────────────────────────────────────────────────
 
@@ -753,22 +754,25 @@ export function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) 
   const title = shopifyVariant.title || "Default Title";
 
   const existing = db
-    .query(`SELECT id FROM product_variants WHERE shopify_variant_id = ? AND business_id = ?`)
+    .query(`SELECT id, sku, shopify_sku, shopify_variant_id, sku_sync_state
+      FROM product_variants WHERE shopify_variant_id = ? AND business_id = ?`)
     .get(shopifyVariantId, businessId);
 
   if (existing) {
+    const skuTruth = reconcileImportedSku(existing, sku);
     db.run(
       `UPDATE product_variants
-         SET sku = CASE WHEN sku IS shopify_sku THEN ? ELSE sku END,
+         SET sku = ?, sku_sync_state = ?,
            barcode = CASE WHEN barcode IS shopify_barcode THEN ? ELSE barcode END,
            shopify_sku = ?, shopify_barcode = ?,
            variant_value = ?, shopify_inventory_item_id = ?, inventory_tracked = ?,
            stock_count = ?, updated_at = datetime('now')
        WHERE id = ? AND business_id = ?`,
       [
-        sku,
+        skuTruth.localSku,
+        skuTruth.status,
         barcode,
-        sku,
+        skuTruth.shopifySku,
         barcode,
         title,
         shopifyInventoryItemId,
@@ -786,9 +790,9 @@ export function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) 
       `INSERT INTO product_variants
          (product_id, business_id, sku, barcode, variant_type, variant_value,
          stock_count, shopify_variant_id, shopify_inventory_item_id, inventory_tracked,
-         shopify_sku, shopify_barcode,
+         shopify_sku, shopify_barcode, sku_sync_state,
           is_active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'shopify', ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`
+       VALUES (?, ?, ?, ?, 'shopify', ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`
     )
     .run(
       shimmerProductId,
@@ -801,7 +805,8 @@ export function upsertVariant(db, businessId, shimmerProductId, shopifyVariant) 
       shopifyInventoryItemId,
       inventoryTracked,
       sku,
-      barcode
+      barcode,
+      normalizeSku(sku) ? "IMPORTED" : "MISSING"
     );
   return Number(res.lastInsertRowid);
 }
