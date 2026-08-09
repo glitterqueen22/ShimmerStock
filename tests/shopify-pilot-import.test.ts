@@ -656,7 +656,7 @@ describe("shopify pilot import — scope verification", () => {
 describe("shopify pilot — ID-set reconciliation (counts match but IDs differ)", () => {
   it("REGRESSION: equal counts but different product IDs → MISMATCH not RECONCILED", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     // Create an import session that says 2 Shopify products were found with IDs [A, B]
     const sessionId = createImportSession(db, bizId);
@@ -699,7 +699,7 @@ describe("shopify pilot — ID-set reconciliation (counts match but IDs differ)"
 
   it("REGRESSION: equal order counts but different order IDs → MISMATCH not RECONCILED", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     const sessionId = createImportSession(db, bizId);
     updateImportSession(db, sessionId, IMPORT_STATES.SYNCED, {
@@ -734,7 +734,7 @@ describe("shopify pilot — ID-set reconciliation (counts match but IDs differ)"
 
   it("exact ID sets match → RECONCILED when all entities align", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     const sessionId = createImportSession(db, bizId);
     updateImportSession(db, sessionId, IMPORT_STATES.SYNCED, {
@@ -768,7 +768,7 @@ describe("shopify pilot — ID-set reconciliation (counts match but IDs differ)"
 
   it("session without stored ID sets → NEEDS_REVIEW (cannot verify IDs)", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     // Old-style session with no ID columns set
     const sessionId = createImportSession(db, bizId);
@@ -803,7 +803,7 @@ describe("shopify pilot — ID-set reconciliation (counts match but IDs differ)"
 describe("shopify pilot — concurrency guard", () => {
   it("concurrent import request is rejected when an IMPORTING session is active", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     // Start an import (create IMPORTING session manually to simulate an in-flight import)
     const sessionId = createImportSession(db, bizId);
@@ -814,12 +814,12 @@ describe("shopify pilot — concurrency guard", () => {
     // getActiveImportSession should find it
     const active = getActiveImportSession(db, bizId);
     expect(active).not.toBeNull();
-    expect(active!.id).toBe(sessionId);
+    expect((active as { id: number }).id).toBe(sessionId);
   });
 
   it("no concurrent session — getActiveImportSession returns null", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     const active = getActiveImportSession(db, bizId);
     expect(active).toBeNull();
@@ -827,7 +827,7 @@ describe("shopify pilot — concurrency guard", () => {
 
   it("completed session does not block a new import", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     // A SYNCED session should not be considered active
     const sessionId = createImportSession(db, bizId);
@@ -841,7 +841,7 @@ describe("shopify pilot — concurrency guard", () => {
 
   it("IMPORT_FAILED session does not block a new import (safe retry)", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     const sessionId = createImportSession(db, bizId);
     updateImportSession(db, sessionId, IMPORT_STATES.IMPORT_FAILED, {
@@ -861,7 +861,7 @@ describe("shopify pilot — stale session recovery", () => {
 
   it("IMPORTING session started long ago is marked IMPORT_FAILED", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     // Create an import session started 60 minutes ago (stale by any threshold)
     const staleStartTime = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -882,7 +882,7 @@ describe("shopify pilot — stale session recovery", () => {
 
   it("fresh IMPORTING session is not recovered", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     const sessionId = createImportSession(db, bizId);
     updateImportSession(db, sessionId, IMPORT_STATES.IMPORTING, {
@@ -898,7 +898,7 @@ describe("shopify pilot — stale session recovery", () => {
 
   it("IMPORTING session with NULL started_at is recovered (process kill with no timestamp)", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     const sessionId = createImportSession(db, bizId);
     // Manually set to IMPORTING with no start time (simulates crash before timestamp write)
@@ -913,7 +913,7 @@ describe("shopify pilot — stale session recovery", () => {
 
   it("safe retry: after stale recovery, getActiveImportSession returns null", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     const staleStartTime = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const sessionId = createImportSession(db, bizId);
@@ -932,7 +932,7 @@ describe("shopify pilot — stale session recovery", () => {
 describe("shopify pilot — idempotent rerun", () => {
   it("running import twice does not duplicate products", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     // Insert same product twice (simulates re-import)
     insertFakeProduct(db, bizId, "gid://shopify/Product/555", "Widget A");
@@ -945,7 +945,7 @@ describe("shopify pilot — idempotent rerun", () => {
 
   it("running import twice does not duplicate orders", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     insertFakeOrder(db, bizId, "gid://shopify/Order/888", "#1010");
     insertFakeOrder(db, bizId, "gid://shopify/Order/888", "#1010"); // duplicate attempt
@@ -984,7 +984,7 @@ describe("shopify pilot — tenant-scoped unique indexes", () => {
 
   it("same business cannot have two products with the same Shopify product ID", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     const shopifyId = "gid://shopify/Product/SAME_TENANT_DUP";
     insertFakeProduct(db, bizId, shopifyId, "First");
@@ -1092,7 +1092,7 @@ describe("shopify pilot — tenant-scoped SKU and barcode uniqueness", () => {
 
   it("same business may NOT have duplicate SKU", () => {
     const db = initTestDb();
-    const biz = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!;
+    const biz = db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number };
 
     db.run(
       `INSERT INTO products (name, sku, stock_count, business_id, created_at, updated_at)
@@ -1140,7 +1140,7 @@ describe("shopify pilot — tenant-scoped SKU and barcode uniqueness", () => {
 
   it("same business may NOT have duplicate non-null barcode", () => {
     const db = initTestDb();
-    const biz = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!;
+    const biz = db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number };
 
     db.run(
       `INSERT INTO products (name, sku, barcode, stock_count, business_id, created_at, updated_at)
@@ -1163,7 +1163,7 @@ describe("shopify pilot — tenant-scoped SKU and barcode uniqueness", () => {
 
   it("null barcodes do not trigger uniqueness violations", () => {
     const db = initTestDb();
-    const biz = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!;
+    const biz = db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number };
 
     // Multiple products with null barcode for the same business must be allowed
     db.run(
@@ -1293,7 +1293,7 @@ describe("shopify pilot — import status UX states", () => {
 
   it("import state never shows SYNCED when session has GraphQL errors", () => {
     const db = initTestDb();
-    const bizId = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!.id;
+    const bizId = (db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number }).id;
 
     // Simulate session with graphQL errors persisted as discrepancies
     const sessionId = createImportSession(db, bizId);

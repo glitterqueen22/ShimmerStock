@@ -194,7 +194,7 @@ describe("runInitialImport — throttle retry exhaustion", () => {
     expect(result.state).not.toBe("IMPORTING");
     // Must be one of the two acceptable terminal-error states.
     const terminalErrorStates = [IMPORT_STATES.IMPORT_FAILED, IMPORT_STATES.RECONCILIATION_REQUIRED];
-    expect(terminalErrorStates).toContain(result.state);
+    expect(terminalErrorStates).toContain(result.state as string);
     // Must have called the gateway a finite number of times.
     // 3 fetches (products, locations, orders) each exhaust their retry budget.
     expect(callCount).toBeGreaterThan(0);
