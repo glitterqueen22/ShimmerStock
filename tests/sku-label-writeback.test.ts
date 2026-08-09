@@ -211,4 +211,41 @@ describe("Shopify identifier writeback authorization", () => {
     expect((db.query("SELECT sku_sync_state FROM product_variants WHERE id = 101").get() as { sku_sync_state: string }).sku_sync_state).toBe("SHOPIFY_UPDATE_FAILED");
     expect((db.query("SELECT result FROM shopify_identifier_writeback_audit").get() as { result: string }).result).toBe("SHOPIFY_UPDATE_FAILED");
   });
+
+  it("reports exact counts when a bulk write verifies only some variants", async () => {
+    const { createWritebackPreview, executeWriteback } = await import("../server/shopify-identifier-writeback.js");
+    const db = await writebackDb();
+    db.run(`INSERT INTO product_variants VALUES (
+      102, 10, 1, 'LOCAL-TWO', 'LOCAL-BAR-TWO', 'SHOP-TWO', 'SHOP-BAR-TWO',
+      '102', '502', 'Purple 2oz', 1, CURRENT_TIMESTAMP, 'SAVED_LOCAL', 'SAVED_LOCAL'
+    )`);
+    global.fetch = (async (_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const query = String(JSON.parse(String(init?.body)).query || "");
+      if (query.includes("mutation NoviSkuBarcodeUpdate")) return new Response(JSON.stringify({
+        data: { productVariantsBulkUpdate: {
+          productVariants: [
+            { id: "gid://shopify/ProductVariant/101" },
+            { id: "gid://shopify/ProductVariant/102" },
+          ],
+          userErrors: [],
+        } },
+      }));
+      return new Response(JSON.stringify({ data: { nodes: [
+        { id: "gid://shopify/ProductVariant/101", barcode: "NEW-BAR", inventoryItem: { sku: "NEW-SKU" } },
+        { id: "gid://shopify/ProductVariant/102", barcode: "SHOP-BAR-TWO", inventoryItem: { sku: "SHOP-TWO" } },
+      ] } }));
+    }) as unknown as typeof fetch;
+    const preview = createWritebackPreview(db, 1, 7, [
+      { variantId: 101, sku: "NEW-SKU", barcode: "NEW-BAR", replaceSku: true, replaceBarcode: true },
+      { variantId: 102, sku: "NEW-TWO", barcode: "NEW-BAR-TWO", replaceSku: true, replaceBarcode: true },
+    ], true);
+
+    const result = await executeWriteback(db, 1, 7, preview.id, "UPDATE SHOPIFY");
+
+    expect(result).toMatchObject({ updated: 1, failed: 1, skipped: 0 });
+    expect(result.results.map(item => item.result)).toEqual(["SHOPIFY_UPDATED", "SHOPIFY_UPDATE_FAILED"]);
+    expect(db.query("SELECT sku_sync_state FROM product_variants WHERE id = 101").get()).toEqual({ sku_sync_state: "SHOPIFY_UPDATED" });
+    expect(db.query("SELECT sku_sync_state FROM product_variants WHERE id = 102").get()).toEqual({ sku_sync_state: "SHOPIFY_UPDATE_FAILED" });
+    expect(db.query("SELECT COUNT(*) AS count FROM shopify_identifier_writeback_audit").get()).toEqual({ count: 2 });
+  });
 });

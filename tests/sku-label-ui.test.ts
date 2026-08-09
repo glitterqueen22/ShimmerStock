@@ -51,4 +51,16 @@ describe("Novi SKU & Label Studio UX contract", () => {
     expect(source).toContain("Review catalog");
     expect(source).toContain("Not now");
   });
+
+  it("distinguishes local saves, Shopify mismatches, and failed writebacks", async () => {
+    const source = await Bun.file("client/src/pages/SkuLabelStudio.tsx").text();
+    expect(source).toContain("Saved in ShimmerStock");
+    expect(source).toContain("Shopify was not changed");
+    expect(source).toContain("Verified in Shopify");
+    expect(source).toContain("Shopify update failed");
+    expect(source).toContain("Shopify has a different SKU — review needed");
+    expect(source.indexOf('item.sku_sync_state === "SHOPIFY_UPDATE_FAILED"')).toBeLessThan(
+      source.indexOf("item.skuTruth?.mismatch"),
+    );
+  });
 });

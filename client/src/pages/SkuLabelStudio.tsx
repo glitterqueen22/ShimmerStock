@@ -24,6 +24,15 @@ type StudioItem = {
   price: number | null;
   sku_sync_state?: string;
   barcode_sync_state?: string;
+  skuTruth?: {
+    localSku: string | null;
+    shopifySku: string | null;
+    effectiveSku: string | null;
+    source: "missing" | "shopify" | "verified_shopify" | "shimmerstock";
+    status: string;
+    mismatch: boolean;
+    needsReview: boolean;
+  };
 };
 
 type StudioData = {
@@ -83,12 +92,17 @@ const STATUS_STYLES: Record<string, string> = {
   saved_local: "bg-sky-50 text-sky-800 border-sky-200",
   shopify_updated: "bg-emerald-50 text-emerald-700 border-emerald-200",
   shopify_failed: "bg-red-50 text-red-700 border-red-200",
+  shopify_mismatch: "bg-amber-50 text-amber-800 border-amber-200",
 };
 
 function identifierStatus(item: StudioItem) {
-  if (item.needsReview || item.sku_sync_state === "SHOPIFY_UPDATE_FAILED" || item.barcode_sync_state === "SHOPIFY_UPDATE_FAILED") {
+  if (item.sku_sync_state === "SHOPIFY_UPDATE_FAILED" || item.barcode_sync_state === "SHOPIFY_UPDATE_FAILED") {
     return { key: "shopify_failed", label: "Shopify update failed" };
   }
+  if (item.skuTruth?.mismatch || item.sku_sync_state === "SHOPIFY_MISMATCH") {
+    return { key: "shopify_mismatch", label: "Shopify has a different SKU — review needed" };
+  }
+  if (item.needsReview) return { key: "needs_review", label: "Needs review" };
   if (item.sku_sync_state === "SHOPIFY_UPDATED" && item.barcode_sync_state === "SHOPIFY_UPDATED") {
     return { key: "shopify_updated", label: "Shopify updated" };
   }
@@ -348,7 +362,7 @@ export default function SkuLabelStudio() {
 
       {stage === "print" && <section className="bg-white border border-emerald-200 rounded-lg p-5 shadow-sm"><div className="flex flex-col lg:flex-row gap-6"><div className="flex-1"><p className="text-emerald-700 font-bold">Labels are ready. What are we printing?</p><h2 className="text-xl font-bold mt-1">Start with one test label.</h2><p className="text-neutral-600 mt-1">Let's make sure your printer sizing looks right before the full batch.</p><label className="block mt-5 text-sm font-semibold">Label size<select value={settings.preferredLabelSize} onChange={event => setSettings({ ...settings, preferredLabelSize: event.target.value })} className="mt-1 block w-full max-w-xs border rounded-md px-3 py-2">{Object.entries(LABEL_SIZES).map(([value, size]) => <option key={value} value={value}>{size.label}</option>)}</select></label><label className="block mt-4 text-sm font-semibold">Copies per item<input type="number" min="1" max="1000" value={printQuantity} onChange={event => setPrintQuantity(Math.max(1, Number(event.target.value)))} className="mt-1 block w-28 border rounded-md px-3 py-2" /></label><div className="flex flex-wrap gap-3 mt-5"><Button onClick={() => printLabels(true)}>Print one test label</Button>{testPrinted && <Button variant="secondary" onClick={() => printLabels(false)}>Looks good — Print {printable.length * printQuantity}</Button>}<Button variant="outline" onClick={() => setCustomize(true)}>Adjust size</Button></div></div><LabelPreview item={printable[0]} size={labelSize} fields={settings.labelFields} customText={customText} /></div></section>}
 
-      {stage === "complete" && resultSummary && <section className="bg-white border border-emerald-200 rounded-lg p-7 text-center shadow-sm"><Novi size="lg" expression={resultSummary.failed ? "concerned" : "proud"} accessory="warehouse" /><h2 className="text-2xl font-bold text-neutral-900 mt-3">{resultSummary.destination === "shopify" && !resultSummary.failed ? "Verified in Shopify" : "Saved in ShimmerStock"}</h2><p className="text-neutral-600 mt-2">{selected.size} variants checked · {resultSummary.skus} SKUs created · {resultSummary.barcodes} internal barcodes created · {resultSummary.preserved} retail barcodes preserved</p>{resultSummary.destination === "shopify" ? <p className={`text-sm font-medium mt-3 ${resultSummary.failed ? "text-amber-700" : "text-emerald-700"}`}>{resultSummary.verified} verified in Shopify{resultSummary.failed ? ` · ${resultSummary.failed} failed verification and need review` : ""}</p> : <p className="text-sm font-medium text-neutral-700 mt-3">Shopify not updated{data.shopifyMode !== "writeback" ? " — Product Editing permission is not enabled." : "."}</p>}<div className="flex flex-wrap justify-center gap-3 mt-6"><Button onClick={() => setStage("print")}>Print Labels</Button><Button variant="secondary" onClick={() => setStage("scan")}>Scan a Product</Button><Button variant="outline" onClick={() => navigate("/products")}>View Products</Button><Button variant="ghost" onClick={() => navigate("/products")}>Close</Button></div></section>}
+      {stage === "complete" && resultSummary && <section className="bg-white border border-emerald-200 rounded-lg p-7 text-center shadow-sm"><Novi size="lg" expression={resultSummary.failed ? "concerned" : "proud"} accessory="warehouse" /><h2 className="text-2xl font-bold text-neutral-900 mt-3">{resultSummary.destination === "shopify" && !resultSummary.failed ? "Verified in Shopify" : "Saved in ShimmerStock"}</h2><p className="text-neutral-600 mt-2">{selected.size} variants checked · {resultSummary.skus} SKUs created · {resultSummary.barcodes} internal barcodes created · {resultSummary.preserved} retail barcodes preserved</p>{resultSummary.destination === "shopify" ? <p className={`text-sm font-medium mt-3 ${resultSummary.failed ? "text-amber-700" : "text-emerald-700"}`}>{resultSummary.verified} verified in Shopify{resultSummary.failed ? ` · ${resultSummary.failed} failed verification and need review` : ""}</p> : <p className="text-sm font-medium text-neutral-700 mt-3">Shopify was not changed{data.shopifyMode !== "writeback" ? " — Product Editing permission is not enabled." : "."}</p>}<div className="flex flex-wrap justify-center gap-3 mt-6"><Button onClick={() => setStage("print")}>Print Labels</Button><Button variant="secondary" onClick={() => setStage("scan")}>Scan a Product</Button><Button variant="outline" onClick={() => navigate("/products")}>View Products</Button><Button variant="ghost" onClick={() => navigate("/products")}>Close</Button></div></section>}
 
       {stage === "scan" && <section className="bg-white border border-purple-100 rounded-lg p-5 shadow-sm"><div className="flex items-start gap-4"><Novi size="md" expression="focused" accessory="warehouse" /><div className="flex-1"><h2 className="text-xl font-bold">Scan Something</h2><p className="text-sm text-neutral-600">USB and Bluetooth scanners work automatically when they type a code and press Enter.</p><form onSubmit={scan} className="flex gap-2 mt-4"><input ref={scanRef} value={scanValue} onChange={event => setScanValue(event.target.value)} placeholder="Scan or type a barcode or SKU" className="flex-1 min-w-0 border-2 border-purple-200 rounded-md px-4 py-3 font-mono focus:border-purple-500 outline-none" autoFocus /><Button type="submit">Find Item</Button></form>{scanResult?.status === "found" && scanResult.match && <ScanMatch item={scanResult.match} navigate={navigate} />}{scanResult?.status === "ambiguous" && <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-md"><p className="font-semibold text-amber-900">I found more than one legacy match, so I won't guess.</p><p className="text-sm text-amber-800">Choose the exact product from the matching records.</p></div>}{scanResult?.status === "not_found" && <p className="mt-4 text-sm text-neutral-600">I couldn't find that code in this workspace.</p>}</div></div></section>}
 
