@@ -36,6 +36,15 @@ describe("Novi SKU & Label Studio UX contract", () => {
     expect(source).toContain("Scan Something");
     expect(source).toContain("USB and Bluetooth scanners work automatically");
     expect(source).toContain('navigate("/scan")');
+    expect(source).toContain("Shopify locations");
+    expect(source).toContain("Inventory is not tracked in Shopify");
     expect(source).not.toContain("write_inventory");
+  });
+
+  it("offers the automatic post-sync catalog audit without forcing review", async () => {
+    const source = await Bun.file("client/src/components/ShopifyConnect.tsx").text();
+    expect(source).toContain("Catalog audit ready");
+    expect(source).toContain("Review catalog");
+    expect(source).toContain("Not now");
   });
 });

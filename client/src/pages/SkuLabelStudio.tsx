@@ -58,8 +58,15 @@ type StudioSettings = {
 
 type ScanResult = {
   status: "found" | "ambiguous" | "not_found";
-  match?: StudioItem & { product_name: string; variant_value: string; stock_count: number };
-  matches?: Array<StudioItem & { product_name: string; variant_value: string; stock_count: number }>;
+  match?: ScanMatchItem;
+  matches?: ScanMatchItem[];
+};
+
+type ScanMatchItem = StudioItem & {
+  stock_count: number | null;
+  inventory_tracked: boolean;
+  bin_location: string | null;
+  locations: Array<{ name: string; shopify_location_id: string; available: number }>;
 };
 
 const LABEL_SIZES: Record<string, { label: string; width: number; height: number }> = {
@@ -364,6 +371,7 @@ function LabelPreview({ item, size, fields, customText, print = false }: { item?
   return <div className={print ? "thermal-label" : "bg-neutral-100 rounded-md p-5 flex items-center justify-center"}><div className="bg-white text-black overflow-hidden flex flex-col justify-between" style={{ width: `${size.width}in`, height: `${size.height}in`, padding: "0.08in", boxSizing: "border-box", border: print ? "none" : "1px solid #d4d4d4" }}><div className="min-w-0">{fields.includes("product") && <p style={{ fontSize: "9pt", fontWeight: 700, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item?.product_name || "Product name"}</p>}<p style={{ fontSize: "7pt", margin: 0 }}>{fields.includes("variant") ? item?.variant_value || "Variant" : ""}{fields.includes("sku") ? ` · ${item?.proposedSku || item?.sku || "SKU"}` : ""}{fields.includes("price") && item?.price != null ? ` · $${Number(item.price).toFixed(2)}` : ""}</p>{customText && <p style={{ fontSize: "6pt", margin: 0 }}>{customText}</p>}</div>{fields.includes("barcode") && item && (item.barcode || item.internal_barcode) ? <img src={`/api/sku-label-studio/barcodes/${item.id}.svg`} alt={`Code 128 barcode ${item.barcode || item.internal_barcode}`} style={{ width: "100%", maxHeight: "55%", objectFit: "contain" }} /> : <div style={{ height: "20%" }} />}</div></div>;
 }
 
-function ScanMatch({ item, navigate }: { item: StudioItem; navigate: ReturnType<typeof useNavigate> }) {
-  return <div className="mt-5 border border-emerald-200 bg-emerald-50 rounded-lg p-5"><p className="text-emerald-800 font-medium">Found it — {item.product_name}, {item.variant_value}. You have {item.stock_count} available.</p><div className="grid sm:grid-cols-4 gap-3 mt-4"><div><span className="text-xs text-neutral-500">SKU</span><p className="font-mono text-sm">{item.sku || "Not set"}</p></div><div><span className="text-xs text-neutral-500">Available</span><p className="font-bold">{item.stock_count}</p></div><div><span className="text-xs text-neutral-500">Bin / location</span><p>Not assigned</p></div></div><div className="flex flex-wrap gap-2 mt-5"><Button onClick={() => navigate(`/products/${item.product_id}`)}>View Product</Button><Button variant="secondary" onClick={() => navigate("/scan")}>Adjust Inventory</Button><Button variant="secondary" onClick={() => navigate("/warehouse")}>Move Location</Button><Button variant="secondary" onClick={() => navigate("/production")}>Production</Button><Button variant="secondary" onClick={() => navigate("/fulfillment")}>Pack Order</Button></div></div>;
+function ScanMatch({ item, navigate }: { item: ScanMatchItem; navigate: ReturnType<typeof useNavigate> }) {
+  const available = item.inventory_tracked ? item.stock_count : null;
+  return <div className="mt-5 border border-emerald-200 bg-emerald-50 rounded-lg p-5"><p className="text-emerald-800 font-medium">Found it: {item.product_name}, {item.variant_value}. {available === null ? "Inventory is not tracked in Shopify." : `${available} available across ${item.locations.length || 1} location${item.locations.length === 1 ? "" : "s"}.`}</p><div className="grid sm:grid-cols-3 gap-3 mt-4"><div><span className="text-xs text-neutral-500">SKU</span><p className="font-mono text-sm">{item.sku || "Not set"}</p></div><div><span className="text-xs text-neutral-500">Available</span><p className="font-bold">{available ?? "Not tracked"}</p></div><div><span className="text-xs text-neutral-500">Local bin</span><p>{item.bin_location || "Not assigned"}</p></div></div>{item.locations.length > 0 && <div className="mt-4 border-t border-emerald-200 pt-3"><p className="text-xs font-semibold uppercase text-neutral-500">Shopify locations</p><div className="mt-2 grid sm:grid-cols-2 gap-2">{item.locations.map(location => <div key={location.shopify_location_id} className="flex justify-between bg-white border border-emerald-100 rounded px-3 py-2 text-sm"><span>{location.name}</span><strong>{location.available}</strong></div>)}</div></div>}<div className="flex flex-wrap gap-2 mt-5"><Button onClick={() => navigate(`/products/${item.product_id}`)}>View Product</Button><Button variant="secondary" onClick={() => navigate("/scan")}>Adjust Inventory</Button><Button variant="secondary" onClick={() => navigate("/warehouse")}>Move Location</Button><Button variant="secondary" onClick={() => navigate("/production")}>Production</Button><Button variant="secondary" onClick={() => navigate("/fulfillment")}>Pack Order</Button></div></div>;
 }

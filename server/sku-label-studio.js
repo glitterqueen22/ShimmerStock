@@ -1,3 +1,5 @@
+import { getVariantInventory } from "./inventory-truth.js";
+
 const DEFAULT_SETTINGS = Object.freeze({
   skuPattern: "{PRODUCT}-{VARIANT}-{NUMBER}",
   separator: "-",
@@ -332,8 +334,9 @@ export function resolveScan(db, businessId, value) {
   const normalized = String(value ?? "").trim();
   if (!normalized) return { status: "not_found", matches: [] };
   const select = `
-    SELECT v.id, v.sku, v.barcode, v.variant_value, v.stock_count,
-           p.id AS product_id, p.name AS product_name,
+        SELECT v.id, v.sku, v.barcode, v.variant_value, v.stock_count,
+          v.shopify_inventory_item_id, v.inventory_tracked,
+          p.id AS product_id, p.name AS product_name, p.bin_location,
            ib.barcode_value AS internal_barcode
     FROM product_variants v
     JOIN products p ON p.id = v.product_id AND p.business_id = v.business_id
@@ -349,6 +352,26 @@ export function resolveScan(db, businessId, value) {
     matchedBy = "sku";
   }
   if (matches.length === 0) return { status: "not_found", matchedBy: null, matches: [] };
-  if (matches.length > 1) return { status: "ambiguous", matchedBy, matches };
-  return { status: "found", matchedBy, match: matches[0], matches };
+  const withInventory = matches.map((match) => {
+    const inventory = getVariantInventory(db, businessId, match.id);
+    const locations = match.shopify_inventory_item_id
+      ? db.query(`
+          SELECT l.name, l.shopify_location_id, il.available
+          FROM shopify_inventory_levels il
+          JOIN shopify_locations l
+            ON l.business_id = il.business_id
+            AND l.shopify_location_id = il.shopify_location_id
+          WHERE il.business_id = ? AND il.shopify_inventory_item_id = ?
+          ORDER BY l.name COLLATE NOCASE, l.shopify_location_id
+        `).all(businessId, match.shopify_inventory_item_id)
+      : [];
+    return {
+      ...match,
+      stock_count: inventory?.available ?? null,
+      inventory_tracked: inventory?.available !== null,
+      locations,
+    };
+  });
+  if (withInventory.length > 1) return { status: "ambiguous", matchedBy, matches: withInventory };
+  return { status: "found", matchedBy, match: withInventory[0], matches: withInventory };
 }

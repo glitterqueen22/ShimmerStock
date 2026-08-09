@@ -1160,6 +1160,7 @@ export async function runInitialImport(db, businessId) {
       reconciliation_status: reconciled ? "RECONCILED" : "NEEDS_REVIEW",
     });
 
+    let catalogAudit = null;
     if (finalState === IMPORT_STATES.SYNCED) {
       db.run(
         `UPDATE provider_credentials
@@ -1168,7 +1169,7 @@ export async function runInitialImport(db, businessId) {
          WHERE business_id = ? AND provider = 'shopify'`,
         [businessId]
       );
-      recordCatalogAudit(db, businessId, sessionId);
+      catalogAudit = recordCatalogAudit(db, businessId, sessionId);
     } else {
       db.run(
         `UPDATE provider_credentials
@@ -1179,7 +1180,7 @@ export async function runInitialImport(db, businessId) {
       );
     }
 
-    return { success: true, sessionId, summary, state: finalState };
+    return { success: true, sessionId, summary, state: finalState, catalogAudit };
   } catch (err) {
     const isRevoked =
       String(err.message).includes("401") || String(err.message).includes("Unauthorized");

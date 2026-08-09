@@ -152,6 +152,23 @@ describe("Scanner ambiguity and labels", () => {
     expect(result.matches).toHaveLength(2);
   });
 
+  it("returns canonical availability with tenant-scoped location and bin context", async () => {
+    const productId = (testDb.query("SELECT product_id FROM product_variants WHERE id = ?").get(variantA) as any).product_id;
+    testDb.run("UPDATE products SET bin_location = 'A-07' WHERE id = ? AND business_id = 1", [productId]);
+    testDb.run("INSERT INTO shopify_locations (business_id, shopify_location_id, name) VALUES (1, 'LOC-A', 'Main Store')");
+    testDb.run("INSERT INTO shopify_locations (business_id, shopify_location_id, name) VALUES (2, 'LOC-B', 'Other Tenant')");
+    testDb.run(`INSERT INTO shopify_inventory_levels
+      (business_id, shopify_inventory_item_id, shopify_location_id, available)
+      VALUES (1, 'A-501', 'LOC-A', 23), (2, 'A-501', 'LOC-B', 900)`);
+
+    const response = await request("POST", "/api/sku-label-studio/scan", tokenA, { value: internalBarcodeA });
+    expect(response.status).toBe(200);
+    const result = await response.json() as any;
+    expect(result.match.stock_count).toBe(23);
+    expect(result.match.bin_location).toBe("A-07");
+    expect(result.match.locations).toEqual([{ name: "Main Store", shopify_location_id: "LOC-A", available: 23 }]);
+  });
+
   it("stores physical label dimensions and tenant-scoped templates", async () => {
     const created = await request("POST", "/api/sku-label-studio/templates", tokenA, {
       name: "Novi 2 x 1", size: "2x1", fields: ["product", "variant", "sku", "barcode"], isDefault: true,

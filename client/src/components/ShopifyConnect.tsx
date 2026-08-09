@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiGet, apiPost } from "../lib/api";
 import { Badge, Button, Skeleton, ErrorBanner, useToast, Modal, ConfirmModal } from "./ui";
 import Novi from "./Novi";
@@ -32,6 +33,11 @@ interface ShopifyImportResult {
     inventoryLevels: { persisted: number };
     orders: { persisted: number };
   };
+  catalogAudit?: {
+    missingSkus: number;
+    missingBarcodes: number;
+    needsReview: number;
+  } | null;
 }
 
 interface ShopifyConnectProps {
@@ -91,6 +97,7 @@ export default function ShopifyConnect({
   onDisconnected,
   onSyncComplete,
 }: ShopifyConnectProps) {
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   const [status, setStatus] = useState<ShopifyStatus | null>(null);
@@ -111,6 +118,7 @@ export default function ShopifyConnect({
   // Celebration
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationMessage, setCelebrationMessage] = useState("");
+  const [catalogAudit, setCatalogAudit] = useState<ShopifyImportResult["catalogAudit"]>(null);
   // Mode toggle
   const [modeSwitching, setModeSwitching] = useState(false);
   const [showModeConfirm, setShowModeConfirm] = useState(false);
@@ -243,6 +251,7 @@ export default function ShopifyConnect({
           "success"
         );
         setShowCelebration(false);
+        setCatalogAudit(data.catalogAudit ?? null);
         onSyncComplete?.();
       } else {
         const message = data.state === "RECONCILIATION_REQUIRED"
@@ -619,6 +628,23 @@ export default function ShopifyConnect({
             <Button variant="primary" onClick={handleSync} loading={syncing}>
               {syncing ? "Importing..." : "Yes, Import Now"}
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(catalogAudit)}
+        onClose={() => setCatalogAudit(null)}
+        title="Catalog audit ready"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[#121212]">
+            Novi found {catalogAudit?.missingSkus ?? 0} missing SKUs, {catalogAudit?.missingBarcodes ?? 0} missing barcodes, and {catalogAudit?.needsReview ?? 0} exceptions that need review.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <Button variant="secondary" onClick={() => setCatalogAudit(null)}>Not now</Button>
+            <Button variant="primary" onClick={() => navigate("/products/sku-label-studio")}>Review catalog</Button>
           </div>
         </div>
       </Modal>
