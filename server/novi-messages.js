@@ -154,7 +154,7 @@ export function mountNoviMessageRoutes(app, db) {
 
   // ── PUT /api/novi/settings — update settings ───────────────────────
 
-  app.put("/api/novi/settings", requireAuth(db, "reports.read"), (req, res) => {
+  app.put("/api/novi/settings", requireAuth(db, "settings.write"), (req, res) => {
     try {
       const { frequency, sound_enabled, popup_enabled, email_enabled, push_enabled } = req.body;
 
@@ -165,6 +165,11 @@ export function mountNoviMessageRoutes(app, db) {
           return res.status(400).json({ error: `frequency must be one of: ${validFrequencies.join(", ")}` });
         }
         data.frequency = frequency;
+      }
+      const booleanSettings = { sound_enabled, popup_enabled, email_enabled, push_enabled };
+      const invalidBoolean = Object.entries(booleanSettings).find(([, value]) => value !== undefined && typeof value !== "boolean");
+      if (invalidBoolean) {
+        return res.status(400).json({ error: `${invalidBoolean[0]} must be a boolean` });
       }
       if (sound_enabled !== undefined) data.soundEnabled = sound_enabled ? 1 : 0;
       if (popup_enabled !== undefined) data.popupEnabled = popup_enabled ? 1 : 0;

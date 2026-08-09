@@ -123,7 +123,8 @@ describe("POST /api/auth/forgot-password", () => {
     });
     expect(res.status).toBe(200);
     const data = await res.json() as any;
-    expect(data.message).toBe("If that account exists, a reset link has been sent.");
+    expect(data.message).toBe("Email password recovery is not configured. Contact your administrator or ShimmerStock support.");
+    expect(data.emailSent).toBe(false);
     expect(data.resetToken).toBeUndefined();
   });
 });

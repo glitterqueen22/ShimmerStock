@@ -49,6 +49,7 @@ import { mountAffiliateAttributionRoutes } from "./affiliate-attribution-routes.
 import { mountBrandSetupRoutes } from "./ai-brand-setup-routes.js";
 import { mountNoviMessageRoutes } from "./novi-messages.js";
 import { mountSkuLabelRoutes } from "./sku-label-routes.js";
+import { mountSettingsRoutes } from "./settings-routes.js";
 import { initNoviDetection } from "./novi-detection.js";
 import { initOpportunityBridge } from "./opportunity-bridge.js";
 import { mountStoreCreditRoutes } from "./store-credit-routes.js";
@@ -393,14 +394,17 @@ app.get("/api/auth/me", (req, res, next) => {
 // POST /api/auth/change-password — requires auth
 app.post("/api/auth/change-password", requireAuth(db), async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword, newPasswordConfirmation } = req.body;
 
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ error: "Current password and new password are required" });
+    if (!currentPassword || !newPassword || !newPasswordConfirmation) {
+      return res.status(400).json({ error: "Current password, new password, and confirmation are required" });
     }
 
     if (newPassword.length < 8) {
       return res.status(400).json({ error: "New password must be at least 8 characters" });
+    }
+    if (newPassword !== newPasswordConfirmation) {
+      return res.status(400).json({ error: "New password and confirmation do not match" });
     }
 
     // Verify current password
@@ -447,10 +451,8 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     const user = store.getUserByUsername(db, username.trim());
 
     // Always return the same response whether user exists or not
-    if (!user) {
-      console.log(`[forgot-password] No user found for username: ${username.trim()}`);
-      return res.json({ message: "If that account exists, a reset link has been sent." });
-    }
+    const recoveryMessage = "Email password recovery is not configured. Contact your administrator or ShimmerStock support.";
+    if (!user) return res.json({ message: recoveryMessage, emailSent: false });
 
     // Create reset token (expires in 1 hour)
     const resetToken = generateResetToken();
@@ -458,15 +460,9 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 
     store.createResetToken(db, { userId: user.id, token: resetToken, expiresAt });
 
-    // TODO: send via email when email service is set up
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log(`  📧 Password reset for: ${username.trim()} (user #${user.id})`);
-    console.log(`     Expires at: ${expiresAt}`);
-    console.log("  TODO: send via email when email service is set up");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
     res.json({
-      message: "If that account exists, a reset link has been sent."
+      message: recoveryMessage,
+      emailSent: false,
     });
   } catch (err) {
     console.error("POST /api/auth/forgot-password error:", err);
@@ -3609,6 +3605,7 @@ mountStudioRoutes(app, db);
   mountBrandSetupRoutes(app, db);
   mountOnboardingRoutes(app, db);
   mountMovementRoutes(app, db, requireAuth);
+  mountSettingsRoutes(app, db);
   // ── Shopify OAuth (multi-business self-serve) ────────────────
   mountShopifyOauthRoutes(app, db);
 

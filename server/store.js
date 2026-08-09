@@ -4887,7 +4887,7 @@ export function getNoviSettings(db, businessId, userId) {
 /** Upsert Novi settings for a business (and optionally a user). */
 export function upsertNoviSettings(db, businessId, userId, data) {
   const existing = db.query(
-    "SELECT id FROM novi_settings WHERE business_id = ?",
+    "SELECT business_id FROM novi_settings WHERE business_id = ?",
   ).get(businessId);
 
   if (existing) {
@@ -4902,8 +4902,8 @@ export function upsertNoviSettings(db, businessId, userId, data) {
 
     if (sets.length > 0) {
       sets.push("updated_at = datetime('now')");
-      params.push(existing.id);
-      db.run(`UPDATE novi_settings SET ${sets.join(", ")} WHERE id = ?`, ...params);
+      params.push(businessId);
+      db.run(`UPDATE novi_settings SET ${sets.join(", ")} WHERE business_id = ?`, ...params);
     }
   } else {
     db.run(
