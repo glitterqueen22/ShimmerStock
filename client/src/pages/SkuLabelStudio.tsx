@@ -22,6 +22,8 @@ type StudioItem = {
   ready: boolean;
   stock_count: number;
   price: number | null;
+  sku_sync_state?: string;
+  barcode_sync_state?: string;
 };
 
 type StudioData = {
@@ -49,14 +51,22 @@ type StudioSettings = {
   numberPadding: number;
   preserveExisting: boolean;
   writebackEnabled?: boolean;
+  autoWritebackEnabled?: boolean;
   preferredLabelSize: string;
   labelFields: string[];
 };
 
 type ScanResult = {
   status: "found" | "ambiguous" | "not_found";
-  match?: StudioItem & { product_name: string; variant_value: string; stock_count: number };
-  matches?: Array<StudioItem & { product_name: string; variant_value: string; stock_count: number }>;
+  match?: ScanMatchItem;
+  matches?: ScanMatchItem[];
+};
+
+type ScanMatchItem = StudioItem & {
+  stock_count: number | null;
+  inventory_tracked: boolean;
+  bin_location: string | null;
+  locations: Array<{ name: string; shopify_location_id: string; available: number }>;
 };
 
 const LABEL_SIZES: Record<string, { label: string; width: number; height: number }> = {
@@ -70,7 +80,24 @@ const STATUS_STYLES: Record<string, string> = {
   novi_generated: "bg-purple-50 text-purple-700 border-purple-200",
   already_existed: "bg-emerald-50 text-emerald-700 border-emerald-200",
   needs_review: "bg-amber-50 text-amber-800 border-amber-200",
+  saved_local: "bg-sky-50 text-sky-800 border-sky-200",
+  shopify_updated: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  shopify_failed: "bg-red-50 text-red-700 border-red-200",
 };
+
+function identifierStatus(item: StudioItem) {
+  if (item.needsReview || item.sku_sync_state === "SHOPIFY_UPDATE_FAILED" || item.barcode_sync_state === "SHOPIFY_UPDATE_FAILED") {
+    return { key: "shopify_failed", label: "Shopify update failed" };
+  }
+  if (item.sku_sync_state === "SHOPIFY_UPDATED" && item.barcode_sync_state === "SHOPIFY_UPDATED") {
+    return { key: "shopify_updated", label: "Shopify updated" };
+  }
+  if (item.sku_sync_state === "SAVED_LOCAL" || item.barcode_sync_state === "SAVED_LOCAL") {
+    return { key: "saved_local", label: "Saved locally" };
+  }
+  if (item.status === "novi_generated") return { key: "novi_generated", label: "Novi generated" };
+  return { key: "already_existed", label: "Already existed" };
+}
 
 export default function SkuLabelStudio() {
   const navigate = useNavigate();
@@ -85,7 +112,7 @@ export default function SkuLabelStudio() {
   const [customize, setCustomize] = useState(false);
   const [stage, setStage] = useState<"welcome" | "review" | "save" | "print" | "complete" | "scan">("welcome");
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [resultSummary, setResultSummary] = useState<{ skus: number; barcodes: number; preserved: number } | null>(null);
+  const [resultSummary, setResultSummary] = useState<{ skus: number; barcodes: number; preserved: number; destination: "local" | "shopify" | "print"; verified: number; failed: number } | null>(null);
   const [printQuantity, setPrintQuantity] = useState(1);
   const [testPrinted, setTestPrinted] = useState(false);
   const [customText, setCustomText] = useState("");
@@ -169,19 +196,20 @@ export default function SkuLabelStudio() {
         const writeSettings = { ...settings, writebackEnabled: true };
         await apiPut("/api/sku-label-studio/settings", writeSettings);
         const preview = await apiPost<{ id: string }>("/api/sku-label-studio/shopify-preview", { items: payloadItems, accepted: true });
-        if (!window.confirm("Update only these approved SKUs and barcodes in Shopify? Nothing else in your store will change.")) return;
+        if (!settings.autoWritebackEnabled && !window.confirm("Update only these approved SKUs and barcodes in Shopify? Nothing else in your store will change.")) return;
         const result = await apiPost<{ updated: number; failed: number }>("/api/sku-label-studio/shopify-writeback", {
           previewId: preview.id,
-          confirmation: "UPDATE SHOPIFY",
+          confirmation: settings.autoWritebackEnabled ? "AUTO_APPROVED" : "UPDATE SHOPIFY",
         });
         if (result.failed) toast(`${result.updated} updated and ${result.failed} need review.`, "warning");
+        setResultSummary({ skus: chosen.filter(item => item.missingSku).length, barcodes: chosen.filter(item => item.missingBarcode).length, preserved: chosen.filter(item => Boolean(item.barcode) && !item.missingBarcode).length, destination, verified: result.updated, failed: result.failed });
       } else {
         await apiPost("/api/sku-label-studio/save-local", { items: payloadItems, settings });
       }
       const createdSkus = chosen.filter(item => item.missingSku).length;
       const createdBarcodes = chosen.filter(item => item.missingBarcode).length;
       const preserved = chosen.filter(item => Boolean(item.barcode) && !item.missingBarcode).length;
-      setResultSummary({ skus: createdSkus, barcodes: createdBarcodes, preserved });
+      if (destination !== "shopify") setResultSummary({ skus: createdSkus, barcodes: createdBarcodes, preserved, destination, verified: 0, failed: 0 });
       setStage(destination === "print" ? "print" : "complete");
       await load();
     } catch (saveError: any) {
@@ -290,6 +318,7 @@ export default function SkuLabelStudio() {
                 <label className="text-sm font-medium">Letter style<select value={settings.letterCase} onChange={event => setSettings({ ...settings, letterCase: event.target.value as "upper" | "lower" })} className="mt-1 w-full border border-neutral-300 rounded-md px-3 py-2"><option value="upper">UPPERCASE</option><option value="lower">lowercase</option></select></label>
                 <fieldset className="sm:col-span-4"><legend className="text-sm font-semibold">Label fields</legend><div className="flex flex-wrap gap-3 mt-2">{["product", "variant", "sku", "barcode", "price", "bin", "business"].map(field => <label key={field} className="text-sm flex items-center gap-1.5"><input type="checkbox" checked={settings.labelFields.includes(field)} onChange={event => setSettings({ ...settings, labelFields: event.target.checked ? [...settings.labelFields, field] : settings.labelFields.filter(value => value !== field) })} />{field[0].toUpperCase() + field.slice(1)}</label>)}</div></fieldset>
                 <label className="sm:col-span-4 text-sm font-medium">Short custom text<input value={customText} maxLength={80} onChange={event => setCustomText(event.target.value)} placeholder="Optional message" className="mt-1 w-full border border-neutral-300 rounded-md px-3 py-2" /></label>
+                {data.shopifyMode === "writeback" && <label className="sm:col-span-4 flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={Boolean(settings.autoWritebackEnabled)} onChange={event => setSettings({ ...settings, autoWritebackEnabled: event.target.checked })} /><span><strong className="block">Automatically update approved SKUs &amp; barcodes in Shopify</strong><span className="text-neutral-600">Off by default. Only approved identifier changes use Product Editing permission; inventory and orders remain read-only.</span></span></label>}
               </div>
             )}
           </section>
@@ -302,13 +331,13 @@ export default function SkuLabelStudio() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px]">
                 <thead className="bg-neutral-50 text-xs uppercase text-neutral-500"><tr><th className="p-3 text-left">Use</th><th className="p-3 text-left">Product</th><th className="p-3 text-left">Variant</th><th className="p-3 text-left">SKU</th><th className="p-3 text-left">Barcode</th><th className="p-3 text-left">Status</th></tr></thead>
-                <tbody className="divide-y divide-neutral-100">{items.map(item => <tr key={item.id} className={item.needsReview ? "bg-amber-50/40" : ""}>
+                <tbody className="divide-y divide-neutral-100">{items.map(item => { const displayStatus = identifierStatus(item); return <tr key={item.id} className={item.needsReview ? "bg-amber-50/40" : ""}>
                   <td className="p-3"><input type="checkbox" checked={selected.has(item.id)} onChange={event => setSelected(current => { const next = new Set(current); event.target.checked ? next.add(item.id) : next.delete(item.id); return next; })} aria-label={`Select ${item.product_name} ${item.variant_value}`} /></td>
                   <td className="p-3 text-sm font-semibold text-neutral-900">{item.product_name}</td><td className="p-3 text-sm text-neutral-600">{item.variant_value}</td>
                   <td className="p-3"><input value={item.proposedSku ?? item.sku ?? ""} onChange={event => updateItem(item.id, "proposedSku", event.target.value)} className="w-48 px-2 py-1.5 border border-neutral-300 rounded font-mono text-xs" /></td>
                   <td className="p-3"><input value={item.barcode ?? item.internal_barcode ?? "Internal barcode on save"} onChange={event => updateItem(item.id, "barcode", event.target.value)} className="w-48 px-2 py-1.5 border border-neutral-300 rounded font-mono text-xs" aria-label={`Barcode for ${item.product_name}`} /></td>
-                  <td className="p-3"><span className={`inline-flex px-2 py-1 rounded border text-xs font-semibold ${STATUS_STYLES[item.needsReview ? "needs_review" : item.status || "already_existed"]}`}>{item.needsReview ? "Needs review" : item.status === "novi_generated" ? "Novi generated" : "Already existed"}</span></td>
-                </tr>)}</tbody>
+                  <td className="p-3"><span className={`inline-flex px-2 py-1 rounded border text-xs font-semibold ${STATUS_STYLES[displayStatus.key]}`}>{displayStatus.label}</span></td>
+                </tr>; })}</tbody>
               </table>
             </div>
           </section>
@@ -319,7 +348,7 @@ export default function SkuLabelStudio() {
 
       {stage === "print" && <section className="bg-white border border-emerald-200 rounded-lg p-5 shadow-sm"><div className="flex flex-col lg:flex-row gap-6"><div className="flex-1"><p className="text-emerald-700 font-bold">Labels are ready. What are we printing?</p><h2 className="text-xl font-bold mt-1">Start with one test label.</h2><p className="text-neutral-600 mt-1">Let's make sure your printer sizing looks right before the full batch.</p><label className="block mt-5 text-sm font-semibold">Label size<select value={settings.preferredLabelSize} onChange={event => setSettings({ ...settings, preferredLabelSize: event.target.value })} className="mt-1 block w-full max-w-xs border rounded-md px-3 py-2">{Object.entries(LABEL_SIZES).map(([value, size]) => <option key={value} value={value}>{size.label}</option>)}</select></label><label className="block mt-4 text-sm font-semibold">Copies per item<input type="number" min="1" max="1000" value={printQuantity} onChange={event => setPrintQuantity(Math.max(1, Number(event.target.value)))} className="mt-1 block w-28 border rounded-md px-3 py-2" /></label><div className="flex flex-wrap gap-3 mt-5"><Button onClick={() => printLabels(true)}>Print one test label</Button>{testPrinted && <Button variant="secondary" onClick={() => printLabels(false)}>Looks good — Print {printable.length * printQuantity}</Button>}<Button variant="outline" onClick={() => setCustomize(true)}>Adjust size</Button></div></div><LabelPreview item={printable[0]} size={labelSize} fields={settings.labelFields} customText={customText} /></div></section>}
 
-      {stage === "complete" && resultSummary && <section className="bg-white border border-emerald-200 rounded-lg p-7 text-center shadow-sm"><Novi size="lg" expression="celebrating" accessory="warehouse" /><h2 className="text-2xl font-bold text-neutral-900 mt-3">You're label-ready!</h2><p className="text-neutral-600 mt-2">{selected.size} variants checked · {resultSummary.skus} SKUs created · {resultSummary.barcodes} internal barcodes created · {resultSummary.preserved} retail barcodes preserved</p><p className="text-sm font-medium text-emerald-700 mt-3">Nothing was changed in Shopify without your approval.</p><div className="flex flex-wrap justify-center gap-3 mt-6"><Button onClick={() => setStage("print")}>Print Labels</Button><Button variant="secondary" onClick={() => setStage("scan")}>Scan a Product</Button><Button variant="outline" onClick={() => navigate("/products")}>View Products</Button><Button variant="ghost" onClick={() => navigate("/products")}>Done</Button></div></section>}
+      {stage === "complete" && resultSummary && <section className="bg-white border border-emerald-200 rounded-lg p-7 text-center shadow-sm"><Novi size="lg" expression={resultSummary.failed ? "concerned" : "proud"} accessory="warehouse" /><h2 className="text-2xl font-bold text-neutral-900 mt-3">{resultSummary.destination === "shopify" && !resultSummary.failed ? "Verified in Shopify" : "Saved in ShimmerStock"}</h2><p className="text-neutral-600 mt-2">{selected.size} variants checked · {resultSummary.skus} SKUs created · {resultSummary.barcodes} internal barcodes created · {resultSummary.preserved} retail barcodes preserved</p>{resultSummary.destination === "shopify" ? <p className={`text-sm font-medium mt-3 ${resultSummary.failed ? "text-amber-700" : "text-emerald-700"}`}>{resultSummary.verified} verified in Shopify{resultSummary.failed ? ` · ${resultSummary.failed} failed verification and need review` : ""}</p> : <p className="text-sm font-medium text-neutral-700 mt-3">Shopify not updated{data.shopifyMode !== "writeback" ? " — Product Editing permission is not enabled." : "."}</p>}<div className="flex flex-wrap justify-center gap-3 mt-6"><Button onClick={() => setStage("print")}>Print Labels</Button><Button variant="secondary" onClick={() => setStage("scan")}>Scan a Product</Button><Button variant="outline" onClick={() => navigate("/products")}>View Products</Button><Button variant="ghost" onClick={() => navigate("/products")}>Close</Button></div></section>}
 
       {stage === "scan" && <section className="bg-white border border-purple-100 rounded-lg p-5 shadow-sm"><div className="flex items-start gap-4"><Novi size="md" expression="focused" accessory="warehouse" /><div className="flex-1"><h2 className="text-xl font-bold">Scan Something</h2><p className="text-sm text-neutral-600">USB and Bluetooth scanners work automatically when they type a code and press Enter.</p><form onSubmit={scan} className="flex gap-2 mt-4"><input ref={scanRef} value={scanValue} onChange={event => setScanValue(event.target.value)} placeholder="Scan or type a barcode or SKU" className="flex-1 min-w-0 border-2 border-purple-200 rounded-md px-4 py-3 font-mono focus:border-purple-500 outline-none" autoFocus /><Button type="submit">Find Item</Button></form>{scanResult?.status === "found" && scanResult.match && <ScanMatch item={scanResult.match} navigate={navigate} />}{scanResult?.status === "ambiguous" && <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-md"><p className="font-semibold text-amber-900">I found more than one legacy match, so I won't guess.</p><p className="text-sm text-amber-800">Choose the exact product from the matching records.</p></div>}{scanResult?.status === "not_found" && <p className="mt-4 text-sm text-neutral-600">I couldn't find that code in this workspace.</p>}</div></div></section>}
 
@@ -342,6 +371,7 @@ function LabelPreview({ item, size, fields, customText, print = false }: { item?
   return <div className={print ? "thermal-label" : "bg-neutral-100 rounded-md p-5 flex items-center justify-center"}><div className="bg-white text-black overflow-hidden flex flex-col justify-between" style={{ width: `${size.width}in`, height: `${size.height}in`, padding: "0.08in", boxSizing: "border-box", border: print ? "none" : "1px solid #d4d4d4" }}><div className="min-w-0">{fields.includes("product") && <p style={{ fontSize: "9pt", fontWeight: 700, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item?.product_name || "Product name"}</p>}<p style={{ fontSize: "7pt", margin: 0 }}>{fields.includes("variant") ? item?.variant_value || "Variant" : ""}{fields.includes("sku") ? ` · ${item?.proposedSku || item?.sku || "SKU"}` : ""}{fields.includes("price") && item?.price != null ? ` · $${Number(item.price).toFixed(2)}` : ""}</p>{customText && <p style={{ fontSize: "6pt", margin: 0 }}>{customText}</p>}</div>{fields.includes("barcode") && item && (item.barcode || item.internal_barcode) ? <img src={`/api/sku-label-studio/barcodes/${item.id}.svg`} alt={`Code 128 barcode ${item.barcode || item.internal_barcode}`} style={{ width: "100%", maxHeight: "55%", objectFit: "contain" }} /> : <div style={{ height: "20%" }} />}</div></div>;
 }
 
-function ScanMatch({ item, navigate }: { item: StudioItem; navigate: ReturnType<typeof useNavigate> }) {
-  return <div className="mt-5 border border-emerald-200 bg-emerald-50 rounded-lg p-5"><p className="text-emerald-800 font-medium">Found it — {item.product_name}, {item.variant_value}. You have {item.stock_count} available.</p><div className="grid sm:grid-cols-4 gap-3 mt-4"><div><span className="text-xs text-neutral-500">SKU</span><p className="font-mono text-sm">{item.sku || "Not set"}</p></div><div><span className="text-xs text-neutral-500">Available</span><p className="font-bold">{item.stock_count}</p></div><div><span className="text-xs text-neutral-500">Bin / location</span><p>Not assigned</p></div></div><div className="flex flex-wrap gap-2 mt-5"><Button onClick={() => navigate(`/products/${item.product_id}`)}>View Product</Button><Button variant="secondary" onClick={() => navigate("/scan")}>Adjust Inventory</Button><Button variant="secondary" onClick={() => navigate("/warehouse")}>Move Location</Button><Button variant="secondary" onClick={() => navigate("/production")}>Production</Button><Button variant="secondary" onClick={() => navigate("/fulfillment")}>Pack Order</Button></div></div>;
+function ScanMatch({ item, navigate }: { item: ScanMatchItem; navigate: ReturnType<typeof useNavigate> }) {
+  const available = item.inventory_tracked ? item.stock_count : null;
+  return <div className="mt-5 border border-emerald-200 bg-emerald-50 rounded-lg p-5"><p className="text-emerald-800 font-medium">Found it: {item.product_name}, {item.variant_value}. {available === null ? "Inventory is not tracked in Shopify." : `${available} available across ${item.locations.length || 1} location${item.locations.length === 1 ? "" : "s"}.`}</p><div className="grid sm:grid-cols-3 gap-3 mt-4"><div><span className="text-xs text-neutral-500">SKU</span><p className="font-mono text-sm">{item.sku || "Not set"}</p></div><div><span className="text-xs text-neutral-500">Available</span><p className="font-bold">{available ?? "Not tracked"}</p></div><div><span className="text-xs text-neutral-500">Local bin</span><p>{item.bin_location || "Not assigned"}</p></div></div>{item.locations.length > 0 && <div className="mt-4 border-t border-emerald-200 pt-3"><p className="text-xs font-semibold uppercase text-neutral-500">Shopify locations</p><div className="mt-2 grid sm:grid-cols-2 gap-2">{item.locations.map(location => <div key={location.shopify_location_id} className="flex justify-between bg-white border border-emerald-100 rounded px-3 py-2 text-sm"><span>{location.name}</span><strong>{location.available}</strong></div>)}</div></div>}<div className="flex flex-wrap gap-2 mt-5"><Button onClick={() => navigate(`/products/${item.product_id}`)}>View Product</Button><Button variant="secondary" onClick={() => navigate("/scan")}>Adjust Inventory</Button><Button variant="secondary" onClick={() => navigate("/warehouse")}>Move Location</Button><Button variant="secondary" onClick={() => navigate("/production")}>Production</Button><Button variant="secondary" onClick={() => navigate("/fulfillment")}>Pack Order</Button></div></div>;
 }

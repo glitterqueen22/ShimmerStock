@@ -29,6 +29,10 @@ describe("Novi SKU & Label Studio UX contract", () => {
     expect(source).toContain('status!.identifierWritebackEnabled ? "Product Writeback Enabled" : "Safe Mode"');
     expect(source).toContain('status!.identifierWritebackEnabled ? "SKU/Barcode Only" : "Read Only"');
     expect(source).toContain('!status!.identifierWritebackEnabled && !safeModeDismissed');
+    expect(source).toContain("Each update is re-read from Shopify");
+    expect(source).toContain("Inventory, orders, locations, titles, prices, and collections remain read-only");
+    expect(source).not.toContain("inventory counts will be synced both ways");
+    expect(source).not.toContain("Enable Full Sync");
   });
 
   it("offers instant scanning without automatic Shopify inventory writes", async () => {
@@ -36,6 +40,15 @@ describe("Novi SKU & Label Studio UX contract", () => {
     expect(source).toContain("Scan Something");
     expect(source).toContain("USB and Bluetooth scanners work automatically");
     expect(source).toContain('navigate("/scan")');
+    expect(source).toContain("Shopify locations");
+    expect(source).toContain("Inventory is not tracked in Shopify");
     expect(source).not.toContain("write_inventory");
+  });
+
+  it("offers the automatic post-sync catalog audit without forcing review", async () => {
+    const source = await Bun.file("client/src/components/ShopifyConnect.tsx").text();
+    expect(source).toContain("Catalog audit ready");
+    expect(source).toContain("Review catalog");
+    expect(source).toContain("Not now");
   });
 });

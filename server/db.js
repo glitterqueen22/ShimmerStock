@@ -484,6 +484,26 @@ export function initDb(dbPath) {
     db.run("ALTER TABLE product_variants ADD COLUMN shopify_barcode TEXT");
     console.log("Added shopify_barcode column to product_variants");
   }
+  if (!variantCols.some(c => c.name === "inventory_tracked")) {
+    db.run("ALTER TABLE product_variants ADD COLUMN inventory_tracked INTEGER");
+    console.log("Added inventory_tracked column to product_variants");
+  }
+  if (!variantCols.some(c => c.name === "sku_sync_state")) {
+    db.run("ALTER TABLE product_variants ADD COLUMN sku_sync_state TEXT NOT NULL DEFAULT 'MISSING'");
+    db.run(`UPDATE product_variants SET sku_sync_state = CASE
+      WHEN sku IS NULL OR trim(sku) = '' THEN 'MISSING'
+      WHEN shopify_variant_id IS NOT NULL AND sku IS shopify_sku THEN 'SHOPIFY_UPDATED'
+      ELSE 'SAVED_LOCAL' END`);
+    console.log("Added sku_sync_state column to product_variants");
+  }
+  if (!variantCols.some(c => c.name === "barcode_sync_state")) {
+    db.run("ALTER TABLE product_variants ADD COLUMN barcode_sync_state TEXT NOT NULL DEFAULT 'MISSING'");
+    db.run(`UPDATE product_variants SET barcode_sync_state = CASE
+      WHEN barcode IS NULL OR trim(barcode) = '' THEN 'MISSING'
+      WHEN shopify_variant_id IS NOT NULL AND barcode IS shopify_barcode THEN 'SHOPIFY_UPDATED'
+      ELSE 'SAVED_LOCAL' END`);
+    console.log("Added barcode_sync_state column to product_variants");
+  }
 
   rebuildProductVariantsForShopifyIdentity(db);
   db.run(`CREATE INDEX IF NOT EXISTS idx_variants_product ON product_variants(product_id)`);
@@ -2050,11 +2070,16 @@ export function initDb(dbPath) {
       number_padding INTEGER NOT NULL DEFAULT 3,
       preserve_existing INTEGER NOT NULL DEFAULT 1,
       writeback_enabled INTEGER NOT NULL DEFAULT 0,
+      auto_writeback_enabled INTEGER NOT NULL DEFAULT 0,
       preferred_label_size TEXT NOT NULL DEFAULT '2x1',
       label_fields TEXT NOT NULL DEFAULT '["product","variant","sku","barcode"]',
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
+  const identitySettingsColumns = db.query("PRAGMA table_info(product_identity_settings)").all();
+  if (!identitySettingsColumns.some(column => column.name === "auto_writeback_enabled")) {
+    db.run("ALTER TABLE product_identity_settings ADD COLUMN auto_writeback_enabled INTEGER NOT NULL DEFAULT 0");
+  }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS generated_internal_barcodes (
@@ -2217,6 +2242,7 @@ export function initDb(dbPath) {
       shopify_order_ids TEXT,
       shopify_location_ids TEXT,
       shopify_inventory_pairs TEXT,
+      shopify_inventory_snapshot TEXT,
       discrepancies TEXT,
       errors TEXT,
       reconciliation_status TEXT DEFAULT 'PENDING',
@@ -2231,7 +2257,7 @@ export function initDb(dbPath) {
   {
     const sisCols = db.query("PRAGMA table_info(shopify_import_sessions)").all().map(c => c.name);
     for (const col of ["shopify_product_ids", "shopify_variant_ids", "shopify_order_ids",
-                        "shopify_location_ids", "shopify_inventory_pairs"]) {
+                        "shopify_location_ids", "shopify_inventory_pairs", "shopify_inventory_snapshot"]) {
       if (!sisCols.includes(col)) {
         db.run(`ALTER TABLE shopify_import_sessions ADD COLUMN ${col} TEXT`);
       }
@@ -2432,6 +2458,17 @@ export function initDb(dbPath) {
   db.run(`CREATE INDEX IF NOT EXISTS idx_novi_memory_business ON novi_memory(business_id)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_novi_memory_type ON novi_memory(business_id, event_type)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_novi_memory_date ON novi_memory(business_id, occurred_at)`);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS novi_business_preferences (
+      business_id INTEGER PRIMARY KEY REFERENCES businesses(id),
+      preferred_workflow TEXT,
+      production_priority TEXT NOT NULL DEFAULT 'oldest_orders_first',
+      packing_preference TEXT,
+      updated_by INTEGER REFERENCES users(id),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS novi_goals (

@@ -276,6 +276,7 @@ describe("shopify pilot import — canonical pipeline", () => {
     const originalFetch = globalThis.fetch;
     const operations: string[] = [];
     let inventoryPage = 0;
+    let firstAvailable = 7;
 
     globalThis.fetch = (async (_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
       expect(init?.method).toBe("POST");
@@ -297,7 +298,7 @@ describe("shopify pilot import — canonical pipeline", () => {
                 sku: null,
                 barcode: null,
                 title: "Null SKU",
-                inventoryItem: { id: "gid://shopify/InventoryItem/301" },
+                inventoryItem: { id: "gid://shopify/InventoryItem/301", tracked: true },
                 inventoryQuantity: 7,
               } },
               { node: {
@@ -305,7 +306,7 @@ describe("shopify pilot import — canonical pipeline", () => {
                 sku: "",
                 barcode: null,
                 title: "Blank SKU",
-                inventoryItem: { id: "gid://shopify/InventoryItem/302" },
+                inventoryItem: { id: "gid://shopify/InventoryItem/302", tracked: true },
                 inventoryQuantity: 3,
               } },
               { node: {
@@ -313,7 +314,7 @@ describe("shopify pilot import — canonical pipeline", () => {
                 sku: "DUPLICATE-SKU",
                 barcode: null,
                 title: "Duplicate SKU A",
-                inventoryItem: { id: "gid://shopify/InventoryItem/303" },
+                inventoryItem: { id: "gid://shopify/InventoryItem/303", tracked: true },
                 inventoryQuantity: 2,
               } },
               { node: {
@@ -321,7 +322,7 @@ describe("shopify pilot import — canonical pipeline", () => {
                 sku: "DUPLICATE-SKU",
                 barcode: null,
                 title: "Duplicate SKU B",
-                inventoryItem: { id: "gid://shopify/InventoryItem/304" },
+                inventoryItem: { id: "gid://shopify/InventoryItem/304", tracked: true },
                 inventoryQuantity: 1,
               } },
             ] },
@@ -351,7 +352,7 @@ describe("shopify pilot import — canonical pipeline", () => {
             pageInfo: { hasNextPage: true, endCursor: "inventory-page-2" },
             edges: [
               { node: {
-                quantities: [{ name: "available", quantity: 7 }],
+                quantities: [{ name: "available", quantity: firstAvailable }],
                 item: { id: "gid://shopify/InventoryItem/301" },
               } },
               { node: {
@@ -426,14 +427,19 @@ describe("shopify pilot import — canonical pipeline", () => {
         { shopify_inventory_item_id: "302", shopify_location_id: "401", available: 3 },
         { shopify_inventory_item_id: "303", shopify_location_id: "401", available: 0 },
       ]);
+      expect((db.query("SELECT stock_count FROM products WHERE business_id = ? AND shopify_product_id = '101'").get(business.id) as { stock_count: number }).stock_count).toBe(10);
+      expect((db.query("SELECT stock_count FROM product_variants WHERE business_id = ? AND shopify_variant_id = '201'").get(business.id) as { stock_count: number }).stock_count).toBe(7);
       expect((db.query("SELECT COUNT(*) AS count FROM orders WHERE business_id = ? AND shopify_order_id = '501'").get(business.id) as { count: number }).count).toBe(1);
 
       operations.length = 0;
       inventoryPage = 0;
+      firstAvailable = 11;
       const rerun = await runInitialImport(db, business.id);
       expect(rerun.state).toBe(IMPORT_STATES.SYNCED);
       expect((db.query("SELECT COUNT(*) AS count FROM product_variants WHERE business_id = ?").get(business.id) as { count: number }).count).toBe(4);
       expect((db.query("SELECT COUNT(*) AS count FROM shopify_inventory_levels WHERE business_id = ?").get(business.id) as { count: number }).count).toBe(3);
+      expect((db.query("SELECT stock_count FROM product_variants WHERE business_id = ? AND shopify_variant_id = '201'").get(business.id) as { stock_count: number }).stock_count).toBe(11);
+      expect((db.query("SELECT stock_count FROM products WHERE business_id = ? AND shopify_product_id = '101'").get(business.id) as { stock_count: number }).stock_count).toBe(14);
     } finally {
       globalThis.fetch = originalFetch;
       db.close();

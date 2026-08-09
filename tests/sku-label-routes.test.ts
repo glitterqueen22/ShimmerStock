@@ -4,6 +4,7 @@ import { loginAs, setupTest } from "./helpers/test-harness.js";
 let appUrl = "";
 let tokenA = "";
 let tokenB = "";
+let managerToken = "";
 let cleanup: (() => Promise<void>) | undefined;
 let testDb: any;
 let variantA = 0;
@@ -27,6 +28,13 @@ beforeAll(async () => {
   tokenB = await loginAs(appUrl, "owner_b", "test1234");
   const db = environment.db;
   testDb = db;
+  const managerHash = Bun.password.hashSync("test1234");
+  const managerId = Number(db.run(
+    "INSERT INTO users (username, password_hash, display_name, role) VALUES ('manager_a', ?, 'Manager A', 'manager')",
+    [managerHash],
+  ).lastInsertRowid);
+  db.run("INSERT INTO user_businesses (user_id, business_id, role, is_active) VALUES (?, 1, 'manager', 1)", [managerId]);
+  managerToken = await loginAs(appUrl, "manager_a", "test1234");
   const productA = db.query("SELECT id FROM products WHERE business_id = 1 ORDER BY id LIMIT 1").get() as { id: number };
   const productB = db.query("SELECT id FROM products WHERE business_id = 2 ORDER BY id LIMIT 1").get() as { id: number };
   variantA = Number(db.run(`
@@ -51,6 +59,15 @@ afterAll(async () => {
 });
 
 describe("Novi SKU & Label Studio local workflow", () => {
+  it("keeps automatic Shopify updates off by default and owner controlled", async () => {
+    const initial = await request("GET", "/api/sku-label-studio", tokenA);
+    expect((await initial.json() as any).settings.autoWritebackEnabled).toBe(false);
+    const managerAttempt = await request("PUT", "/api/sku-label-studio/settings", managerToken, {
+      autoWritebackEnabled: true,
+    });
+    expect(managerAttempt.status).toBe(403);
+    expect((await managerAttempt.json() as any).error).toContain("owner or admin");
+  });
   it("audits only the active business and proposes deterministic missing SKUs", async () => {
     const response = await request("GET", "/api/sku-label-studio", tokenA);
     expect(response.status).toBe(200);
@@ -133,6 +150,23 @@ describe("Scanner ambiguity and labels", () => {
     const result = await response.json() as any;
     expect(result.status).toBe("ambiguous");
     expect(result.matches).toHaveLength(2);
+  });
+
+  it("returns canonical availability with tenant-scoped location and bin context", async () => {
+    const productId = (testDb.query("SELECT product_id FROM product_variants WHERE id = ?").get(variantA) as any).product_id;
+    testDb.run("UPDATE products SET bin_location = 'A-07' WHERE id = ? AND business_id = 1", [productId]);
+    testDb.run("INSERT INTO shopify_locations (business_id, shopify_location_id, name) VALUES (1, 'LOC-A', 'Main Store')");
+    testDb.run("INSERT INTO shopify_locations (business_id, shopify_location_id, name) VALUES (2, 'LOC-B', 'Other Tenant')");
+    testDb.run(`INSERT INTO shopify_inventory_levels
+      (business_id, shopify_inventory_item_id, shopify_location_id, available)
+      VALUES (1, 'A-501', 'LOC-A', 23), (2, 'A-501', 'LOC-B', 900)`);
+
+    const response = await request("POST", "/api/sku-label-studio/scan", tokenA, { value: internalBarcodeA });
+    expect(response.status).toBe(200);
+    const result = await response.json() as any;
+    expect(result.match.stock_count).toBe(23);
+    expect(result.match.bin_location).toBe("A-07");
+    expect(result.match.locations).toEqual([{ name: "Main Store", shopify_location_id: "LOC-A", available: 23 }]);
   });
 
   it("stores physical label dimensions and tenant-scoped templates", async () => {

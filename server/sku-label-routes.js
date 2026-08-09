@@ -52,6 +52,21 @@ export function mountSkuLabelRoutes(app, db) {
 
   app.put("/api/sku-label-studio/settings", requireAuth(db, "products.write"), (req, res) => {
     try {
+      const current = getIdentitySettings(db, req.businessId);
+      if (typeof req.body?.autoWritebackEnabled === "boolean" && req.body.autoWritebackEnabled !== current.autoWritebackEnabled) {
+        if (!new Set(["owner", "admin"]).has(req.businessRole)) {
+          return res.status(403).json({ error: "Only an owner or admin can change automatic Shopify identifier updates" });
+        }
+        if (req.body.autoWritebackEnabled) {
+          const credential = db.query(
+            "SELECT scopes FROM provider_credentials WHERE business_id = ? AND provider = 'shopify' AND is_active = 1"
+          ).get(req.businessId);
+          const scopes = String(credential?.scopes || "").split(",").map(scope => scope.trim());
+          if (!scopes.includes("write_products")) {
+            return res.status(403).json({ error: "Product Editing permission is required for automatic Shopify updates" });
+          }
+        }
+      }
       res.json(saveIdentitySettings(db, req.businessId, req.body ?? {}));
     } catch (error) {
       res.status(400).json({ error: error.message });

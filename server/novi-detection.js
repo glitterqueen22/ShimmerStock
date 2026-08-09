@@ -145,14 +145,12 @@ function createMessageIfNeeded(db, businessId, message) {
  * Products with quantity <= reorder_point AND quantity > 0
  */
 function detectLowInventory(db, businessId) {
-  const products = db.query(
-    `SELECT p.id, p.name, p.sku, p.stock_count,
-            COALESCE(t.reorder_point, 5) as reorder_point
-     FROM products p
-     LEFT JOIN inventory_thresholds t ON t.product_id = p.id AND t.business_id = p.business_id
-     WHERE p.business_id = ? AND p.stock_count > 0
-       AND p.stock_count <= COALESCE(t.reorder_point, 5)`
-  ).all(businessId);
+  const thresholds = new Map(db.query(
+    "SELECT product_id, reorder_point FROM inventory_thresholds WHERE business_id = ?"
+  ).all(businessId).map(row => [row.product_id, row.reorder_point]));
+  const products = store.listProducts(db, businessId)
+    .map(product => ({ ...product, reorder_point: thresholds.get(product.id) ?? 5 }))
+    .filter(product => product.inventory_tracked && product.stock_count > 0 && product.stock_count <= product.reorder_point);
 
   const created = [];
   for (const product of products) {
@@ -180,11 +178,8 @@ function detectLowInventory(db, businessId) {
  * Products with quantity <= 0
  */
 function detectOutOfStock(db, businessId) {
-  const products = db.query(
-    `SELECT id, name, sku, stock_count
-     FROM products
-     WHERE business_id = ? AND stock_count <= 0`
-  ).all(businessId);
+  const products = store.listProducts(db, businessId)
+    .filter(product => product.inventory_tracked && product.stock_count <= 0);
 
   const created = [];
   for (const product of products) {

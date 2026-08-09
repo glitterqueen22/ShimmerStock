@@ -137,14 +137,14 @@ const EXPRESSION_CONFIG: Record<NoviExpression, ExprConfig> = {
 // ── Color Tokens ─────────────────────────────────────────────────────
 
 const COLORS = {
-  primary: "#7C3AED",
-  core: "#FFFBEB",
-  mid: "#A78BFA",
-  edge: "#4C1D95",
+  primary: "#9B6BD3",
+  core: "#FFF8F4",
+  mid: "#D8A7D8",
+  edge: "#68408F",
   champagne: "#FDE68A",
   champagneSoft: "#FEF9E7",
-  glowLavender: "#C4B5FD",
-  shadowDeep: "#3B0764",
+  glowLavender: "#E4C7EA",
+  shadowDeep: "#512C68",
 };
 
 // ── Accessory Renderer ───────────────────────────────────────────────
@@ -514,9 +514,9 @@ export default function Novi({
   const rightEyeCx = 64;
 
   // Eye dimensions with expression config
-  const eyeRx = cfg.eyeRx;
-  const eyeRy = cfg.eyeRy * (cfg.squintRight > 0 ? 1 : 1); // base ry
-  const rightEyeRy = cfg.eyeRy * (1 - cfg.squintRight * 0.25); // squint for thinking
+  const eyeRx = cfg.eyeRx * 0.82;
+  const eyeRy = cfg.eyeRy * 0.86;
+  const rightEyeRy = eyeRy * (1 - cfg.squintRight * 0.25);
 
   // Upper lid: covers top portion of eye
   const lidClamp = cfg.upperLid * eyeRy * 2;
@@ -581,7 +581,7 @@ export default function Novi({
         style={{ overflow: "visible" }}
       >
         <defs>
-          {/* Crystal body gradient */}
+          {/* Warm dimensional body gradient */}
           <radialGradient id={bodyId} cx="45%" cy="35%" r="55%" fx="42%" fy="30%">
             <stop offset="0%" stopColor={COLORS.core} stopOpacity="0.95" />
             <stop offset="30%" stopColor={COLORS.mid} stopOpacity="0.7" />
@@ -640,7 +640,7 @@ export default function Novi({
           className="novi-shadow"
         />
 
-        {/* ── Body: Crystal Teardrop ──────────────────────────── */}
+        {/* ── Body: warm pebble silhouette ────────────────────── */}
         <g
           className={`novi-body-group${notifActive ? ` novi-notif-tilt-${notificationSide}` : ""}`}
           style={{
@@ -652,14 +652,13 @@ export default function Novi({
         >
           <path
             d={`
-              M 44 21
-              C 48 17.5, 52 17.5, 56 21
-              C 65 24, 72 36, 73 48
-              C 74 57, 70 71, 62 83
-              C 56 91, 53 94.5, 50 95
-              C 47 94.5, 44 91, 38 83
-              C 30 71, 26 57, 27 48
-              C 28 36, 35 24, 44 21
+              M 39 23
+              C 42 17, 47 19, 50 21
+              C 54 18, 59 17, 62 23
+              C 72 27, 78 39, 77 55
+              C 77 76, 68 91, 50 95
+              C 32 91, 23 76, 23 55
+              C 22 39, 29 27, 39 23
               Z
             `}
             fill={`url(#${bodyId})`}

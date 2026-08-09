@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { decryptToken } from "./crypto-utils.js";
-import { gatewayProductVariantsBulkUpdate } from "./providers/shopify-gateway.js";
+import { gatewayProductVariantsBulkUpdate, gatewayProductVariantsByIds } from "./providers/shopify-gateway.js";
 import { saveLocalIdentifiers } from "./sku-label-studio.js";
 
 function gid(type, value) {
@@ -101,15 +101,32 @@ function auditResult(db, businessId, userId, shop, item, result, errors) {
     item.previousBarcode, item.requestedSku, item.requestedBarcode, result, JSON.stringify(errors || []), userId]);
 }
 
+function normalizeIdentifier(value) {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
+}
+
+function setIdentifierStates(db, businessId, items, state) {
+  const update = db.query(`
+    UPDATE product_variants SET sku_sync_state = ?, barcode_sync_state = ?, updated_at = datetime('now')
+    WHERE id = ? AND business_id = ?
+  `);
+  for (const item of items) update.run(state, state, item.variantId, businessId);
+}
+
 export async function executeWriteback(db, businessId, userId, previewId, confirmation) {
-  if (confirmation !== "UPDATE SHOPIFY") throw new Error("Final confirmation is required");
+  const settings = db.query(
+    "SELECT writeback_enabled, auto_writeback_enabled FROM product_identity_settings WHERE business_id = ?"
+  ).get(businessId);
+  if (confirmation !== "UPDATE SHOPIFY" && !settings?.auto_writeback_enabled) {
+    throw new Error("Final confirmation is required");
+  }
   const preview = db.query(`
     SELECT * FROM shopify_identifier_writeback_previews
     WHERE id = ? AND business_id = ? AND initiated_by = ?
       AND accepted_at IS NOT NULL AND executed_at IS NULL AND expires_at > datetime('now')
   `).get(previewId, businessId, userId);
   if (!preview) throw new Error("Accepted preview not found or expired");
-  const settings = db.query("SELECT writeback_enabled FROM product_identity_settings WHERE business_id = ?").get(businessId);
   if (!settings?.writeback_enabled) throw new Error("SKU & Label Studio writeback is not enabled");
   const credential = loadWritebackCredential(db, businessId);
   const items = JSON.parse(preview.payload);
@@ -132,6 +149,14 @@ export async function executeWriteback(db, businessId, userId, previewId, confir
   }
   const results = [];
   for (const [productId, productItems] of groups) {
+    saveLocalIdentifiers(db, businessId, productItems.map(item => ({
+      variantId: item.variantId,
+      sku: item.requestedSku,
+      barcode: item.requestedBarcode,
+      replaceSku: item.replaceSku,
+      replaceBarcode: item.replaceBarcode,
+    })));
+    setIdentifierStates(db, businessId, productItems, "SHOPIFY_UPDATE_IN_PROGRESS");
     try {
       const response = await gatewayProductVariantsBulkUpdate(
         credential.shop,
@@ -142,36 +167,47 @@ export async function executeWriteback(db, businessId, userId, previewId, confir
       const payload = response?.data?.productVariantsBulkUpdate;
       const errors = [...(response?.errors || []), ...(payload?.userErrors || [])];
       const updatedIds = new Set((payload?.productVariants || []).map(variant => variant.id));
+      let verifiedById = new Map();
+      if (errors.length === 0 && productItems.every(item => updatedIds.has(item.shopifyVariantId))) {
+        const verification = await gatewayProductVariantsByIds(
+          credential.shop, credential.accessToken, productItems.map(item => item.shopifyVariantId)
+        );
+        verifiedById = new Map((verification?.data?.nodes || []).filter(Boolean).map(variant => [variant.id, variant]));
+      }
       for (const item of productItems) {
-        const updated = errors.length === 0 && updatedIds.has(item.shopifyVariantId);
+        const verified = verifiedById.get(item.shopifyVariantId);
+        const updated = errors.length === 0 && updatedIds.has(item.shopifyVariantId)
+          && normalizeIdentifier(verified?.inventoryItem?.sku) === normalizeIdentifier(item.requestedSku)
+          && normalizeIdentifier(verified?.barcode) === normalizeIdentifier(item.requestedBarcode);
+        const itemErrors = updated ? [] : errors.length > 0 ? errors : [{ message: "Shopify verification did not match the approved identifiers" }];
         if (updated) {
-          saveLocalIdentifiers(db, businessId, [{
-            variantId: item.variantId,
-            sku: item.requestedSku,
-            barcode: item.requestedBarcode,
-            replaceSku: item.replaceSku,
-            replaceBarcode: item.replaceBarcode,
-          }]);
-          db.run(`UPDATE product_variants SET shopify_sku = ?, shopify_barcode = ? WHERE id = ? AND business_id = ?`,
+          db.run(`UPDATE product_variants SET shopify_sku = ?, shopify_barcode = ?,
+            sku_sync_state = 'SHOPIFY_UPDATED', barcode_sync_state = 'SHOPIFY_UPDATED'
+            WHERE id = ? AND business_id = ?`,
             [item.requestedSku, item.requestedBarcode, item.variantId, businessId]);
+        } else {
+          db.run(`UPDATE product_variants SET sku_sync_state = 'SHOPIFY_UPDATE_FAILED',
+            barcode_sync_state = 'SHOPIFY_UPDATE_FAILED' WHERE id = ? AND business_id = ?`,
+            [item.variantId, businessId]);
         }
-        const result = updated ? "updated" : "failed";
-        auditResult(db, businessId, userId, credential.shop, item, result, errors);
-        results.push({ variantId: item.variantId, result, errors });
+        const result = updated ? "SHOPIFY_UPDATED" : "SHOPIFY_UPDATE_FAILED";
+        auditResult(db, businessId, userId, credential.shop, item, result, itemErrors);
+        results.push({ variantId: item.variantId, result, errors: itemErrors });
       }
     } catch (error) {
+      setIdentifierStates(db, businessId, productItems, "SHOPIFY_UPDATE_FAILED");
       for (const item of productItems) {
         const errors = [{ message: error.message }];
-        auditResult(db, businessId, userId, credential.shop, item, "failed", errors);
-        results.push({ variantId: item.variantId, result: "failed", errors });
+        auditResult(db, businessId, userId, credential.shop, item, "SHOPIFY_UPDATE_FAILED", errors);
+        results.push({ variantId: item.variantId, result: "SHOPIFY_UPDATE_FAILED", errors });
       }
     }
   }
   db.run("UPDATE shopify_identifier_writeback_previews SET executed_at = datetime('now') WHERE id = ?", [previewId]);
   return {
-    updated: results.filter(result => result.result === "updated").length,
+    updated: results.filter(result => result.result === "SHOPIFY_UPDATED").length,
     skipped: results.filter(result => result.result === "skipped").length,
-    failed: results.filter(result => result.result === "failed").length,
+    failed: results.filter(result => result.result === "SHOPIFY_UPDATE_FAILED").length,
     results,
   };
 }
