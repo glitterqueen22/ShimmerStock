@@ -53,7 +53,8 @@ export function listProductsWithInventory(db, businessId) {
 }
 
 export function getProductWithInventory(db, businessId, productId) {
-  return listProductsWithInventory(db, businessId).find(product => product.id === productId) ?? null;
+  const normalizedProductId = Number(productId);
+  return listProductsWithInventory(db, businessId).find(product => product.id === normalizedProductId) ?? null;
 }
 
 export function getLowStockProducts(db, businessId, threshold = 5) {
