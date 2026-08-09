@@ -166,6 +166,89 @@ function validateBootstrapCredential(envVarName, value) {
   return normalizedValue;
 }
 
+/**
+ * Safe, idempotent table-rebuild migration: converts global sku/barcode UNIQUE
+ * constraints on the products table to tenant-scoped indexes.
+ *
+ * - Detects whether the existing table has inline UNIQUE on sku or barcode.
+ * - If not needed, returns immediately (safe to call multiple times).
+ * - Preserves every column (including later-added columns), every row, all IDs,
+ *   all Shopify metadata, and all business_id values.
+ * - Verifies row counts before/after; throws and rolls back on mismatch.
+ * - Runs inside a transaction. Disables FK enforcement during the rebuild only.
+ */
+export function rebuildProductsForTenantScoping(db) {
+  const createRow = db.query(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='products'"
+  ).get();
+  const tableSql = createRow?.sql || "";
+  const hasGlobalSku = /\bsku\s+TEXT\s+UNIQUE\b/i.test(tableSql);
+  const hasGlobalBarcode = /\bbarcode\s+TEXT\s+UNIQUE\b/i.test(tableSql);
+
+  if (!hasGlobalSku && !hasGlobalBarcode) {
+    return; // Already tenant-scoped or fresh schema — nothing to do
+  }
+
+  // Discover all current columns dynamically so no data is lost.
+  const cols = db.query("PRAGMA table_info(products)").all();
+  const colNames = cols.map(c => c.name).join(", ");
+
+  // Columns whose DDL we explicitly declare in the rebuilt table.
+  const knownCols = new Set([
+    "id", "name", "sku", "barcode", "stock_count",
+    "created_at", "updated_at",
+    "business_id", "shopify_product_id", "shopify_status", "shopify_imported_at",
+  ]);
+  // Any extra columns added by future migrations are appended as-is.
+  const extraCols = cols.filter(c => !knownCols.has(c.name));
+
+  const before = db.query("SELECT COUNT(*) as c FROM products").get().c;
+
+  // PRAGMA foreign_keys must be changed outside a transaction in SQLite.
+  db.run("PRAGMA foreign_keys=OFF");
+  db.run("BEGIN IMMEDIATE");
+  try {
+    db.run(`
+      CREATE TABLE products_rebuilt (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        sku TEXT NOT NULL,
+        barcode TEXT,
+        stock_count INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        business_id INTEGER REFERENCES businesses(id),
+        shopify_product_id TEXT,
+        shopify_status TEXT,
+        shopify_imported_at TEXT${extraCols.map(c => `,\n        ${c.name} ${c.type || "TEXT"}`).join("")}
+      )
+    `);
+
+    db.run(`INSERT INTO products_rebuilt (${colNames}) SELECT ${colNames} FROM products`);
+
+    const after = db.query("SELECT COUNT(*) as c FROM products_rebuilt").get().c;
+    if (after !== before) {
+      throw new Error(
+        `Products tenant-scoping migration: row count mismatch — ` +
+        `before=${before} after=${after}. Rolling back.`
+      );
+    }
+
+    db.run("DROP TABLE products");
+    db.run("ALTER TABLE products_rebuilt RENAME TO products");
+    db.run("COMMIT");
+    console.log(
+      `Rebuilt products table: removed global sku/barcode UNIQUE constraints ` +
+      `(${after} rows preserved, IDs intact)`
+    );
+  } catch (err) {
+    db.run("ROLLBACK");
+    throw err;
+  } finally {
+    db.run("PRAGMA foreign_keys=ON");
+  }
+}
+
 export function initDb(dbPath) {
   const db = new Database(dbPath || DB_PATH);
 
@@ -189,8 +272,8 @@ export function initDb(dbPath) {
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
-      sku TEXT UNIQUE NOT NULL,
-      barcode TEXT UNIQUE,
+      sku TEXT NOT NULL,
+      barcode TEXT,
       stock_count INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
@@ -247,6 +330,20 @@ export function initDb(dbPath) {
       console.log("Added shopify_imported_at column to products");
     }
   }
+
+  // Migration: replace global sku/barcode UNIQUE constraints with tenant-scoped indexes.
+  // Safe to call on every startup — returns immediately if already done.
+  rebuildProductsForTenantScoping(db);
+
+  // Tenant-scoped unique indexes for products (idempotent — IF NOT EXISTS).
+  db.run(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_products_biz_sku " +
+    "ON products(business_id, sku)"
+  );
+  db.run(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_products_biz_barcode " +
+    "ON products(business_id, barcode) WHERE barcode IS NOT NULL"
+  );
 
   // ── Product Variants ────────────────────────────────────────────
 

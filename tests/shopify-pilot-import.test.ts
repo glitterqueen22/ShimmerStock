@@ -32,7 +32,7 @@ if (!/^[0-9a-f]{64}$/i.test(process.env.ENCRYPTION_KEY || "")) {
 
 import { describe, expect, it } from "bun:test";
 import { Database } from "bun:sqlite";
-import { initDb } from "../server/db.js";
+import { initDb, rebuildProductsForTenantScoping } from "../server/db.js";
 import {
   IMPORT_STATES,
   loadAndValidateCredentials,
@@ -1024,6 +1024,253 @@ describe("shopify pilot — tenant-scoped unique indexes", () => {
     const count = db.query("SELECT COUNT(*) as c FROM orders WHERE shopify_order_id = ?")
       .get(sharedOrderId) as { c: number };
     expect(count.c).toBe(2);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REQUIREMENT 4 (extended): SKU and barcode tenant-scoped uniqueness
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Build a minimal in-memory DB that simulates an existing (pre-fix) products
+ * table with global UNIQUE constraints on sku and barcode.  Used only in
+ * migration-survival tests.
+ */
+function buildOldSchemaDb(): Database {
+  const db = new Database(":memory:");
+  db.run("PRAGMA journal_mode=WAL");
+  db.run(`CREATE TABLE businesses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  db.run(`CREATE TABLE products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    sku TEXT UNIQUE NOT NULL,
+    barcode TEXT UNIQUE,
+    stock_count INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    business_id INTEGER REFERENCES businesses(id),
+    shopify_product_id TEXT,
+    shopify_status TEXT,
+    shopify_imported_at TEXT
+  )`);
+  db.run("INSERT INTO businesses (id, name, slug) VALUES (1, 'Biz One', 'biz-one')");
+  db.run("INSERT INTO businesses (id, name, slug) VALUES (2, 'Biz Two', 'biz-two')");
+  return db;
+}
+
+describe("shopify pilot — tenant-scoped SKU and barcode uniqueness", () => {
+  it("two businesses may have the same SKU", () => {
+    const db = initTestDb();
+    const bizRows = db.query("SELECT id FROM businesses ORDER BY id LIMIT 2").all() as { id: number }[];
+    if (bizRows.length < 2) {
+      db.run("INSERT INTO businesses (name, slug) VALUES ('Biz Two SKU', 'biz-two-sku')");
+    }
+    const [biz1, biz2] = db.query("SELECT id FROM businesses ORDER BY id LIMIT 2").all() as { id: number }[];
+
+    db.run(
+      `INSERT INTO products (name, sku, stock_count, business_id, created_at, updated_at)
+       VALUES ('Biz1 Widget', 'SHARED-SKU-001', 0, ?, datetime('now'), datetime('now'))`,
+      [biz1.id]
+    );
+    // Second tenant same SKU — must succeed
+    db.run(
+      `INSERT INTO products (name, sku, stock_count, business_id, created_at, updated_at)
+       VALUES ('Biz2 Widget', 'SHARED-SKU-001', 0, ?, datetime('now'), datetime('now'))`,
+      [biz2.id]
+    );
+
+    const count = db.query(
+      "SELECT COUNT(*) as c FROM products WHERE sku = 'SHARED-SKU-001'"
+    ).get() as { c: number };
+    expect(count.c).toBe(2);
+  });
+
+  it("same business may NOT have duplicate SKU", () => {
+    const db = initTestDb();
+    const biz = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!;
+
+    db.run(
+      `INSERT INTO products (name, sku, stock_count, business_id, created_at, updated_at)
+       VALUES ('Widget A', 'DUP-SKU', 0, ?, datetime('now'), datetime('now'))`,
+      [biz.id]
+    );
+
+    let threw = false;
+    try {
+      db.run(
+        `INSERT INTO products (name, sku, stock_count, business_id, created_at, updated_at)
+         VALUES ('Widget B', 'DUP-SKU', 0, ?, datetime('now'), datetime('now'))`,
+        [biz.id]
+      );
+    } catch {
+      threw = true;
+    }
+    expect(threw).toBe(true);
+  });
+
+  it("two businesses may have the same barcode", () => {
+    const db = initTestDb();
+    const bizRows = db.query("SELECT id FROM businesses ORDER BY id LIMIT 2").all() as { id: number }[];
+    if (bizRows.length < 2) {
+      db.run("INSERT INTO businesses (name, slug) VALUES ('Biz Two Barcode', 'biz-two-barcode')");
+    }
+    const [biz1, biz2] = db.query("SELECT id FROM businesses ORDER BY id LIMIT 2").all() as { id: number }[];
+
+    db.run(
+      `INSERT INTO products (name, sku, barcode, stock_count, business_id, created_at, updated_at)
+       VALUES ('Biz1 Product', 'SKU-BC1', 'BAR-SHARED-999', 0, ?, datetime('now'), datetime('now'))`,
+      [biz1.id]
+    );
+    db.run(
+      `INSERT INTO products (name, sku, barcode, stock_count, business_id, created_at, updated_at)
+       VALUES ('Biz2 Product', 'SKU-BC2', 'BAR-SHARED-999', 0, ?, datetime('now'), datetime('now'))`,
+      [biz2.id]
+    );
+
+    const count = db.query(
+      "SELECT COUNT(*) as c FROM products WHERE barcode = 'BAR-SHARED-999'"
+    ).get() as { c: number };
+    expect(count.c).toBe(2);
+  });
+
+  it("same business may NOT have duplicate non-null barcode", () => {
+    const db = initTestDb();
+    const biz = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!;
+
+    db.run(
+      `INSERT INTO products (name, sku, barcode, stock_count, business_id, created_at, updated_at)
+       VALUES ('Product X', 'SKU-DBC1', 'DUPBAR-001', 0, ?, datetime('now'), datetime('now'))`,
+      [biz.id]
+    );
+
+    let threw = false;
+    try {
+      db.run(
+        `INSERT INTO products (name, sku, barcode, stock_count, business_id, created_at, updated_at)
+         VALUES ('Product Y', 'SKU-DBC2', 'DUPBAR-001', 0, ?, datetime('now'), datetime('now'))`,
+        [biz.id]
+      );
+    } catch {
+      threw = true;
+    }
+    expect(threw).toBe(true);
+  });
+
+  it("null barcodes do not trigger uniqueness violations", () => {
+    const db = initTestDb();
+    const biz = db.query("SELECT id FROM businesses LIMIT 1").get<{ id: number }>()!;
+
+    // Multiple products with null barcode for the same business must be allowed
+    db.run(
+      `INSERT INTO products (name, sku, barcode, stock_count, business_id, created_at, updated_at)
+       VALUES ('No Barcode 1', 'SKU-NB1', NULL, 0, ?, datetime('now'), datetime('now'))`,
+      [biz.id]
+    );
+    db.run(
+      `INSERT INTO products (name, sku, barcode, stock_count, business_id, created_at, updated_at)
+       VALUES ('No Barcode 2', 'SKU-NB2', NULL, 0, ?, datetime('now'), datetime('now'))`,
+      [biz.id]
+    );
+
+    const count = db.query(
+      "SELECT COUNT(*) as c FROM products WHERE barcode IS NULL AND business_id = ?",
+    ).get(biz.id) as { c: number };
+    expect(count.c).toBeGreaterThanOrEqual(2);
+  });
+
+  it("existing product rows survive migration unchanged — IDs preserved", () => {
+    const db = buildOldSchemaDb();
+    db.run(
+      `INSERT INTO products (id, name, sku, barcode, stock_count, business_id, shopify_product_id,
+         shopify_status, shopify_imported_at, created_at, updated_at)
+       VALUES (42, 'Survivor Widget', 'SURV-SKU', 'SURV-BAR', 7, 1,
+         'gid://shopify/Product/42', 'active', '2025-01-01T00:00:00Z',
+         '2025-01-01T00:00:00Z', '2025-01-02T00:00:00Z')`,
+    );
+
+    rebuildProductsForTenantScoping(db);
+
+    const row = db.query("SELECT * FROM products WHERE id = 42").get() as Record<string, unknown>;
+    expect(row).toBeTruthy();
+    expect(row.id).toBe(42);
+    expect(row.name).toBe("Survivor Widget");
+    expect(row.sku).toBe("SURV-SKU");
+    expect(row.barcode).toBe("SURV-BAR");
+    expect(row.stock_count).toBe(7);
+    expect(row.business_id).toBe(1);
+  });
+
+  it("Shopify metadata survives migration", () => {
+    const db = buildOldSchemaDb();
+    db.run(
+      `INSERT INTO products (name, sku, stock_count, business_id, shopify_product_id,
+         shopify_status, shopify_imported_at, created_at, updated_at)
+       VALUES ('Meta Product', 'META-SKU', 3, 1,
+         'gid://shopify/Product/99', 'active', '2025-06-15T12:00:00Z',
+         '2025-06-15T12:00:00Z', '2025-06-15T12:00:00Z')`,
+    );
+
+    rebuildProductsForTenantScoping(db);
+
+    const row = db.query(
+      "SELECT * FROM products WHERE shopify_product_id = 'gid://shopify/Product/99'"
+    ).get() as Record<string, unknown>;
+    expect(row).toBeTruthy();
+    expect(row.shopify_product_id).toBe("gid://shopify/Product/99");
+    expect(row.shopify_status).toBe("active");
+    expect(row.shopify_imported_at).toBe("2025-06-15T12:00:00Z");
+  });
+
+  it("running rebuildProductsForTenantScoping twice is safe (idempotent)", () => {
+    const db = buildOldSchemaDb();
+    db.run(
+      `INSERT INTO products (name, sku, stock_count, business_id, created_at, updated_at)
+       VALUES ('Product', 'IDEM-SKU', 1, 1, datetime('now'), datetime('now'))`,
+    );
+
+    // First run rebuilds
+    rebuildProductsForTenantScoping(db);
+    const count1 = db.query("SELECT COUNT(*) as c FROM products").get() as { c: number };
+
+    // Second run detects no global UNIQUE — no-op
+    rebuildProductsForTenantScoping(db);
+    const count2 = db.query("SELECT COUNT(*) as c FROM products").get() as { c: number };
+
+    expect(count1.c).toBe(1);
+    expect(count2.c).toBe(1);
+  });
+
+  it("no cross-tenant data changes occur during migration", () => {
+    const db = buildOldSchemaDb();
+    db.run(
+      `INSERT INTO products (name, sku, stock_count, business_id, created_at, updated_at)
+       VALUES ('Biz1 Item', 'XTN-SKU-1', 5, 1, datetime('now'), datetime('now'))`,
+    );
+    db.run(
+      `INSERT INTO products (name, sku, stock_count, business_id, created_at, updated_at)
+       VALUES ('Biz2 Item', 'XTN-SKU-2', 9, 2, datetime('now'), datetime('now'))`,
+    );
+
+    rebuildProductsForTenantScoping(db);
+
+    const biz1Rows = db.query(
+      "SELECT * FROM products WHERE business_id = 1"
+    ).all() as Record<string, unknown>[];
+    const biz2Rows = db.query(
+      "SELECT * FROM products WHERE business_id = 2"
+    ).all() as Record<string, unknown>[];
+
+    expect(biz1Rows).toHaveLength(1);
+    expect(biz1Rows[0].sku).toBe("XTN-SKU-1");
+    expect(biz1Rows[0].stock_count).toBe(5);
+    expect(biz2Rows).toHaveLength(1);
+    expect(biz2Rows[0].sku).toBe("XTN-SKU-2");
+    expect(biz2Rows[0].stock_count).toBe(9);
   });
 });
 
