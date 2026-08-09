@@ -1059,14 +1059,18 @@ export default function Orders() {
           ) : providers.map((provider) => {
             const isConnected = provider.connectionStatus === "connected";
             const isSyncing = syncingProvider === provider.slug;
-            const syncLabel = provider.syncStatus === "synced"
+            const syncLabel = provider.syncStatus === "SYNCED" || provider.syncStatus === "synced"
               ? "Synced"
-              : provider.syncStatus === "syncing"
+              : provider.syncStatus === "IMPORTING" || provider.syncStatus === "syncing"
                 ? "Syncing"
-                : provider.connectionStatus === "pending_validation" || provider.syncStatus === "pending"
-                  ? "Pending validation"
-                  : provider.connectionStatus === "failed" || provider.syncStatus === "error"
-                    ? "Connection failed"
+                : provider.syncStatus === "RECONCILIATION_REQUIRED"
+                  ? "Reconciliation required"
+                  : provider.syncStatus === "IMPORT_FAILED"
+                    ? "Import failed"
+                    : provider.connectionStatus === "pending_validation" || provider.syncStatus === "pending"
+                      ? "Pending validation"
+                      : provider.connectionStatus === "failed" || provider.syncStatus === "error"
+                        ? "Connection failed"
                     : isConnected
                       ? "Connected"
                       : "Not connected";

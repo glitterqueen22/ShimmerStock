@@ -44,11 +44,13 @@ import {
   recoverStaleSessions,
   getActiveImportSession,
   STALE_IMPORT_THRESHOLD_MINUTES,
+  runInitialImport,
 } from "../server/shopify-import.js";
 import { encryptToken } from "../server/crypto-utils.js";
 import { deriveWorkspaceState, filterInsightsByWorkspaceState } from "../client/src/lib/workspaceState.ts";
 import { getDemoInsights } from "../client/src/lib/businessDna.ts";
 import { SHOPIFY_OAUTH_REQUIRED_SCOPES } from "../server/shopify-oauth-config.js";
+import { createShopifyImportHandler } from "../server/commerce-routes.js";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -100,6 +102,21 @@ function insertFakeOrder(db: Database, businessId: number, shopifyOrderId: strin
     [shopifyOrderId, orderNumber, businessId]
   );
   return Number(result.lastInsertRowid);
+}
+
+function createMockResponse() {
+  return {
+    statusCode: 200,
+    body: null as any,
+    status(code: number) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body: any) {
+      this.body = body;
+      return this;
+    },
+  };
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -168,6 +185,176 @@ describe("shopify pilot import — state machine", () => {
     expect(session.state).toBe(IMPORT_STATES.SYNCED);
     expect(session.persisted_products_count).toBe(5);
     db.close();
+  });
+});
+
+describe("shopify pilot import — HTTP trigger", () => {
+  it("rejects a client-supplied business_id when no authenticated business exists", async () => {
+    const db = initTestDb();
+    let runnerCalled = false;
+    const handler = createShopifyImportHandler(db, async () => {
+      runnerCalled = true;
+      throw new Error("runner must not be called");
+    });
+    const response = createMockResponse();
+
+    await handler({ body: { business_id: 2 } } as any, response as any);
+
+    expect(response.statusCode).toBe(401);
+    expect(response.body.error).toBe("No active business session");
+    expect(runnerCalled).toBe(false);
+    db.close();
+  });
+
+  it("uses the authenticated business and creates an import session through the importer", async () => {
+    const db = initTestDb();
+    db.run("INSERT INTO businesses (name, slug) VALUES ('Business B', 'biz-b')");
+    const business = db.query("SELECT id FROM businesses WHERE slug = 'biz-b'").get() as { id: number };
+    let runnerBusinessId: number | null = null;
+    const handler = createShopifyImportHandler(db, async (runnerDb, businessId) => {
+      runnerBusinessId = businessId;
+      const sessionId = createImportSession(runnerDb, businessId);
+      return { success: true, sessionId, summary: {}, state: IMPORT_STATES.IMPORT_PENDING };
+    });
+    const response = createMockResponse();
+
+    await handler(
+      { businessId: business.id, body: { business_id: 1 } } as any,
+      response as any
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(Number(runnerBusinessId)).toBe(business.id);
+    expect(response.body.sessionId).toBeGreaterThan(0);
+    const session = getLatestImportSession(db, business.id) as any;
+    expect(session.business_id).toBe(business.id);
+    expect(session.state).toBe(IMPORT_STATES.IMPORT_PENDING);
+    expect(getLatestImportSession(db, 1)).toBeNull();
+    db.close();
+  });
+
+  it("reports an active canonical import as a conflict without creating another session", async () => {
+    const db = initTestDb();
+    const business = db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number };
+    insertFakeCredential(db, business.id, "test.myshopify.com");
+    const sessionId = createImportSession(db, business.id);
+    updateImportSession(db, sessionId, IMPORT_STATES.IMPORTING, {
+      import_started_at: new Date().toISOString(),
+    });
+    const handler = createShopifyImportHandler(db, async (runnerDb, businessId) => {
+      const active = getActiveImportSession(runnerDb, businessId) as any;
+      return {
+        success: false,
+        sessionId: active.id,
+        summary: {},
+        error: "An import is already in progress",
+        state: IMPORT_STATES.IMPORTING,
+      };
+    });
+    const response = createMockResponse();
+
+    await handler({ businessId: business.id } as any, response as any);
+
+    expect(response.statusCode).toBe(409);
+    expect(response.body.state).toBe(IMPORT_STATES.IMPORTING);
+    const count = db.query("SELECT COUNT(*) AS count FROM shopify_import_sessions WHERE business_id = ?")
+      .get(business.id) as { count: number };
+    expect(count.count).toBe(1);
+    db.close();
+  });
+});
+
+describe("shopify pilot import — canonical pipeline", () => {
+  it("creates a session, persists every read-only entity, reconciles, and reports SYNCED", async () => {
+    const db = initTestDb();
+    const business = db.query("SELECT id FROM businesses LIMIT 1").get() as { id: number };
+    insertFakeCredential(db, business.id, "test.myshopify.com");
+    const originalFetch = globalThis.fetch;
+    const operations: string[] = [];
+
+    globalThis.fetch = (async (_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      expect(init?.method).toBe("POST");
+      const payload = JSON.parse(String(init?.body || "{}"));
+      const query = String(payload.query || "");
+      expect(query.trim().startsWith("query")).toBe(true);
+
+      if (query.includes("products(")) {
+        operations.push("products");
+        return Response.json({ data: { products: {
+          pageInfo: { hasNextPage: false, endCursor: null },
+          edges: [{ node: {
+            id: "gid://shopify/Product/101",
+            title: "Imported Product",
+            status: "ACTIVE",
+            variants: { edges: [{ node: {
+              id: "gid://shopify/ProductVariant/201",
+              sku: "IMPORT-201",
+              barcode: null,
+              title: "Default Title",
+              inventoryItem: { id: "gid://shopify/InventoryItem/301" },
+              inventoryQuantity: 7,
+            } }] },
+          } }],
+        } } });
+      }
+      if (query.includes("locations(")) {
+        operations.push("locations");
+        return Response.json({ data: { locations: {
+          pageInfo: { hasNextPage: false, endCursor: null },
+          edges: [{ node: {
+            id: "gid://shopify/Location/401",
+            name: "Pilot Location",
+            isActive: true,
+            address: { formatted: ["Test City"] },
+          } }],
+        } } });
+      }
+      if (query.includes("location(id:")) {
+        operations.push("inventory");
+        return Response.json({ data: { location: { inventoryLevels: {
+          pageInfo: { hasNextPage: false, endCursor: null },
+          edges: [{ node: {
+            available: 7,
+            item: { id: "gid://shopify/InventoryItem/301" },
+          } }],
+        } } } });
+      }
+      if (query.includes("orders(")) {
+        operations.push("orders");
+        return Response.json({ data: { orders: {
+          pageInfo: { hasNextPage: false, endCursor: null },
+          edges: [{ node: {
+            id: "gid://shopify/Order/501",
+            name: "#1001",
+            displayFinancialStatus: "PAID",
+            displayFulfillmentStatus: "UNFULFILLED",
+            createdAt: "2026-08-09T00:00:00Z",
+            customer: { firstName: "Test", lastName: "Buyer", email: "buyer@example.test" },
+            lineItems: { edges: [] },
+          } }],
+        } } });
+      }
+      throw new Error("Unexpected GraphQL query");
+    }) as typeof fetch;
+
+    try {
+      const result = await runInitialImport(db, business.id);
+
+      expect(result.success).toBe(true);
+      expect(result.state).toBe(IMPORT_STATES.SYNCED);
+      expect(operations).toEqual(["products", "locations", "inventory", "orders"]);
+      const session = getLatestImportSession(db, business.id) as any;
+      expect(session.state).toBe(IMPORT_STATES.SYNCED);
+      expect(session.reconciliation_status).toBe("RECONCILED");
+      expect((db.query("SELECT COUNT(*) AS count FROM products WHERE business_id = ? AND shopify_product_id = '101'").get(business.id) as { count: number }).count).toBe(1);
+      expect((db.query("SELECT COUNT(*) AS count FROM product_variants WHERE business_id = ? AND shopify_variant_id = '201'").get(business.id) as { count: number }).count).toBe(1);
+      expect((db.query("SELECT COUNT(*) AS count FROM shopify_locations WHERE business_id = ? AND shopify_location_id = '401'").get(business.id) as { count: number }).count).toBe(1);
+      expect((db.query("SELECT COUNT(*) AS count FROM shopify_inventory_levels WHERE business_id = ? AND shopify_inventory_item_id = '301'").get(business.id) as { count: number }).count).toBe(1);
+      expect((db.query("SELECT COUNT(*) AS count FROM orders WHERE business_id = ? AND shopify_order_id = '501'").get(business.id) as { count: number }).count).toBe(1);
+    } finally {
+      globalThis.fetch = originalFetch;
+      db.close();
+    }
   });
 });
 

@@ -20,6 +20,19 @@ export interface ShopifyStatus {
   isActive: boolean;
 }
 
+interface ShopifyImportResult {
+  success: boolean;
+  state: string;
+  error?: string;
+  summary?: {
+    products: { persisted: number };
+    variants: { persisted: number };
+    locations: { persisted: number };
+    inventoryLevels: { persisted: number };
+    orders: { persisted: number };
+  };
+}
+
 interface ShopifyConnectProps {
   /** Render in compact mode (for embedding in provider grids) */
   compact?: boolean;
@@ -194,40 +207,6 @@ export default function ShopifyConnect({
     }
   }, []);
 
-  // ── Sync polling ──────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!syncing) return;
-    let interval: ReturnType<typeof setInterval>;
-    let pollCount = 0;
-
-    interval = setInterval(async () => {
-      try {
-        const data = await apiGet<ShopifyStatus>("/api/shopify/status");
-        setStatus(data);
-        pollCount++;
-
-        if (data.syncStatus === "synced" || data.syncStatus === "error" || pollCount > 120) {
-          // Stop polling
-          setSyncing(false);
-          setSyncProgress(null);
-          if (data.syncStatus === "synced") {
-            toast("Sync complete!", "success");
-            onSyncComplete?.();
-          } else if (data.syncError) {
-            toast(data.syncError, "error");
-          }
-        } else {
-          setSyncProgress(data.syncStatus === "syncing" ? "Syncing..." : "Preparing sync...");
-        }
-      } catch {
-        // Keep polling
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [syncing, toast, onSyncComplete]);
-
   // ── Actions ───────────────────────────────────────────────────────
 
   const handleConnect = async () => {
@@ -250,26 +229,32 @@ export default function ShopifyConnect({
   };
 
   const handleSync = async () => {
+    if (syncing) return;
     setSyncing(true);
-    setSyncProgress("Starting sync...");
+    setSyncProgress("Importing...");
     try {
-      const data = await apiPost("/api/commerce/providers/shopify/sync");
-      if (data.success) {
-        // Don't stop syncing yet — let the polling pick up the completion
-        if (data.ordersImported !== undefined) {
-          toast(`${data.ordersImported} orders imported`, "success");
-        }
-        // Refresh status
-        fetchStatus();
+      const data = await apiPost<ShopifyImportResult>("/api/shopify/import");
+      await fetchStatus();
+      if (data.success && data.state === "SYNCED" && data.summary) {
+        const counts = data.summary;
+        toast(
+          `Import complete: ${counts.products.persisted} products, ${counts.variants.persisted} variants, ${counts.locations.persisted} locations, ${counts.inventoryLevels.persisted} inventory levels, and ${counts.orders.persisted} orders reconciled.`,
+          "success"
+        );
+        setShowCelebration(false);
+        onSyncComplete?.();
       } else {
-        setSyncing(false);
-        setSyncProgress(null);
-        toast(data.error || "Sync failed", "error");
+        const message = data.state === "RECONCILIATION_REQUIRED"
+          ? "Import finished, but reconciliation requires review."
+          : data.error || `Import ended in ${data.state}.`;
+        toast(message, data.state === "RECONCILIATION_REQUIRED" ? "warning" : "error");
       }
     } catch (err: any) {
+      await fetchStatus();
+      toast(err.message || "Import failed", "error");
+    } finally {
       setSyncing(false);
       setSyncProgress(null);
-      toast(err.message || "Sync failed", "error");
     }
   };
 
@@ -359,12 +344,16 @@ export default function ShopifyConnect({
   const isFailed = status?.connectionState === "failed";
   const isPending = status?.connectionState === "pending_validation";
   const syncStatusBadge = (() => {
-    if (!status?.syncStatus || status.syncStatus === "not_connected") return null;
+    if (!status?.syncStatus || status.syncStatus === "DISCONNECTED") return null;
     const map: Record<string, { label: string; color: "green" | "amber" | "blue" | "red" }> = {
-      synced: { label: "Synced", color: "green" },
-      syncing: { label: "Syncing...", color: "blue" },
-      pending: { label: "Pending", color: "amber" },
-      error: { label: "Error", color: "red" },
+      CONNECTED: { label: "Connected / Import Pending", color: "amber" },
+      IMPORT_PENDING: { label: "Import Pending", color: "amber" },
+      IMPORTING: { label: "Importing...", color: "blue" },
+      SYNCED: { label: "Synced", color: "green" },
+      RECONCILIATION_REQUIRED: { label: "Reconciliation Required", color: "amber" },
+      IMPORT_FAILED: { label: "Import Failed", color: "red" },
+      TOKEN_REVOKED: { label: "Token Revoked", color: "red" },
+      CONNECTION_ERROR: { label: "Connection Error", color: "red" },
     };
     const m = map[status.syncStatus] || { label: status.syncStatus, color: "slate" as const };
     return <Badge status={m.color}>{m.label}</Badge>;
@@ -626,8 +615,8 @@ export default function ShopifyConnect({
             <Button variant="secondary" onClick={() => setShowCelebration(false)}>
               Later
             </Button>
-            <Button variant="primary" onClick={() => { setShowCelebration(false); handleSync(); }}>
-              Yes, Import Now
+            <Button variant="primary" onClick={handleSync} loading={syncing}>
+              {syncing ? "Importing..." : "Yes, Import Now"}
             </Button>
           </div>
         </div>
@@ -820,7 +809,7 @@ export default function ShopifyConnect({
           </div>
 
           {/* Error display */}
-          {status!.syncError && status!.syncStatus === "error" && (
+          {status!.syncError && ["IMPORT_FAILED", "TOKEN_REVOKED", "CONNECTION_ERROR"].includes(status!.syncStatus) && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-3">
               <p className="text-xs text-red-600 font-medium">Sync Error</p>
               <p className="text-sm text-red-700 mt-1">{status!.syncError}</p>

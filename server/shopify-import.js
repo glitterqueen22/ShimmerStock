@@ -1009,14 +1009,14 @@ export async function runInitialImport(db, businessId) {
     let variantPersistedCount = 0;
 
     for (const shopifyProduct of products) {
-      summary.products.ids.push(shopifyProduct.id);
+      summary.products.ids.push(gidToId(shopifyProduct.id));
       try {
         const shimmerProductId = upsertProduct(db, businessId, shopifyProduct);
         summary.products.persisted++;
 
         for (const varEdge of shopifyProduct.variants?.edges || []) {
           variantShopifyCount++;
-          summary.variants.ids.push(varEdge.node.id);
+          summary.variants.ids.push(gidToId(varEdge.node.id));
           upsertVariant(db, businessId, shimmerProductId, varEdge.node);
           variantPersistedCount++;
         }
@@ -1035,7 +1035,7 @@ export async function runInitialImport(db, businessId) {
     if (locErrors?.length) summary.graphqlErrors.push(...locErrors);
 
     for (const loc of locations) {
-      summary.locations.ids.push(loc.id);
+      summary.locations.ids.push(gidToId(loc.id));
       try {
         upsertLocation(db, businessId, loc);
         summary.locations.persisted++;
@@ -1053,8 +1053,8 @@ export async function runInitialImport(db, businessId) {
 
     for (const level of levels) {
       summary.inventoryLevels.pairs.push({
-        item: level.inventoryItemId,
-        loc: level.locationId,
+        item: gidToId(level.inventoryItemId),
+        loc: gidToId(level.locationId),
       });
       try {
         upsertInventoryLevel(db, businessId, level);
@@ -1071,7 +1071,7 @@ export async function runInitialImport(db, businessId) {
     if (orderErrors?.length) summary.graphqlErrors.push(...orderErrors);
 
     for (const order of orders) {
-      summary.orders.ids.push(order.id);
+      summary.orders.ids.push(gidToId(order.id));
       try {
         const orderId = upsertOrder(db, businessId, order);
         if (orderId) summary.orders.persisted++;
@@ -1080,29 +1080,20 @@ export async function runInitialImport(db, businessId) {
       }
     }
 
-    // ── Determine final state ────────────────────────────────────────
-    // SYNCED requires: counts match, no errors, no GraphQL page errors.
-    // Equal counts alone are NOT sufficient — ID-set comparison is done
-    // in getReconciliationReport; here we prevent SYNCED when there are errors.
-    const hasDiscrepancies =
+    // Persist the imported ID sets before reconciliation so the report can
+    // compare tenant-scoped Shopify IDs against tenant-scoped database IDs.
+    const hasImportErrors =
       summary.products.shopify !== summary.products.persisted ||
       summary.variants.shopify !== summary.variants.persisted ||
       summary.locations.shopify !== summary.locations.persisted ||
+      summary.inventoryLevels.shopify !== summary.inventoryLevels.persisted ||
       summary.orders.shopify !== summary.orders.persisted ||
       summary.errors.length > 0 ||
       summary.graphqlErrors.length > 0;
 
-    // Never mark SYNCED if any GraphQL page returned errors (partial data risk).
-    const finalState = hasDiscrepancies
-      ? IMPORT_STATES.RECONCILIATION_REQUIRED
-      : IMPORT_STATES.SYNCED;
-
-    updateImportSession(db, sessionId, finalState, {
-      import_completed_at: new Date().toISOString(),
-      // Only record last_successful_import_at when the import truly completed without discrepancies.
-      ...(finalState === IMPORT_STATES.SYNCED
-        ? { last_successful_import_at: new Date().toISOString() }
-        : {}),
+    const completedAt = new Date().toISOString();
+    updateImportSession(db, sessionId, IMPORT_STATES.RECONCILIATION_REQUIRED, {
+      import_completed_at: completedAt,
       shopify_products_count: summary.products.shopify,
       shopify_variants_count: summary.variants.shopify,
       shopify_orders_count: summary.orders.shopify,
@@ -1119,17 +1110,37 @@ export async function runInitialImport(db, businessId) {
       shopify_location_ids: JSON.stringify(summary.locations.ids),
       shopify_inventory_pairs: JSON.stringify(summary.inventoryLevels.pairs),
       discrepancies: JSON.stringify([...summary.errors, ...summary.graphqlErrors]),
-      reconciliation_status: hasDiscrepancies ? "NEEDS_REVIEW" : "RECONCILED",
+      reconciliation_status: "PENDING",
     });
 
-    // Update provider_credentials sync_status
-    const newSyncStatus = finalState === IMPORT_STATES.SYNCED ? "synced" : "reconciliation_required";
-    db.run(
-      `UPDATE provider_credentials
-       SET sync_status = ?, last_synced_at = datetime('now'), updated_at = datetime('now')
-       WHERE business_id = ? AND provider = 'shopify'`,
-      [newSyncStatus, businessId]
-    );
+    const reconciliation = getReconciliationReport(db, businessId);
+    const reconciled = !hasImportErrors && reconciliation.status === "RECONCILED";
+    const finalState = reconciled
+      ? IMPORT_STATES.SYNCED
+      : IMPORT_STATES.RECONCILIATION_REQUIRED;
+
+    updateImportSession(db, sessionId, finalState, {
+      ...(reconciled ? { last_successful_import_at: completedAt } : {}),
+      reconciliation_status: reconciled ? "RECONCILED" : "NEEDS_REVIEW",
+    });
+
+    if (finalState === IMPORT_STATES.SYNCED) {
+      db.run(
+        `UPDATE provider_credentials
+         SET sync_status = 'synced', sync_error = NULL,
+             last_synced_at = datetime('now'), updated_at = datetime('now')
+         WHERE business_id = ? AND provider = 'shopify'`,
+        [businessId]
+      );
+    } else {
+      db.run(
+        `UPDATE provider_credentials
+         SET sync_status = 'reconciliation_required', last_synced_at = NULL,
+             updated_at = datetime('now')
+         WHERE business_id = ? AND provider = 'shopify'`,
+        [businessId]
+      );
+    }
 
     return { success: true, sessionId, summary, state: finalState };
   } catch (err) {
