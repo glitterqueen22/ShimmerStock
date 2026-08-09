@@ -166,6 +166,58 @@ export function seedFixtures(db) {
   };
 }
 
+/**
+ * Seed a multi-business user for workspace-switching tests.
+ *
+ * Creates a user (multi_owner) who owns both Business A (id=1) and Business B
+ * (id=2), with Business A active and Business B inactive.  Also seeds a
+ * control user (solo_owner) who owns ONLY Business A.
+ *
+ * Intentionally seeds Business B's row with is_active=1 (the DB column
+ * DEFAULT) to verify that the switch mechanism is robust when is_active is
+ * inconsistent — the server must use COALESCE(session.business_id, …) and the
+ * client must compare biz.business_id === user.business_id, not is_active.
+ *
+ * @param {import("bun:sqlite").Database} db
+ * @returns {{multiOwnerAId: bigint|number, soloOwnerId: bigint|number}}
+ */
+export function seedMultiBusinessUser(db) {
+  const hash = Bun.password.hashSync("test1234");
+
+  // multi_owner — belongs to both businesses, active on A
+  const multiOwner = db.run(
+    "INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)",
+    ["multi_owner", hash, "Multi Owner", "owner"]
+  );
+  const multiOwnerAId = multiOwner.lastInsertRowid;
+
+  // Business A active (is_active=1)
+  db.run(
+    "INSERT INTO user_businesses (user_id, business_id, role, is_active) VALUES (?, 1, 'owner', 1)",
+    [multiOwnerAId]
+  );
+  // Business B intentionally inserted with is_active=1 (the column DEFAULT) to
+  // reproduce the live-db scenario where backfill migrations wrote is_active=1
+  // for every row.  The correct fix must NOT rely on is_active being 0.
+  db.run(
+    "INSERT INTO user_businesses (user_id, business_id, role, is_active) VALUES (?, 2, 'owner', 1)",
+    [multiOwnerAId]
+  );
+
+  // solo_owner — belongs ONLY to Business A
+  const soloOwner = db.run(
+    "INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)",
+    ["solo_owner", hash, "Solo Owner", "owner"]
+  );
+  const soloOwnerId = soloOwner.lastInsertRowid;
+  db.run(
+    "INSERT INTO user_businesses (user_id, business_id, role, is_active) VALUES (?, 1, 'owner', 1)",
+    [soloOwnerId]
+  );
+
+  return { multiOwnerAId, soloOwnerId };
+}
+
 // ── App helpers ────────────────────────────────────────────────────────────
 
 /**
