@@ -258,27 +258,31 @@ For each development store, compare Shopify vs ShimmerStock:
 |----------|-------|
 | Products | Count matches · IDs match · titles match · statuses match |
 | Variants | Count matches · Shopify IDs match · SKUs match · options match |
-| Orders | Count matches (within `read_orders` scope, open status) · IDs match · order numbers match · financial/fulfillment status match · line items match |
+| Orders | Count matches (within `read_orders` scope, all accessible statuses) · IDs match · order numbers match · financial/fulfillment status match · line items match |
 | Locations | Count matches · IDs match · names match |
 | Inventory | Item IDs match · levels per location match · location associations match |
 | Pagination | No missing records (especially for stores with >250 orders or products) |
 
 **Reconciliation discrepancies that are explainable:**
-- Archived/draft orders excluded from `status=open` query
+- Orders excluded if outside Shopify's accessible history window (without read_all_orders)
 - ShimmerStock may lag by sync interval (not real-time without webhooks)
 - Inventory may differ if updated between sync and verification
 
 ---
 
-## 11. Test Sequence for OAuth Safety
+## 11. Test Sequence for OAuth Safety and Import
 
 ```bash
-# Run all Shopify safety tests
+# Run Shopify OAuth/safety tests
 ENCRYPTION_KEY=temporary-test-only-value bun test tests/shopify-readonly.test.ts
 # Expected: 60 pass, 0 fail
+
+# Run import pipeline tests (state machine, isolation, idempotency, reconciliation)
+ENCRYPTION_KEY=temporary-test-only-value bun test tests/shopify-pilot-import.test.ts
+# Expected: 32 pass, 0 fail
 ```
 
-Tests cover: read-only enforcement, scope verification, gateway write blocks, GraphQL mutation blocks, ambiguous GraphQL fail-closed, domain canonicalization, credential containment, API version = 2026-07.
+Tests cover: state machine transitions, business isolation, credential mismatch rejection, product/variant/order/location persistence, idempotency, tenant-scoped inventory, reconciliation discrepancy detection, workspace truthfulness, write control gating, scope verification.
 
 ---
 
@@ -288,18 +292,206 @@ These items are acceptable for the private development-store pilot but **MUST be
 
 | Item | Priority | Description |
 |------|----------|-------------|
-| REST → GraphQL migration | High | All 5 REST read paths should migrate to GraphQL for cursor-based pagination and Shopify's GraphQL-first direction |
-| Pagination completeness | High | Current `limit=250` queries miss records in larger stores; must use cursor-based pagination |
+| REST fetchOrders → GraphQL migration | High | `fetchOrders()` in ShopifyProvider still uses REST with status=any; GraphQL import pipeline (shopify-import.js) is the correct path |
+| Pagination completeness for REST | High | REST `limit=250` queries may miss records; GraphQL pipeline uses cursor-based 50/page pagination |
 | Webhook registration | Medium | Currently not auto-registered; must be set up before real-time sync |
 | Webhook API version | Medium | Must be explicitly set to `2026-07` when registering webhooks |
 | Shopify App Store review | Required | Public distribution requires Partner Dashboard review |
-| Rate limit handling | Medium | Current code does not handle Shopify's leaky-bucket REST rate limit (capacity 40 req/app/store, leak rate 2 req/s; Shopify Plus has higher limits) or GraphQL cost limits |
+| Rate limit handling | Medium | Current code does not handle Shopify's leaky-bucket REST rate limit or GraphQL cost limits |
 | Error recovery | Medium | Partial sync failures need retry/resume logic |
 | Token refresh | Low | Access tokens don't expire but app uninstall detection (via webhook) needs testing |
 
 ---
 
-## 13. Rollback Procedure
+## 13. Import State Machine
+
+States used by `server/shopify-import.js`:
+
+| State | Meaning |
+|-------|---------|
+| `DISCONNECTED` | No active Shopify credential for this business |
+| `CONNECTED` | OAuth succeeded, no import has run yet |
+| `IMPORT_PENDING` | Import session created, not yet started |
+| `IMPORTING` | Import actively running |
+| `RECONCILIATION_REQUIRED` | Import completed with discrepancies between Shopify counts and persisted counts |
+| `SYNCED` | Import completed, counts reconciled |
+| `IMPORT_FAILED` | Import threw an error |
+| `TOKEN_REVOKED` | Shopify returned 401 Unauthorized |
+| `CONNECTION_ERROR` | Network or configuration error |
+
+**Critical rule:** `SYNCED` state is only set after the full import completes AND counts match. OAuth connection alone sets `CONNECTED`, not `SYNCED`.
+
+### Import session stored fields:
+- `import_started_at` — timestamp when IMPORTING state was entered
+- `import_completed_at` — timestamp when final state was reached
+- `last_successful_import_at` — timestamp of last SYNCED result
+- `shopify_*_count` — counts returned from Shopify
+- `persisted_*_count` — counts actually written to ShimmerStock DB
+- `discrepancies` — JSON array of error messages
+- `reconciliation_status` — `RECONCILED` or `NEEDS_REVIEW`
+
+---
+
+## 14. GraphQL Import Pipeline
+
+Implemented in `server/shopify-import.js`. Uses Shopify Admin GraphQL API 2026-07 via `gatewayGraphQL()`.
+
+### GraphQL queries used:
+
+**Products (cursor-paginated, 50/page):**
+```graphql
+query {
+  products(first: 50, after: "CURSOR") {
+    pageInfo { hasNextPage endCursor }
+    edges {
+      node {
+        id title status
+        variants(first: 100) {
+          edges { node { id sku barcode title inventoryItem { id } inventoryQuantity } }
+        }
+      }
+    }
+  }
+}
+```
+
+**Locations (cursor-paginated, 50/page):**
+```graphql
+query {
+  locations(first: 50, after: "CURSOR") {
+    pageInfo { hasNextPage endCursor }
+    edges { node { id name isActive address { formatted } } }
+  }
+}
+```
+
+**Inventory levels per location (cursor-paginated, 50/page):**
+```graphql
+query {
+  location(id: "LOCATION_GID") {
+    inventoryLevels(first: 50, after: "CURSOR") {
+      pageInfo { hasNextPage endCursor }
+      edges { node { available item { id } } }
+    }
+  }
+}
+```
+
+**Orders — all accessible statuses (cursor-paginated, 50/page):**
+```graphql
+query {
+  orders(first: 50, after: "CURSOR") {
+    pageInfo { hasNextPage endCursor }
+    edges {
+      node {
+        id name displayFinancialStatus displayFulfillmentStatus createdAt
+        customer { firstName lastName email }
+        lineItems(first: 100) {
+          edges { node { title quantity sku variant { id title } } }
+        }
+      }
+    }
+  }
+}
+```
+
+**No `status` filter** — the `read_orders` scope provides access to all orders within Shopify's default history window. No `read_all_orders` needed or approved.
+
+### Field mappings:
+
+| Shopify field | ShimmerStock field | Table |
+|--------------|-------------------|-------|
+| `product.id` (GID) | `shopify_product_id` | `products` |
+| `product.title` | `name` | `products` |
+| `product.status` | `shopify_status` | `products` |
+| `variant.id` (GID) | `shopify_variant_id` | `product_variants` |
+| `variant.sku` | `sku` | `product_variants` |
+| `variant.barcode` | `barcode` | `product_variants` |
+| `variant.title` | `variant_value` | `product_variants` |
+| `variant.inventoryItem.id` | `shopify_inventory_item_id` | `product_variants` |
+| `location.id` (GID) | `shopify_location_id` | `shopify_locations` |
+| `location.name` | `name` | `shopify_locations` |
+| `location.isActive` | `is_active` | `shopify_locations` |
+| `inventoryLevel.item.id` | `shopify_inventory_item_id` | `shopify_inventory_levels` |
+| `inventoryLevel.available` | `available` | `shopify_inventory_levels` |
+| `order.id` (GID) | `shopify_order_id` | `orders` |
+| `order.name` | `order_number` | `orders` |
+| `order.displayFinancialStatus` | `financial_status` | `orders` |
+| `order.displayFulfillmentStatus` | `fulfillment_status` | `orders` |
+| `order.createdAt` | `shopify_created_at` | `orders` |
+| `order.customer.{firstName,lastName,email}` | `customer_name`, `customer_email` | `orders` |
+| `lineItem.sku` | `sku` | `order_items` |
+| `lineItem.variant.title` | `variant_title` | `order_items` |
+
+---
+
+## 15. Dedicated Business Workspace Requirement
+
+The fake Shopify Craft Supply Test store must be imported into a dedicated ShimmerStock business workspace named **"ShimmerStock Craft Supply Test"**, not into a workspace for GGE or any live merchant.
+
+**Enforcement in code:**
+- `loadAndValidateCredentials()` in `server/shopify-import.js` queries credentials `WHERE business_id = ?` — a credential can only be loaded by the matching business
+- The import endpoint (`POST /api/shopify/import`) validates that the credential's `business_id` matches `req.businessId` before starting any Shopify call
+- No silent credential transfer between businesses is possible
+
+**If the current OAuth credential is attached to the wrong business:**
+1. Do NOT move the credential silently
+2. Steps to correct (after merge/deploy):
+   a. Disconnect from the incorrect business: Settings → Commerce → Disconnect
+   b. Create/select the "ShimmerStock Craft Supply Test" business
+   c. Reauthorize the same fake store under that business via OAuth
+
+---
+
+## 16. Local-Only Record Behavior
+
+During the read-only pilot, "Add Product" and "New Order" buttons create **ShimmerStock-local records only** — they do NOT create or modify anything in Shopify.
+
+This is safe but may complicate reconciliation. Approach chosen:
+- Buttons remain enabled for local record creation
+- Local records have `shopify_product_id = NULL` and `source = 'manual'`
+- Reconciliation only counts records where `shopify_product_id IS NOT NULL` (Shopify-originated)
+- Manual records are excluded from Shopify reconciliation reports
+- UI note added to Commerce page explaining the distinction
+
+---
+
+## 17. Demo vs Real Workspace Rules
+
+| Workspace State | Products Page | Insight Source |
+|----------------|---------------|----------------|
+| `empty_real` | No demo insights shown | N/A |
+| `demo` | Demo insights shown with "DEMO WORKSPACE" banner | `getDemoInsights()` filtered to `is_demo=true` |
+| `real` (has imported products) | Only real insights | `getDemoInsights()` filtered to `is_demo≠true` |
+| Connected, import pending | No demo insights | N/A |
+
+**The Products page unconditional demo insight call has been replaced** with `deriveWorkspaceState()` + `filterInsightsByWorkspaceState()`. The "Craft Supplies" demo insight is only shown if the workspace is explicitly in demo mode.
+
+---
+
+## 18. Reconciliation Definitions
+
+| Status | Meaning |
+|--------|---------|
+| `RECONCILED` | Import completed without errors; Shopify ID sets exactly match ShimmerStock; no missing, unexpected, or duplicate IDs |
+| `MISMATCH` | Count difference OR ID-set drift (equal counts with different IDs) OR duplicate IDs in ShimmerStock |
+| `NEEDS_REVIEW` | Non-critical issues (e.g. variants with missing SKUs); or session predates ID-set storage and counts cannot be fully verified |
+| `NO_IMPORT` | No import has been run yet |
+
+**SYNCED requires all of the following:**
+- Import completed successfully (no GraphQL page errors, no throttle failures)
+- No missing Shopify IDs (IDs seen in Shopify but absent from ShimmerStock)
+- No unexpected ShimmerStock-only imported IDs (IDs in ShimmerStock not seen in this Shopify import)
+- No duplicate Shopify IDs within a tenant
+- All entity reconciliation rules pass (products, variants, orders, locations, inventory pairs)
+
+Equal counts alone are NOT sufficient proof of reconciliation. ID-set comparison is required.
+
+Endpoint: `GET /api/shopify/import/reconciliation` — read-only, returns structured report.
+
+---
+
+## 19. Rollback Procedure
 
 1. Shopify Partner Dashboard → Apps → ShimmerStock Read-Only Pilot → Uninstall from store
 2. ShimmerStock Settings → Commerce → Disconnect

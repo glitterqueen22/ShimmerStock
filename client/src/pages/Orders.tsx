@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet, apiPost, apiFetch } from "../lib/api";
-import { useAuth } from "../contexts/AuthContext";
 import { PageHeader, Button, Badge, Skeleton, EmptyState, ErrorBanner, ProgressBar, Modal, ConfirmModal, useToast } from "../components/ui";
 import Novi from "../components/Novi";
 import OperationsCenter from "../components/OperationsCenter";
@@ -159,16 +158,12 @@ function formatCurrency(val: number | null | undefined) {
 }
 
 export default function Orders() {
-  const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const isAdmin = user?.role === "admin" || user?.role === "owner";
   const terms = useTerms();
 
   const [shopifyConfigured, setShopifyConfigured] = useState<boolean | null>(null);
   const [syncMode, setSyncMode] = useState<"readonly" | "full" | null>(null);
-  const [switchingMode, setSwitchingMode] = useState(false);
-
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [orderDetail, setOrderDetail] = useState<OrderDetail | null>(null);
   const [orders, setOrders] = useState<OrderSummary[]>([]);
@@ -185,7 +180,6 @@ export default function Orders() {
   // Modals
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showEnableConfirm, setShowEnableConfirm] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
   // New order form state
@@ -429,17 +423,6 @@ export default function Orders() {
       }
     } catch (err: any) { toast(err.message || "Network error", "error"); }
     finally { setSyncing(false); }
-  };
-
-  const handleEnableSync = async () => {
-    if (!isAdmin) return;
-    setSwitchingMode(true);
-    try {
-      const data = await apiPost("/api/shopify/sync-mode", { mode: "full" });
-      setSyncMode(data.mode);
-      toast("Live Sync Active — inventory updates are now enabled", "success");
-    } catch (err: any) { toast(err.message || "Could not enable sync", "error"); }
-    finally { setSwitchingMode(false); }
   };
 
   const handleScanBarcode = async (barcode: string) => {
@@ -705,7 +688,7 @@ export default function Orders() {
           <p className="text-sm font-bold text-amber-700">Read-Only Mode</p>
           <p className="text-xs text-amber-600">Inventory sync is disabled. Review your data first before enabling.</p>
         </div>
-        {isAdmin && <Button variant="primary" size="sm" onClick={() => setShowEnableConfirm(true)} disabled={switchingMode}>Enable Inventory Sync</Button>}
+        {/* Enable Inventory Sync is only available in full sync mode, which is blocked during the read-only pilot */}
       </div>
     );
   };
@@ -968,7 +951,17 @@ export default function Orders() {
         novi={<Novi size="sm" accessory="marketing" />}
         actions={
           <div className="flex gap-2">
-            <Button variant="primary" onClick={openNewOrder}>+ New Order</Button>
+            <Button
+              variant="primary"
+              onClick={openNewOrder}
+              title={shopifyConfigured && syncMode === "readonly"
+                ? "This does not change Shopify and will be excluded from Shopify reconciliation."
+                : undefined}
+            >
+              {shopifyConfigured && syncMode === "readonly"
+                ? "+ New Local ShimmerStock Order"
+                : "+ New Order"}
+            </Button>
             {shopifyConfigured && (
               <Button variant="secondary" onClick={handleSync} loading={syncing}>
                 {syncing ? "Syncing..." : syncMode === "readonly" ? "Import Orders" : "Sync Orders"}
@@ -977,6 +970,13 @@ export default function Orders() {
           </div>
         }
       />
+
+      {shopifyConfigured && syncMode === "readonly" && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>Shopify Reconciliation Active:</strong> New orders created here are local-only
+          and will not appear in Shopify. They are excluded from Shopify import counts and reconciliation.
+        </div>
+      )}
 
       <NoviEngineInsight insights={noviInsights} />
 
@@ -1041,9 +1041,12 @@ export default function Orders() {
             🏪 Sales Channels ({providers.filter(p => p.connectionStatus === "connected").length}/{providers.length} connected)
           </h2>
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm" onClick={handleSyncAll} loading={syncingAll}>
-              {syncingAll ? "Syncing All..." : "Sync All"}
-            </Button>
+            {/* Sync All is ambiguous during Shopify read-only reconciliation pilot — hidden to prevent confusion */}
+            {!(shopifyConfigured && syncMode === "readonly") && (
+              <Button variant="secondary" size="sm" onClick={handleSyncAll} loading={syncingAll}>
+                {syncingAll ? "Syncing All..." : "Sync All"}
+              </Button>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3 p-4">
@@ -1381,17 +1384,6 @@ export default function Orders() {
           )}
         </div>
       </Modal>
-
-      {/* Enable Sync Confirmation */}
-      <ConfirmModal
-        open={showEnableConfirm}
-        onClose={() => setShowEnableConfirm(false)}
-        onConfirm={() => { setShowEnableConfirm(false); handleEnableSync(); }}
-        title="Enable Live Inventory Sync?"
-        message="This will allow ShimmerStock to decrement inventory and push stock changes to Shopify. This cannot be undone automatically."
-        confirmLabel="Yes, Enable Live Sync"
-        confirmVariant="primary"
-      />
 
       {/* Combine Order Confirmation Modal */}
       {selectedCombineSuggestion && (
