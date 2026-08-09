@@ -18,6 +18,8 @@ export interface ButtonProps {
   className?: string;
   /** Button type attribute */
   type?: 'button' | 'submit' | 'reset';
+  /** Native tooltip/title attribute */
+  title?: string;
 }
 
 // ── Variant → Tailwind Classes ───────────────────────────────────
@@ -78,6 +80,7 @@ export function Button({
   children,
   className = '',
   type = 'button',
+  title,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
   const baseClasses =
@@ -89,6 +92,7 @@ export function Button({
   return (
     <button
       type={type}
+      title={title}
       disabled={isDisabled}
       onClick={onClick}
       className={`${baseClasses} ${variantClasses[variant]} ${sizeClass} ${className}`.trim()}
