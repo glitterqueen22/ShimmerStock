@@ -31,7 +31,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<LoginResponse>;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string, confirmation: string) => Promise<void>;
   forgotPassword: (username: string) => Promise<{ resetToken?: string; message: string }>;
   resetPassword: (token: string, newPassword: string) => Promise<void>;
   register: (username: string, password: string, displayName: string, businessName: string) => Promise<LoginResponse>;
@@ -124,14 +124,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAuthState();
   }, [clearAuthState]);
 
-  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string, confirmation: string) => {
     const res = await fetch("/api/auth/change-password", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       credentials: "same-origin",
-      body: JSON.stringify({ currentPassword, newPassword }),
+      body: JSON.stringify({ currentPassword, newPassword, newPasswordConfirmation: confirmation }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({ error: "Failed" }));

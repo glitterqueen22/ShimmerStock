@@ -69,7 +69,7 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await changePassword(currentPassword, newPassword);
+      await changePassword(currentPassword, newPassword, confirmNew);
       setChangeSuccess(true);
     } catch (err: any) {
       setError(err.message || "Password change failed");

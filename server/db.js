@@ -2017,6 +2017,41 @@ export function initDb(dbPath) {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS business_access (
+      business_id INTEGER PRIMARY KEY REFERENCES businesses(id),
+      access_key TEXT NOT NULL DEFAULT 'early_access',
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','ended')),
+      source TEXT NOT NULL DEFAULT 'early_access',
+      granted_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  db.run(`
+    INSERT OR IGNORE INTO business_access (business_id)
+    SELECT id FROM businesses
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS support_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      reference TEXT UNIQUE,
+      business_id INTEGER NOT NULL REFERENCES businesses(id),
+      created_by INTEGER NOT NULL REFERENCES users(id),
+      category TEXT NOT NULL CHECK(category IN (
+        'technical','shopify','billing','inventory','account','feature','feedback','other'
+      )),
+      subject TEXT NOT NULL,
+      message TEXT NOT NULL,
+      safe_context TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'received' CHECK(status IN ('received','in_review','resolved','closed')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  db.run("CREATE INDEX IF NOT EXISTS idx_support_requests_business ON support_requests(business_id, created_at)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_support_requests_creator ON support_requests(created_by, created_at)");
+
   // Migration: add settings.read/write permissions
   db.run("INSERT OR IGNORE INTO role_permissions (role, permission) VALUES (?, ?)", ["owner", "settings.read"]);
   db.run("INSERT OR IGNORE INTO role_permissions (role, permission) VALUES (?, ?)", ["owner", "settings.write"]);
