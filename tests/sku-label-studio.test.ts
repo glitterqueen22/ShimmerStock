@@ -44,6 +44,10 @@ function testDb() {
     (104, 10, 1, 'DUP', 'LEGACY', 'DUP', 'LEGACY', 'gid://shopify/ProductVariant/104', 'gid://shopify/InventoryItem/104', 'Color', 'Silver', 9.99, 3, 1),
     (201, 20, 2, NULL, NULL, NULL, NULL, 'gid://shopify/ProductVariant/101', 'gid://shopify/InventoryItem/201', 'Color', 'Pink 2oz', 9.99, 99, 1)
   `);
+  db.run("ALTER TABLE product_variants ADD COLUMN inventory_tracked INTEGER");
+  db.run("ALTER TABLE product_variants ADD COLUMN updated_at TEXT");
+  db.run("ALTER TABLE product_variants ADD COLUMN sku_sync_state TEXT NOT NULL DEFAULT 'MISSING'");
+  db.run("ALTER TABLE product_variants ADD COLUMN barcode_sync_state TEXT NOT NULL DEFAULT 'MISSING'");
   return db;
 }
 
@@ -98,13 +102,13 @@ describe("Novi catalog audit and internal barcodes", () => {
     expect(first).toBe(second);
     expect(first).toMatch(/^SS[A-Z0-9]+$/);
     expect(otherTenant).not.toBe(first);
+    expect((db.query("SELECT barcode_sync_state FROM product_variants WHERE id = 101").get() as { barcode_sync_state: string }).barcode_sync_state).toBe("GENERATED_LOCAL");
     expect(() => getOrCreateInternalBarcode(db, 2, 101)).toThrow("Variant not found");
   });
 
   it("preserves local identifiers while refreshing Shopify source values", async () => {
     const { upsertVariant } = await import("../server/shopify-import.js");
     const db = testDb();
-    db.run("ALTER TABLE product_variants ADD COLUMN updated_at TEXT");
     db.run("UPDATE product_variants SET sku = 'LOCAL-SKU', barcode = 'LOCAL-BAR', shopify_sku = 'OLD-SHOP', shopify_barcode = 'OLD-BAR', shopify_variant_id = '102' WHERE id = 102");
     upsertVariant(db, 1, 10, {
       id: "gid://shopify/ProductVariant/102",

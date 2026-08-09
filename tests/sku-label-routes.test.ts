@@ -4,6 +4,7 @@ import { loginAs, setupTest } from "./helpers/test-harness.js";
 let appUrl = "";
 let tokenA = "";
 let tokenB = "";
+let managerToken = "";
 let cleanup: (() => Promise<void>) | undefined;
 let testDb: any;
 let variantA = 0;
@@ -27,6 +28,13 @@ beforeAll(async () => {
   tokenB = await loginAs(appUrl, "owner_b", "test1234");
   const db = environment.db;
   testDb = db;
+  const managerHash = Bun.password.hashSync("test1234");
+  const managerId = Number(db.run(
+    "INSERT INTO users (username, password_hash, display_name, role) VALUES ('manager_a', ?, 'Manager A', 'manager')",
+    [managerHash],
+  ).lastInsertRowid);
+  db.run("INSERT INTO user_businesses (user_id, business_id, role, is_active) VALUES (?, 1, 'manager', 1)", [managerId]);
+  managerToken = await loginAs(appUrl, "manager_a", "test1234");
   const productA = db.query("SELECT id FROM products WHERE business_id = 1 ORDER BY id LIMIT 1").get() as { id: number };
   const productB = db.query("SELECT id FROM products WHERE business_id = 2 ORDER BY id LIMIT 1").get() as { id: number };
   variantA = Number(db.run(`
@@ -51,6 +59,15 @@ afterAll(async () => {
 });
 
 describe("Novi SKU & Label Studio local workflow", () => {
+  it("keeps automatic Shopify updates off by default and owner controlled", async () => {
+    const initial = await request("GET", "/api/sku-label-studio", tokenA);
+    expect((await initial.json() as any).settings.autoWritebackEnabled).toBe(false);
+    const managerAttempt = await request("PUT", "/api/sku-label-studio/settings", managerToken, {
+      autoWritebackEnabled: true,
+    });
+    expect(managerAttempt.status).toBe(403);
+    expect((await managerAttempt.json() as any).error).toContain("owner or admin");
+  });
   it("audits only the active business and proposes deterministic missing SKUs", async () => {
     const response = await request("GET", "/api/sku-label-studio", tokenA);
     expect(response.status).toBe(200);

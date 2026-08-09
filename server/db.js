@@ -488,6 +488,22 @@ export function initDb(dbPath) {
     db.run("ALTER TABLE product_variants ADD COLUMN inventory_tracked INTEGER");
     console.log("Added inventory_tracked column to product_variants");
   }
+  if (!variantCols.some(c => c.name === "sku_sync_state")) {
+    db.run("ALTER TABLE product_variants ADD COLUMN sku_sync_state TEXT NOT NULL DEFAULT 'MISSING'");
+    db.run(`UPDATE product_variants SET sku_sync_state = CASE
+      WHEN sku IS NULL OR trim(sku) = '' THEN 'MISSING'
+      WHEN shopify_variant_id IS NOT NULL AND sku IS shopify_sku THEN 'SHOPIFY_UPDATED'
+      ELSE 'SAVED_LOCAL' END`);
+    console.log("Added sku_sync_state column to product_variants");
+  }
+  if (!variantCols.some(c => c.name === "barcode_sync_state")) {
+    db.run("ALTER TABLE product_variants ADD COLUMN barcode_sync_state TEXT NOT NULL DEFAULT 'MISSING'");
+    db.run(`UPDATE product_variants SET barcode_sync_state = CASE
+      WHEN barcode IS NULL OR trim(barcode) = '' THEN 'MISSING'
+      WHEN shopify_variant_id IS NOT NULL AND barcode IS shopify_barcode THEN 'SHOPIFY_UPDATED'
+      ELSE 'SAVED_LOCAL' END`);
+    console.log("Added barcode_sync_state column to product_variants");
+  }
 
   rebuildProductVariantsForShopifyIdentity(db);
   db.run(`CREATE INDEX IF NOT EXISTS idx_variants_product ON product_variants(product_id)`);
@@ -2054,11 +2070,16 @@ export function initDb(dbPath) {
       number_padding INTEGER NOT NULL DEFAULT 3,
       preserve_existing INTEGER NOT NULL DEFAULT 1,
       writeback_enabled INTEGER NOT NULL DEFAULT 0,
+      auto_writeback_enabled INTEGER NOT NULL DEFAULT 0,
       preferred_label_size TEXT NOT NULL DEFAULT '2x1',
       label_fields TEXT NOT NULL DEFAULT '["product","variant","sku","barcode"]',
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
+  const identitySettingsColumns = db.query("PRAGMA table_info(product_identity_settings)").all();
+  if (!identitySettingsColumns.some(column => column.name === "auto_writeback_enabled")) {
+    db.run("ALTER TABLE product_identity_settings ADD COLUMN auto_writeback_enabled INTEGER NOT NULL DEFAULT 0");
+  }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS generated_internal_barcodes (

@@ -5,6 +5,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   numberStart: 1,
   numberPadding: 3,
   preserveExisting: true,
+  writebackEnabled: false,
+  autoWritebackEnabled: false,
   preferredLabelSize: "2x1",
   labelFields: ["product", "variant", "sku", "barcode"],
 });
@@ -68,6 +70,7 @@ export function getIdentitySettings(db, businessId) {
     numberPadding: row.number_padding,
     preserveExisting: Boolean(row.preserve_existing),
     writebackEnabled: Boolean(row.writeback_enabled),
+    autoWritebackEnabled: Boolean(row.auto_writeback_enabled),
     preferredLabelSize: row.preferred_label_size,
     labelFields: JSON.parse(row.label_fields),
   };
@@ -78,7 +81,8 @@ export function listCatalogVariants(db, businessId) {
     SELECT v.id, v.product_id, v.business_id, v.sku, v.barcode,
            v.shopify_sku, v.shopify_barcode, v.shopify_variant_id,
            v.shopify_inventory_item_id, v.variant_type, v.variant_value,
-           v.price, v.stock_count, p.name AS product_name,
+           v.price, v.stock_count, v.sku_sync_state, v.barcode_sync_state,
+           p.name AS product_name,
            p.shopify_product_id, b.name AS business_name,
            ib.barcode_value AS internal_barcode
     FROM product_variants v
@@ -115,7 +119,8 @@ export function analyzeCatalog(db, businessId) {
       String(variant.shopify_sku ?? "").trim() !== sku ||
       String(variant.shopify_barcode ?? "").trim() !== barcode
     );
-    const needsReview = duplicateSku || duplicateBarcode;
+    const needsReview = duplicateSku || duplicateBarcode ||
+      variant.sku_sync_state === "SHOPIFY_UPDATE_FAILED" || variant.barcode_sync_state === "SHOPIFY_UPDATE_FAILED";
     const ready = !missingSku && (!missingBarcode || Boolean(variant.internal_barcode)) && !needsReview;
     return { ...variant, missingSku, missingBarcode, duplicateSku, duplicateBarcode, differsFromShopify, ready, needsReview };
   });
@@ -199,10 +204,15 @@ export function getOrCreateInternalBarcode(db, businessId, variantId) {
     "INSERT INTO generated_internal_barcodes (business_id, variant_id, barcode_value) VALUES (?, ?, ?)",
     [businessId, variantId, barcodeValue]
   );
+  db.run(
+    "UPDATE product_variants SET barcode_sync_state = 'GENERATED_LOCAL', updated_at = datetime('now') WHERE id = ? AND business_id = ? AND (barcode IS NULL OR trim(barcode) = '')",
+    [variantId, businessId]
+  );
   return barcodeValue;
 }
 
 export function saveIdentitySettings(db, businessId, input) {
+  const existing = getIdentitySettings(db, businessId);
   const settings = normalizeSettings(input);
   const labelFields = Array.isArray(input.labelFields) ? input.labelFields : DEFAULT_SETTINGS.labelFields;
   const preferredLabelSize = ["2x1", "2.25x1.25", "3x2", "4x2"].includes(input.preferredLabelSize)
@@ -211,19 +221,23 @@ export function saveIdentitySettings(db, businessId, input) {
   db.run(`
     INSERT INTO product_identity_settings
       (business_id, sku_pattern, sku_separator, sku_case, number_start, number_padding,
-       preserve_existing, writeback_enabled, preferred_label_size, label_fields, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      preserve_existing, writeback_enabled, auto_writeback_enabled,
+      preferred_label_size, label_fields, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(business_id) DO UPDATE SET
       sku_pattern = excluded.sku_pattern, sku_separator = excluded.sku_separator,
       sku_case = excluded.sku_case, number_start = excluded.number_start,
       number_padding = excluded.number_padding, preserve_existing = excluded.preserve_existing,
       writeback_enabled = excluded.writeback_enabled,
+      auto_writeback_enabled = excluded.auto_writeback_enabled,
       preferred_label_size = excluded.preferred_label_size,
       label_fields = excluded.label_fields, updated_at = datetime('now')
   `, [
     businessId, settings.skuPattern, settings.separator, settings.letterCase,
     settings.numberStart, settings.numberPadding, settings.preserveExisting ? 1 : 0,
-    input.writebackEnabled ? 1 : 0, preferredLabelSize, JSON.stringify(labelFields),
+    typeof input.writebackEnabled === "boolean" ? Number(input.writebackEnabled) : Number(existing.writebackEnabled),
+    typeof input.autoWritebackEnabled === "boolean" ? Number(input.autoWritebackEnabled) : Number(existing.autoWritebackEnabled),
+    preferredLabelSize, JSON.stringify(labelFields),
   ]);
   return getIdentitySettings(db, businessId);
 }
@@ -255,7 +269,8 @@ export function saveLocalIdentifiers(db, businessId, items, options = {}) {
     const requestBarcodes = new Set();
     for (const item of items) {
       const variant = db.query(
-        "SELECT id, sku, barcode FROM product_variants WHERE id = ? AND business_id = ? AND is_active = 1"
+        `SELECT id, sku, barcode, shopify_sku, shopify_barcode, shopify_variant_id
+         FROM product_variants WHERE id = ? AND business_id = ? AND is_active = 1`
       ).get(item.variantId, businessId);
       if (!variant) throw new Error(`Variant ${item.variantId} not found`);
 
@@ -290,10 +305,15 @@ export function saveLocalIdentifiers(db, businessId, items, options = {}) {
         requestBarcodes.add(nextBarcode);
       }
 
-      db.run(
-        "UPDATE product_variants SET sku = ?, barcode = ?, updated_at = datetime('now') WHERE id = ? AND business_id = ?",
-        [nextSku, nextBarcode, item.variantId, businessId]
-      );
+      const skuState = !nextSku ? "MISSING"
+        : variant.shopify_variant_id && nextSku === variant.shopify_sku ? "SHOPIFY_UPDATED" : "SAVED_LOCAL";
+      const barcodeState = !nextBarcode ? "MISSING"
+        : variant.shopify_variant_id && nextBarcode === variant.shopify_barcode ? "SHOPIFY_UPDATED" : "SAVED_LOCAL";
+      db.run(`
+        UPDATE product_variants SET sku = ?, barcode = ?, sku_sync_state = ?,
+          barcode_sync_state = ?, updated_at = datetime('now')
+        WHERE id = ? AND business_id = ?
+      `, [nextSku, nextBarcode, skuState, barcodeState, item.variantId, businessId]);
       results.push({
         variantId: item.variantId,
         previousSku: variant.sku,

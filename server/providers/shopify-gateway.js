@@ -202,6 +202,14 @@ const PRODUCT_VARIANTS_BULK_UPDATE = `
   }
 `;
 
+const PRODUCT_VARIANTS_VERIFY = `
+  query NoviSkuBarcodeVerify($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      ... on ProductVariant { id barcode inventoryItem { id sku } }
+    }
+  }
+`;
+
 function requireShopifyGid(value, type) {
   const normalized = String(value || "");
   if (!new RegExp(`^gid://shopify/${type}/[0-9]+$`).test(normalized)) {
@@ -242,6 +250,14 @@ export async function gatewayProductVariantsBulkUpdate(shopDomain, accessToken, 
     throw new Error(`Shopify variant update failed (${response.status})`);
   }
   return response.json();
+}
+
+export async function gatewayProductVariantsByIds(shopDomain, accessToken, variantIds) {
+  if (!Array.isArray(variantIds) || variantIds.length === 0 || variantIds.length > 100) {
+    throw new Error("[shopify-gateway] Variant verification batch must contain 1-100 variants");
+  }
+  const ids = variantIds.map(id => requireShopifyGid(id, "ProductVariant"));
+  return gatewayGraphQL("readonly", shopDomain, accessToken, PRODUCT_VARIANTS_VERIFY, { ids });
 }
 
 // ── Error type ────────────────────────────────────────────────────────────
