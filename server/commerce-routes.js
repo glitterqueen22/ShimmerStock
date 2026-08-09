@@ -27,7 +27,29 @@ import {
   IMPORT_STATES,
 } from "./shopify-import.js";
 
+export function createShopifyImportHandler(db, importRunner = runInitialImport) {
+  return async (req, res) => {
+    try {
+      const businessId = req.businessId;
+      if (!businessId) return res.status(401).json({ error: "No active business session" });
+
+      const result = await importRunner(db, businessId);
+      const statusCode = result.state === IMPORT_STATES.IMPORTING ? 409 : result.success ? 200 : 422;
+      return res.status(statusCode).json(result);
+    } catch (err) {
+      console.error("POST /api/shopify/import error:", err);
+      return res.status(500).json({
+        success: false,
+        state: IMPORT_STATES.IMPORT_FAILED,
+        error: "Failed to run Shopify import",
+      });
+    }
+  };
+}
+
 export function mountCommerceRoutes(app, db) {
+  const triggerShopifyImport = createShopifyImportHandler(db);
+
   // ── Shopify import state ─────────────────────────────────────────────
 
   app.get("/api/shopify/import/status", requireAuth(db, "shopify.read"), (req, res) => {
@@ -65,58 +87,7 @@ export function mountCommerceRoutes(app, db) {
 
   // ── Trigger initial import ───────────────────────────────────────────
 
-  app.post("/api/shopify/import", requireAuth(db, "shopify.sync"), async (req, res) => {
-    try {
-      const businessId = req.businessId;
-      if (!businessId) return res.status(401).json({ error: "No active business session" });
-
-      // Block if already importing
-      const currentState = getEffectiveImportState(db, businessId);
-      if (currentState === IMPORT_STATES.IMPORTING) {
-        return res.status(409).json({
-          error: "Import already in progress",
-          state: IMPORT_STATES.IMPORTING,
-        });
-      }
-
-      // Verify credentials belong to this business (belt-and-suspenders)
-      const cred = db
-        .query(
-          `SELECT business_id FROM provider_credentials
-           WHERE provider = 'shopify' AND is_active = 1 AND business_id = ?`
-        )
-        .get(businessId);
-
-      if (!cred) {
-        return res.status(400).json({
-          error: "No active Shopify connection found for this business workspace. Connect Shopify first.",
-          state: IMPORT_STATES.DISCONNECTED,
-        });
-      }
-
-      if (Number(cred.business_id) !== Number(businessId)) {
-        return res.status(403).json({
-          error: "Shopify credential belongs to a different business workspace. Cannot import.",
-          state: IMPORT_STATES.CONNECTION_ERROR,
-        });
-      }
-
-      // Run import asynchronously — respond immediately with session info
-      res.json({
-        message: "Import started",
-        state: IMPORT_STATES.IMPORTING,
-        note: "Poll /api/shopify/import/status for progress",
-      });
-
-      // Run import in background (fire-and-forget in this request context)
-      runInitialImport(db, businessId).catch(err => {
-        console.error(`[shopify-import] Background import failed for business ${businessId}:`, err);
-      });
-    } catch (err) {
-      console.error("POST /api/shopify/import error:", err);
-      res.status(500).json({ error: "Failed to start import" });
-    }
-  });
+  app.post("/api/shopify/import", requireAuth(db, "shopify.sync"), triggerShopifyImport);
 
   // ── Reconciliation report ────────────────────────────────────────────
 
@@ -165,13 +136,16 @@ export function mountCommerceRoutes(app, db) {
               "SELECT sync_status, sync_error, last_synced_at, is_active FROM provider_credentials WHERE business_id = ? AND provider = 'shopify'"
             )
             .get(businessId);
-          syncStatus = storedShopify?.sync_status || syncStatus;
-          syncError = storedShopify?.sync_error || syncError;
-          connectionStatus = syncStatus === "connected" || syncStatus === "syncing" || syncStatus === "synced"
+          const importSession = getLatestImportSession(db, businessId);
+          syncStatus = getEffectiveImportState(db, businessId);
+          syncError = importSession?.errors
+            ? JSON.parse(importSession.errors)[0] || null
+            : storedShopify?.sync_error || null;
+          connectionStatus = storedShopify?.is_active
             ? "connected"
-            : syncStatus === "pending"
+            : storedShopify?.sync_status === "pending"
               ? "pending_validation"
-              : syncStatus === "failed" || syncStatus === "error"
+              : storedShopify?.sync_status === "failed"
                 ? "failed"
                 : "not_connected";
         } else if (stored && stored.is_active) {
@@ -184,7 +158,11 @@ export function mountCommerceRoutes(app, db) {
           syncStatus,
           syncError,
           isActive: stored ? stored.is_active : false,
-          lastSyncedAt: stored ? stored.last_synced_at : null,
+          lastSyncedAt: p.slug === "shopify"
+            ? (syncStatus === IMPORT_STATES.SYNCED
+                ? getLatestImportSession(db, businessId)?.last_successful_import_at || null
+                : null)
+            : stored?.last_synced_at || null,
         };
       });
 
@@ -300,92 +278,11 @@ export function mountCommerceRoutes(app, db) {
     async (req, res) => {
       try {
         const { provider } = req.params;
-        const businessId = req.businessId || 1;
+        const businessId = req.businessId;
 
-        // Shopify: delegate to existing sync route logic
+        // Preserve the legacy URL, but Shopify always uses the canonical read-only importer.
         if (provider === "shopify") {
-          const shopifyProvider = getShopifyProvider(businessId, db);
-          const status = shopifyProvider.getStatus();
-
-          if (!status.configured) {
-            return res.status(400).json({
-              success: false,
-              error: "Shopify is not configured — set SHOPIFY_API_TOKEN",
-            });
-          }
-
-          const orders = await shopifyProvider.fetchOrders();
-          const products = await shopifyProvider.fetchProducts();
-          const importedOrders = [];
-
-          for (const order of orders) {
-            const orderKey = sync.idempotencyKey("import_order", order.orderId);
-            if (sync.isDuplicate(db, businessId, orderKey)) continue;
-
-            const existing = store.getOrderByShopifyId(db, order.orderId, businessId);
-            if (existing) continue;
-
-            const orderNumber =
-              order.orderNumber ||
-              (await store.getNextOrderNumber(db, businessId));
-
-            store.createOrder(db, {
-              businessId,
-              shopifyOrderId: order.orderId,
-              orderNumber,
-              customerName: order.customerName,
-              source: "shopify",
-              status: "pending",
-            });
-
-            const dbOrder = store.getOrderByShopifyId(db, order.orderId, businessId);
-            if (dbOrder) {
-              for (const item of order.lineItems) {
-                store.createOrderItem(db, {
-                  orderId: dbOrder.id,
-                  sku: item.sku,
-                  variantTitle: item.variantTitle,
-                  quantity: item.quantity,
-                  businessId,
-                });
-              }
-            }
-
-            sync.logSync(db, {
-              businessId,
-              idempotencyKey: orderKey,
-              action: "import_order",
-              shopifyOrderId: order.orderId,
-              provider: "shopify",
-              externalId: order.orderId,
-              entityType: "order",
-              entityId: dbOrder?.id || null,
-              status: "success",
-              details: { order_number: order.orderNumber },
-            });
-
-            importedOrders.push(order.orderNumber);
-          }
-
-          // Update last synced timestamp
-          db.run(
-            `INSERT INTO provider_credentials (business_id, provider, credentials, is_active, last_synced_at, updated_at, sync_status)
-             VALUES (?, 'shopify', '{}', 1, datetime('now'), datetime('now'), 'synced')
-             ON CONFLICT(business_id, provider) DO UPDATE SET
-               last_synced_at = datetime('now'),
-               updated_at = datetime('now'),
-               sync_status = 'synced',
-               sync_error = NULL`,
-            [businessId]
-          );
-
-          return res.json({
-            success: true,
-            provider: "shopify",
-            ordersImported: importedOrders.length,
-            productsFetched: products.length,
-            orderNumbers: importedOrders,
-          });
+          return triggerShopifyImport(req, res);
         }
 
         // ── Simulated providers ──────────────────────────────────────────

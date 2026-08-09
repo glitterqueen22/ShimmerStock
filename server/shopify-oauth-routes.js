@@ -528,7 +528,7 @@ export function mountShopifyOauthRoutes(app, db) {
         db.run(`
           INSERT INTO provider_credentials
             (business_id, provider, credentials, is_active, shop_domain, access_token_encrypted, scopes, sync_status, shop_owner, shop_name, last_synced_at, updated_at)
-          VALUES (?, 'shopify', '{}', 1, ?, ?, ?, 'connected', ?, ?, datetime('now'), datetime('now'))
+          VALUES (?, 'shopify', '{}', 1, ?, ?, ?, 'connected', ?, ?, NULL, datetime('now'))
           ON CONFLICT(business_id, provider) DO UPDATE SET
             shop_domain = excluded.shop_domain,
             access_token_encrypted = excluded.access_token_encrypted,
@@ -538,7 +538,7 @@ export function mountShopifyOauthRoutes(app, db) {
             sync_error = NULL,
             shop_owner = excluded.shop_owner,
             shop_name = excluded.shop_name,
-            last_synced_at = datetime('now'),
+            last_synced_at = NULL,
             updated_at = datetime('now')
         `, [businessId, shop, encryptedToken, verifiedScopeString, shopOwner, shopName]);
 

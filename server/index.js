@@ -54,6 +54,7 @@ import { mountStoreCreditRoutes } from "./store-credit-routes.js";
 import { mountMovementRoutes } from "./movement-routes.js";
 import { mountShopifyOauthRoutes } from "./shopify-oauth-routes.js";
 import { mountShopifyWebhookRoutes } from "./shopify-webhook-routes.js";
+import { getEffectiveImportState, getLatestImportSession, IMPORT_STATES } from "./shopify-import.js";
 
 const app = express();
 let runtimeConfig;
@@ -761,27 +762,24 @@ app.get("/api/shopify/status", requireAuth(db, "shopify.read"), (req, res) => {
   // Read DB record for rich info (OAuth-connected businesses)
   const creds = db
     .query(
-      "SELECT shop_domain, shop_name, shop_owner, scopes, sync_status, sync_error, sync_mode, last_synced_at, is_active FROM provider_credentials WHERE business_id = ? AND provider = 'shopify'"
+      "SELECT shop_domain, shop_name, shop_owner, scopes, sync_status, sync_error, sync_mode, last_synced_at, is_active, access_token_encrypted FROM provider_credentials WHERE business_id = ? AND provider = 'shopify'"
     )
     .get(req.businessId);
 
-  // Map sync_status to connectionState
-  const connectionStateMap = {
-    connected: "connected",
-    pending: "pending_validation",
-    failed: "failed",
-    disconnected: "disconnected",
-    syncing: "connected",
-    synced: "connected",
-    error: "failed",
-  };
-  const connectionState = creds?.sync_status
-    ? (connectionStateMap[creds.sync_status] || "disconnected")
-    : "disconnected";
-
-  // Only report configured when the connection is verified valid via OAuth
-  const isConnected = connectionState === "connected";
+  const isConnected = creds?.is_active === 1 && Boolean(creds?.access_token_encrypted);
+  const connectionState = isConnected
+    ? "connected"
+    : creds?.sync_status === "pending"
+      ? "pending_validation"
+      : creds?.sync_status === "failed"
+        ? "failed"
+        : "disconnected";
   const isActive = creds?.is_active === 1 && isConnected;
+  const importState = getEffectiveImportState(db, req.businessId);
+  const importSession = getLatestImportSession(db, req.businessId);
+  const syncError = importSession?.errors
+    ? JSON.parse(importSession.errors)[0] || null
+    : creds?.sync_error || null;
 
   // If no valid DB connection, never trust the singleton
   if (!creds || !isConnected) {
@@ -794,9 +792,9 @@ app.get("/api/shopify/status", requireAuth(db, "shopify.read"), (req, res) => {
       shopName: creds?.shop_name || null,
       shopOwner: creds?.shop_owner || null,
       scopes: creds?.scopes || null,
-      lastSyncedAt: creds?.last_synced_at || null,
-      syncStatus: creds?.sync_status || "not_connected",
-      syncError: creds?.sync_error || null,
+      lastSyncedAt: null,
+      syncStatus: importState,
+      syncError,
       isActive: false,
     });
   }
@@ -812,9 +810,11 @@ app.get("/api/shopify/status", requireAuth(db, "shopify.read"), (req, res) => {
     shopName: creds.shop_name || null,
     shopOwner: creds.shop_owner || null,
     scopes: creds.scopes || null,
-    lastSyncedAt: creds.last_synced_at || null,
-    syncStatus: creds.sync_status || "not_connected",
-    syncError: creds.sync_error || null,
+    lastSyncedAt: importState === IMPORT_STATES.SYNCED
+      ? importSession?.last_successful_import_at || null
+      : null,
+    syncStatus: importState,
+    syncError,
     isActive,
   });
 });
