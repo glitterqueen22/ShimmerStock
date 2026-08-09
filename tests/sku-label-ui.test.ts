@@ -29,6 +29,10 @@ describe("Novi SKU & Label Studio UX contract", () => {
     expect(source).toContain('status!.identifierWritebackEnabled ? "Product Writeback Enabled" : "Safe Mode"');
     expect(source).toContain('status!.identifierWritebackEnabled ? "SKU/Barcode Only" : "Read Only"');
     expect(source).toContain('!status!.identifierWritebackEnabled && !safeModeDismissed');
+    expect(source).toContain("Each update is re-read from Shopify");
+    expect(source).toContain("Inventory, orders, locations, titles, prices, and collections remain read-only");
+    expect(source).not.toContain("inventory counts will be synced both ways");
+    expect(source).not.toContain("Enable Full Sync");
   });
 
   it("offers instant scanning without automatic Shopify inventory writes", async () => {

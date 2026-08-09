@@ -5,8 +5,6 @@ import PrintModal, { type PrintData } from './PrintableLabel';
 import SplitShipmentWizard from '../components/SplitShipmentWizard';
 import OperationsCenter from '../components/OperationsCenter';
 import { apiFetch } from '../lib/api';
-import NoviEngineInsight from '../components/novi/NoviEngineInsight';
-import { getDemoInsights } from '../lib/businessDna';
 import { useTerms } from '../context/IndustryContext';
 
 // ── Types ────────────────────────────────────────────────────────
@@ -1049,7 +1047,7 @@ export default function Fulfillment() {
   const noviMessage = summary
     ? (() => {
         const parts: string[] = [];
-        if (summary.pendingCount > 0) parts.push(`${summary.pendingCount} orders ready to ship`);
+        if (summary.pendingCount > 0) parts.push(`${summary.pendingCount} orders in the packing queue`);
         if (summary.oldestPending && summary.oldestPending.ageDays > 0) {
           parts.push(`the oldest has been waiting ${summary.oldestPending.ageDays} days`);
         }
@@ -1080,8 +1078,6 @@ export default function Fulfillment() {
         subtitle={`How do I get ${terms.products.toLowerCase()} to ${terms.customer.toLowerCase()}s quickly, accurately, and cost-effectively?`}
       />
 
-      <NoviEngineInsight insights={getDemoInsights('craft_supplies', 'fulfillment')} />
-
       {/* Novi Summary */}
       {summary && (
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-rose-100 flex items-start gap-4">
@@ -1090,7 +1086,7 @@ export default function Fulfillment() {
             <p className="text-sm font-medium text-rose-700 mb-1">Novi says:</p>
             <p className="text-sm text-neutral-600 leading-relaxed">{noviMessage}</p>
             {summary.pendingCount === 0 && (
-              <p className="text-sm text-green-600 mt-2">All caught up! 🎉 Everything is shipped.</p>
+              <p className="text-sm text-green-600 mt-2">No orders are waiting in the packing queue.</p>
             )}
           </div>
         </div>
@@ -1121,7 +1117,7 @@ export default function Fulfillment() {
       {/* Tabs */}
       <Tabs
         tabs={[
-          { id: 'pending', label: 'Ready to Ship', count: pendingOrders.length },
+          { id: 'pending', label: 'Packing Queue', count: pendingOrders.length },
           { id: 'transit', label: 'In Transit', count: shipments.length },
           { id: 'packaging', label: 'Packaging' },
           { id: 'documents', label: 'Documents', count: templates.length },
@@ -1134,7 +1130,7 @@ export default function Fulfillment() {
       />
 
       {/* ═════════════════════════════════════════════════════════════
-          TAB: Ready to Ship
+          TAB: Packing Queue
           ═════════════════════════════════════════════════════════════ */}
       {tab === 'pending' && (
         <div className="space-y-4">

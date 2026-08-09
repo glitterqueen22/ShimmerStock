@@ -12,6 +12,15 @@ describe("Novi Command Center UI contract", () => {
     expect(source).not.toContain("Demo ·");
   });
 
+  it("keeps live fulfillment queues separate from demo and verified-ready claims", async () => {
+    const source = await Bun.file("client/src/pages/Fulfillment.tsx").text();
+    expect(source).toContain("Packing Queue");
+    expect(source).toContain("order.fully_picked ? 'Ready to Ship'");
+    expect(source).toContain("No orders are waiting in the packing queue.");
+    expect(source).not.toContain("getDemoInsights");
+    expect(source).not.toContain("Everything is shipped");
+  });
+
   it("uses one reusable pink-forward wordmark and favicon treatment", async () => {
     const brand = await Bun.file("client/src/components/BrandMark.tsx").text();
     const navbar = await Bun.file("client/src/components/ui/Navbar.tsx").text();

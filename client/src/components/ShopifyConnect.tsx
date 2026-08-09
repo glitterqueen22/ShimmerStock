@@ -761,7 +761,7 @@ export default function ShopifyConnect({
                   </ul>
                 </button>
 
-                {/* Full Sync Card — disabled when server reports canWrite === false (P0 policy) */}
+                {/* Product Editing Card — disabled when server reports canWrite === false (P0 policy) */}
                 {status!.canWrite === false ? (
                   <div
                     className="text-left rounded-xl border-2 p-3 border-rose-100 bg-rose-50/40 opacity-50 cursor-not-allowed"
@@ -769,11 +769,11 @@ export default function ShopifyConnect({
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-rose-300" />
-                      <span className="text-xs font-bold text-rose-400">Full Sync</span>
+                      <span className="text-xs font-bold text-rose-400">Product Editing</span>
                       <span className="text-[10px] bg-rose-100 text-rose-500 px-1.5 py-0.5 rounded-full font-semibold">Unavailable</span>
                     </div>
                     <p className="text-[11px] text-rose-400 leading-relaxed">
-                      Write access is not enabled in the current configuration. Contact your administrator to activate Full Sync.
+                      Product Editing is not enabled. Shopify inventory, orders, locations, and catalog content remain read-only.
                     </p>
                   </div>
                 ) : (
@@ -793,24 +793,24 @@ export default function ShopifyConnect({
                   <div className="flex items-center gap-2 mb-2">
                     <span className={`w-2.5 h-2.5 rounded-full ${status!.syncMode === "full" ? "bg-purple-500" : "bg-rose-300"}`} />
                     <span className={`text-xs font-bold ${status!.syncMode === "full" ? "text-purple-700" : "text-rose-400"}`}>
-                      Full Sync
+                      Product Editing
                     </span>
                     {status!.syncMode === "full" && (
-                      <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-semibold">Read + Write</span>
+                      <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-semibold">SKU/Barcode Only</span>
                     )}
                   </div>
                   <ul className="space-y-1">
                     <li className="text-[11px] text-rose-400 flex items-center gap-1.5">
-                      <span className="text-purple-400">•</span> Sync Inventory
+                      <span className="text-purple-400">•</span> Read Inventory
                     </li>
                     <li className="text-[11px] text-rose-400 flex items-center gap-1.5">
-                      <span className="text-purple-400">•</span> Sync SKUs
+                      <span className="text-purple-400">•</span> Verify SKU Updates
                     </li>
                     <li className="text-[11px] text-rose-400 flex items-center gap-1.5">
-                      <span className="text-purple-400">•</span> Sync Products
+                      <span className="text-purple-400">•</span> Verify Barcode Updates
                     </li>
                     <li className="text-[11px] text-rose-400 flex items-center gap-1.5">
-                      <span className="text-purple-400">•</span> Sync Collections
+                      <span className="text-purple-400">•</span> Keep Catalog Content Read-only
                     </li>
                   </ul>
                 </button>
@@ -894,9 +894,9 @@ export default function ShopifyConnect({
         open={showModeConfirm}
         onClose={() => setShowModeConfirm(false)}
         onConfirm={() => handleSetMode("full")}
-        title="⚠️ Enable Full Sync?"
-        message="This will allow ShimmerStock to write inventory changes back to your Shopify store. Your inventory counts will be synced both ways."
-        confirmLabel="Yes, Enable Full Sync"
+        title="Enable Product Editing?"
+        message="This permits only approved SKU and barcode updates. Each update is re-read from Shopify before ShimmerStock marks it verified. Inventory, orders, locations, titles, prices, and collections remain read-only."
+        confirmLabel="Enable Product Editing"
         confirmVariant="primary"
       />
 
