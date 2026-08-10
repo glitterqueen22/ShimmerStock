@@ -140,6 +140,50 @@ function createMessageIfNeeded(db, businessId, message) {
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
+ * Resolve stale low_inventory / out_of_stock messages whose underlying product
+ * inventory has since recovered. Prevents false stockouts from remaining active
+ * in the Novi attention badge after canonical inventory truth changes.
+ * @param {import("bun:sqlite").Database} db
+ * @param {number} businessId
+ * @returns {number} count of messages resolved
+ */
+export function resolveRecoveredInventoryMessages(db, businessId) {
+  const active = db.query(
+    `SELECT id, event_type, context_data FROM novi_messages
+     WHERE business_id = ? AND status = 'new' AND event_type IN ('low_inventory', 'out_of_stock')`
+  ).all(businessId);
+
+  let resolved = 0;
+  for (const message of active) {
+    let context;
+    try { context = JSON.parse(message.context_data || "{}"); } catch { context = {}; }
+    const productId = context.productId;
+    if (!productId) continue;
+
+    const product = db.query(
+      `SELECT p.stock_count, COALESCE(t.reorder_point, 5) as reorder_point
+       FROM products p
+       LEFT JOIN inventory_thresholds t ON t.product_id = p.id AND t.business_id = p.business_id
+       WHERE p.id = ? AND p.business_id = ?`
+    ).get(productId, businessId);
+
+    // Product deleted, or the condition that created the message no longer holds.
+    const stillOutOfStock = message.event_type === 'out_of_stock' && product && product.stock_count <= 0;
+    const stillLowInventory = message.event_type === 'low_inventory' && product && product.stock_count > 0 && product.stock_count <= product.reorder_point;
+    if (stillOutOfStock || stillLowInventory) continue;
+
+    const result = db.run(
+      `UPDATE novi_messages
+       SET status = 'completed', completed_at = datetime('now'), updated_at = datetime('now')
+       WHERE id = ? AND business_id = ? AND status = 'new'`,
+      [message.id, businessId],
+    );
+    resolved += result.changes;
+  }
+  return resolved;
+}
+
+/**
  * Rule 1: Low Inventory
  * Event: inventory.updated
  * Products with quantity <= reorder_point AND quantity > 0
@@ -1111,6 +1155,15 @@ export function initNoviDetection(db) {
  */
 export function runAllChecks(db, businessId) {
   const results = [];
+
+  try {
+    const resolved = resolveRecoveredInventoryMessages(db, businessId);
+    if (resolved > 0) {
+      console.log(`[novi-detection] Resolved ${resolved} recovered inventory message(s)`);
+    }
+  } catch (err) {
+    console.error("[novi-detection] resolveRecoveredInventoryMessages error:", err.message);
+  }
 
   const rules = [
     { name: 'low_inventory', fn: detectLowInventory },
