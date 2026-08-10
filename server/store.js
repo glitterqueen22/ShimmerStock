@@ -2353,6 +2353,10 @@ function calculateDailyVelocity(db, productId, businessId) {
  *   - Return explainable recommendation
  */
 export function getReorderRecommendations(db, businessId) {
+  const canonicalStock = new Map(
+    listProductsWithInventory(db, businessId).map(product => [product.id, product.stock_count])
+  );
+
   // Get all products with their stock, thresholds, and preferred suppliers in one efficient query
   const rows = db
     .query(
@@ -2366,9 +2370,10 @@ export function getReorderRecommendations(db, businessId) {
        LEFT JOIN inventory_thresholds it ON it.product_id = p.id AND it.business_id = ?
        LEFT JOIN supplier_products sp ON sp.product_id = p.id AND sp.is_preferred = 1
        LEFT JOIN suppliers s ON sp.supplier_id = s.id AND s.is_active = 1 AND s.business_id = ?
+       WHERE p.business_id = ?
        ORDER BY p.stock_count ASC, p.name ASC`
     )
-    .all(businessId, businessId);
+     .all(businessId, businessId, businessId);
 
   const recommendations = [];
 
@@ -2377,7 +2382,8 @@ export function getReorderRecommendations(db, businessId) {
 
     // Determine if we should recommend reorder
     let reorderPoint = row.reorder_point;
-    const currentStock = row.stock_count;
+    const currentStock = canonicalStock.get(row.product_id);
+    if (currentStock === null || currentStock === undefined) continue;
 
     // If no threshold set, auto-estimate: reorder when stock < 14 days at current velocity
     if (reorderPoint === null || reorderPoint === undefined) {
@@ -2948,7 +2954,7 @@ export function upsertOpportunity(db, params) {
     return existing.id;
   }
 
-  // Check if a completed/snoozed/dismissed version exists — if so, skip
+  // Respect completed, snoozed, and dismissed decisions.
   const inactive = db.query(
     `SELECT id FROM opportunities
      WHERE business_id = ? AND source_event_type = ? AND title = ?
@@ -2956,29 +2962,33 @@ export function upsertOpportunity(db, params) {
   ).get(params.businessId, params.sourceEventType || params.eventType, params.title);
 
   if (inactive) {
-    // Re-activate it
-    db.run(
-      `UPDATE opportunities SET status = 'active', updated_at = datetime('now'),
-        description = COALESCE(?, description),
-        impact = COALESCE(?, impact),
-        confidence = COALESCE(?, confidence),
-        explanation = COALESCE(?, explanation),
-        cited_data = COALESCE(?, cited_data)
-       WHERE id = ?`,
-      [
-        params.description || null,
-        params.impact || null,
-        params.confidence ?? null,
-        params.explanation || null,
-        params.citedData ? JSON.stringify(params.citedData) : null,
-        inactive.id,
-      ]
-    );
     return inactive.id;
   }
 
   // Insert new
   return createOpportunity(db, params);
+}
+
+/** Complete active rows owned by a detector when they disappear from a successful scan. */
+export function reconcileDetectorOpportunities(db, businessId, source, activeKeys) {
+  const active = new Set(activeKeys.map(key => `${key.sourceEventType}\u0000${key.title}`));
+  const existing = db.query(
+    `SELECT id, source_event_type, title FROM opportunities
+     WHERE business_id = ? AND source = ? AND status = 'active'`
+  ).all(businessId, source);
+
+  let resolved = 0;
+  for (const row of existing) {
+    if (active.has(`${row.source_event_type}\u0000${row.title}`)) continue;
+    const result = db.run(
+      `UPDATE opportunities
+       SET status = 'completed', completed_at = datetime('now'), updated_at = datetime('now')
+       WHERE id = ? AND business_id = ? AND status = 'active'`,
+      [row.id, businessId],
+    );
+    resolved += result.changes;
+  }
+  return resolved;
 }
 
 /** Get opportunities with optional filters. */
@@ -3114,6 +3124,44 @@ export function getOpportunitySummary(db, businessId) {
     highImpact,
     byStatus: summary,
     active: totalActive,
+  };
+}
+
+/** Separate raw detector volume from grouped issues and owner-actionable decisions. */
+export function getOwnerAttentionSummary(db, businessId) {
+  const opportunities = db.query(
+    `SELECT source_event_type, engine, action_link, impact
+     FROM opportunities
+     WHERE business_id = ? AND status = 'active'`
+  ).all(businessId);
+  const rawEventCount = getNoviMessageCounts(db, businessId).unread;
+  const issueGroups = new Map();
+  const decisionGroups = new Map();
+
+  for (const opportunity of opportunities) {
+    const issueKey = opportunity.source_event_type || "other";
+    issueGroups.set(issueKey, (issueGroups.get(issueKey) || 0) + 1);
+
+    const decisionKey = opportunity.action_link || `${opportunity.engine || "system"}:${issueKey}`;
+    const group = decisionGroups.get(decisionKey) || {
+      key: decisionKey,
+      route: opportunity.action_link || null,
+      count: 0,
+      highImpactCount: 0,
+    };
+    group.count += 1;
+    if (opportunity.impact === "high") group.highImpactCount += 1;
+    decisionGroups.set(decisionKey, group);
+  }
+
+  return {
+    rawEventCount,
+    opportunityCount: opportunities.length,
+    groupedIssueCount: issueGroups.size,
+    actionableDecisionCount: decisionGroups.size,
+    decisions: [...decisionGroups.values()].sort((left, right) =>
+      right.highImpactCount - left.highImpactCount || right.count - left.count
+    ),
   };
 }
 

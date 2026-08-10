@@ -198,11 +198,13 @@ export function mountNoviMessageRoutes(app, db) {
     try {
       const counts = store.getNoviMessageCounts(db, req.businessId);
       const latestMessage = store.getNoviLatestMessage(db, req.businessId);
+      const ownerAttention = store.getOwnerAttentionSummary(db, req.businessId);
 
       res.json({
         unread_count: counts.unread,
         urgent_count: counts.urgent,
         celebration_count: counts.celebration,
+        owner_attention: ownerAttention,
         latest_message: latestMessage || null,
       });
     } catch (err) {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { PageHeader, Tabs, Badge, Button, Modal, SearchBar, EmptyState, Skeleton, ErrorBanner, useToast } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete, sanitizeError } from '../lib/api';
 import NoviContextualPanel from '../components/novi/NoviContextualPanel';
+import { NoviEmptyState } from '../components/novi/NoviArtwork';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -837,12 +838,12 @@ export default function Partner() {
           </div>
 
           {/* Detail Tabs */}
-          <div className="flex gap-2 border-b border-neutral-200 pb-2">
+          <div className="flex max-w-full gap-2 overflow-x-auto border-b border-neutral-200 pb-2">
             {['overview', 'commission', 'applications', 'assets', 'settings', 'attribution'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setProgramDetailTab(tab)}
-                className={`px-4 py-2 text-sm font-medium rounded-t transition-colors capitalize ${
+                className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-t transition-colors capitalize ${
                   programDetailTab === tab
                     ? 'text-purple-700 border-b-2 border-purple-600 bg-purple-50/50'
                     : 'text-neutral-500 hover:text-neutral-700'
@@ -856,7 +857,7 @@ export default function Partner() {
           {/* Overview Tab */}
           {programDetailTab === 'overview' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white border rounded-lg p-4"><p className="text-xs text-neutral-500">Active Members</p><p className="text-xl font-bold">{selectedProgram.active_members}</p></div>
                 <div className="bg-white border rounded-lg p-4"><p className="text-xs text-neutral-500">Total Revenue</p><p className="text-xl font-bold">${selectedProgram.total_revenue.toFixed(2)}</p></div>
                 <div className="bg-white border rounded-lg p-4"><p className="text-xs text-neutral-500">Commission</p><p className="text-xl font-bold">{selectedProgram.default_commission_rate}%</p></div>
@@ -870,7 +871,14 @@ export default function Partner() {
                   <Button size="sm" onClick={() => { setShowMemberModal(true); }}>+ Add Member</Button>
                 </div>
                 {members.length === 0 ? (
-                  <EmptyState icon="👤" title="No members yet" description="Invite partners to join this program and start earning commissions." action={{ label: 'Invite Member', onClick: openInvitePartner }} />
+                  <NoviEmptyState
+                    title="Build your first partner relationship"
+                    description="Members are approved people who can share this program and earn its commission. An invite creates their program membership, connects their code, and makes attributed sales visible here. Nothing is counted until they join."
+                    expression="comforting"
+                    action={<Button onClick={openInvitePartner}>Invite Member</Button>}
+                  >
+                    <p className="mt-3 text-xs text-purple-700">Novi will keep applications, attribution, and commission exceptions together here once activity begins.</p>
+                  </NoviEmptyState>
                 ) : (
                   <div className="space-y-2">
                     {members.map(m => (

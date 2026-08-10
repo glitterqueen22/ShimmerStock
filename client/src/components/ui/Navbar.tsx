@@ -114,11 +114,9 @@ export function Navbar() {
     if (!user) return;
     apiGet<any>('/api/opportunities/summary')
       .then((data) => {
-        if (data?.summary?.total) {
-          setOppBadge(data.summary.total);
-        }
+        setOppBadge(data?.ownerAttention?.groupedIssueCount ?? 0);
       })
-      .catch(() => {});
+      .catch(() => setOppBadge(0));
   }, [user, location.pathname]);
 
   // ── Fetch Novi unread badge count ────────────────────────────────
@@ -126,11 +124,9 @@ export function Navbar() {
     if (!user) return;
     apiGet<any>('/api/novi/messages/summary')
       .then((data) => {
-        if (data?.unread_count) {
-          setNoviBadge(data.unread_count);
-        }
+        setNoviBadge(data?.owner_attention?.actionableDecisionCount ?? 0);
       })
-      .catch(() => {});
+      .catch(() => setNoviBadge(0));
   }, [user, location.pathname]);
 
   // ── Fetch CS inbox unread badge count ───────────────────────────

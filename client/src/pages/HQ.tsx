@@ -4,6 +4,7 @@ import { apiGet, apiPut } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 import { PageHeader, Skeleton, ErrorBanner, Badge } from "../components/ui";
 import Novi from "../components/Novi";
+import { NoviHomepageAppearance } from "../components/novi/NoviArtwork";
 import FirstDayChecklist from "../components/FirstDayChecklist";
 import { useTerms } from "../context/IndustryContext";
 
@@ -241,9 +242,11 @@ export default function HQ() {
     data.needsAttention.pendingBatches.length +
     data.needsAttention.overduePOs.length +
     data.needsAttention.unfulfilledOrders.length +
-    data.commandCenter.exceptions.filter((exception) => exception.key === "identifiers").length;
-  const noviExpression = data.commandCenter.exceptions.length > 2 ? "concerned" as const
-    : data.commandCenter.exceptions.length ? "thinking" as const : "happy" as const;
+    data.commandCenter.exceptions
+      .filter((exception) => exception.key === "identifiers")
+      .reduce((total, exception) => total + exception.count, 0);
+  const noviExpression = data.commandCenter.exceptions.length > 1 ? "protective" as const
+    : data.commandCenter.exceptions.length ? "thinking" as const : "cozy" as const;
 
   return (
     <div className="space-y-6">
@@ -259,7 +262,7 @@ export default function HQ() {
       </div>
 
       {/* ── SECTION 1: NOVI MORNING BRIEF ─────────────────────── */}
-      <section aria-label="Novi Morning Brief">
+      <section aria-label="Novi Morning Brief" className="hq-reveal" style={{ animationDelay: "40ms" }}>
         <div className="rounded-2xl border border-pink-200 bg-gradient-to-br from-pink-50 via-white to-violet-50 shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 border-b border-pink-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -270,11 +273,7 @@ export default function HQ() {
               Novi history →
             </button>
           </div>
-          <div className="p-5 flex flex-col sm:flex-row gap-5">
-            <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
-              <Novi expression={noviExpression} size="lg" animated />
-              <span className="text-xs text-violet-400 font-medium">Novi</span>
-            </div>
+          <NoviHomepageAppearance expression={noviExpression} className="p-5">
             <div className="flex-1 min-w-0">
               <p className="text-base font-semibold text-neutral-900 mb-3">
                 {data.commandCenter.brief.message}
@@ -305,11 +304,11 @@ export default function HQ() {
                 ))}
               </div>
             </div>
-          </div>
+            </NoviHomepageAppearance>
         </div>
       </section>
 
-      <section aria-label="Novi Missions">
+      <section aria-label="Novi Missions" className="hq-reveal" style={{ animationDelay: "110ms" }}>
         <div className="flex items-end justify-between gap-3 mb-3">
           <div>
             <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Novi Missions</h2>
@@ -368,7 +367,7 @@ export default function HQ() {
       />
 
       {/* ── SECTION 3: TODAY ────────────────────────────────────── */}
-      <section aria-label="Today's queues">
+      <section aria-label="Today's queues" className="hq-reveal" style={{ animationDelay: "180ms" }}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Today</h2>
         </div>
@@ -389,7 +388,7 @@ export default function HQ() {
       </section>
 
       {/* ── SECTION 3: WHAT CHANGED + SNAPSHOT ─────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 hq-reveal" style={{ animationDelay: "250ms" }}>
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
           <div className="px-5 py-3.5 border-b border-neutral-100 flex items-center justify-between">
             <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">What Changed</h2>
@@ -435,7 +434,7 @@ export default function HQ() {
 
       {/* ── SECTION 4: NEXT BEST ACTIONS ────────────────────────── */}
       {(data.whatToDoNext.length > 0 || data.opportunities.length > 0) && (
-        <section aria-label="Next best actions">
+        <section aria-label="Next best actions" className="hq-reveal" style={{ animationDelay: "320ms" }}>
           <h2 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3">Next Best Actions</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {data.whatToDoNext.slice(0, 3).map((rec, i) => (

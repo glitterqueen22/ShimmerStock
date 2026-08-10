@@ -248,4 +248,36 @@ describe("Shopify identifier writeback authorization", () => {
     expect(db.query("SELECT sku_sync_state FROM product_variants WHERE id = 102").get()).toEqual({ sku_sync_state: "SHOPIFY_UPDATE_FAILED" });
     expect(db.query("SELECT COUNT(*) AS count FROM shopify_identifier_writeback_audit").get()).toEqual({ count: 2 });
   });
+
+  it("keeps unaffected variants successful when Shopify rejects one bulk input", async () => {
+    const { createWritebackPreview, executeWriteback } = await import("../server/shopify-identifier-writeback.js");
+    const db = await writebackDb();
+    db.run(`INSERT INTO product_variants VALUES (
+      102, 10, 1, 'LOCAL-TWO', 'LOCAL-BAR-TWO', 'SHOP-TWO', 'SHOP-BAR-TWO',
+      '102', '502', 'Purple 2oz', 1, CURRENT_TIMESTAMP, 'SAVED_LOCAL', 'SAVED_LOCAL'
+    )`);
+    global.fetch = (async (_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const query = String(JSON.parse(String(init?.body)).query || "");
+      if (query.includes("mutation NoviSkuBarcodeUpdate")) return new Response(JSON.stringify({
+        data: { productVariantsBulkUpdate: {
+          productVariants: [{ id: "gid://shopify/ProductVariant/102" }],
+          userErrors: [{ field: ["variants", "0", "barcode"], message: "Barcode is invalid", code: "INVALID" }],
+        } },
+      }));
+      return new Response(JSON.stringify({ data: { nodes: [
+        { id: "gid://shopify/ProductVariant/102", barcode: "NEW-BAR-TWO", inventoryItem: { sku: "NEW-TWO" } },
+      ] } }));
+    }) as unknown as typeof fetch;
+    const preview = createWritebackPreview(db, 1, 7, [
+      { variantId: 101, sku: "NEW-SKU", barcode: "NEW-BAR", replaceSku: true, replaceBarcode: true },
+      { variantId: 102, sku: "NEW-TWO", barcode: "NEW-BAR-TWO", replaceSku: true, replaceBarcode: true },
+    ], true);
+
+    const result = await executeWriteback(db, 1, 7, preview.id, "UPDATE SHOPIFY");
+
+    expect(result).toMatchObject({ updated: 1, failed: 1 });
+    expect(result.results[0]).toMatchObject({ variantId: 101, result: "SHOPIFY_UPDATE_FAILED" });
+    expect(result.results[0].errors[0].message).toBe("Barcode is invalid");
+    expect(result.results[1]).toMatchObject({ variantId: 102, result: "SHOPIFY_UPDATED", errors: [] });
+  });
 });
