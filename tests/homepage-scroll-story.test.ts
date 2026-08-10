@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
 describe("homepage scroll story contract", () => {
-  it("keeps the homepage to eight truthful narrative chapters", async () => {
+  it("keeps the homepage to ten truthful narrative chapters", async () => {
     const html = await Bun.file("public/index.html").text();
 
-    expect(html.match(/<section\b/g)).toHaveLength(8);
+    expect(html.match(/<section\b/g)).toHaveLength(10);
     expect(html.match(/<h1\b/g)).toHaveLength(1);
     expect(html).toContain("ONE ORDER / ONE CONNECTED JOURNEY");
     expect(html).toContain("Twenty-six records. Three owner decisions.");
@@ -71,5 +71,64 @@ describe("homepage scroll story contract", () => {
     expect(controller).not.toContain('ScrollTrigger.create({\n          trigger: orderStory');
     expect(controller).toContain('setInterval(function ()');
     expect(controller).toContain('aria-current');
+  });
+
+  it("gives Novi a cinematic desk scene that connects to the same Order #8197", async () => {
+    const html = await Bun.file("public/index.html").text();
+    const controller = await Bun.file("public/assets/homepage-story.js").text();
+
+    expect(html).toContain('id="novi-desk"');
+    expect(html).toContain('alt="Novi, ShimmerStock\'s tuxedo-cat mascot — approved character artwork pending"');
+    expect(html).toContain('novi-art-pending.svg');
+    expect(html).toContain('class="novi-desk-portrait"');
+    expect(html).toContain('Order #8197 — Vanilla Cupcake Kit x 2');
+    expect(html).toContain('data-desk-notification');
+    expect(controller).toContain('function initNoviDeskScene()');
+    expect(controller).toContain('function markDeskActive()');
+    expect(controller).toContain('IntersectionObserver');
+  });
+
+  it("ties Novi's visual mood to the active Order Journey stage", async () => {
+    const controller = await Bun.file("public/assets/homepage-story.js").text();
+    const styles = await Bun.file("public/assets/marketing/homepage-story.css").text();
+
+    expect(controller).toContain('const orderMoods = ["alert", "confident", "thinking", "serious", "success", "pleased"]');
+    expect(controller).toContain('reactionEl.dataset.noviMood');
+    expect(styles).toContain('[data-novi-mood="serious"]');
+    expect(styles).toContain('[data-novi-mood="success"]');
+  });
+
+  it("visually distinguishes the three owner decisions from the resolved noise", async () => {
+    const html = await Bun.file("public/index.html").text();
+    const controller = await Bun.file("public/assets/homepage-story.js").text();
+
+    expect(html.match(/data-decision-linked="0"/g)?.length).toBeGreaterThan(0);
+    expect(html.match(/data-decision-linked="1"/g)?.length).toBeGreaterThan(0);
+    expect(html.match(/data-decision-linked="2"/g)?.length).toBeGreaterThan(0);
+    expect(controller).toContain('resolvedRecords');
+    expect(controller).toContain('linkedRecords');
+  });
+
+  it("upgrades the SKU/label scene with a real sequence and a manual scan trigger", async () => {
+    const html = await Bun.file("public/index.html").text();
+    const controller = await Bun.file("public/assets/homepage-story.js").text();
+
+    expect(html).toContain('data-label-sequence');
+    expect(html.match(/data-label-stage="[0-4]"/g)).toHaveLength(5);
+    expect(html).toContain('data-scan-trigger');
+    expect(controller).toContain('function initSkuSequence()');
+  });
+
+  it("adds a truthful Dream Grant scene and a story-resolution coda without duplicating People Behind the Colors", async () => {
+    const html = await Bun.file("public/index.html").text();
+    const dreamGrantSection = html.slice(html.indexOf('id="dream-grant-title"'), html.indexOf('id="final-title"'));
+
+    expect(dreamGrantSection).toContain('Applications are not yet open.');
+    expect(dreamGrantSection).not.toMatch(/\$\d/);
+    expect(dreamGrantSection).not.toMatch(/\b(20\d{2}|january|february|march|april|may|june|july|august|september|october|november|december)\b/i);
+    expect(html).toContain('href="/about#people-behind-the-colors"');
+    expect(html).not.toContain('id="people-behind-the-colors"');
+    expect(html).toContain('data-desk-resolution');
+    expect(html).toContain("You're caught up.");
   });
 });

@@ -445,7 +445,15 @@
   color: #fff;
   font-family: "Iowan Old Style", serif;
   font-weight: 800;
+  transition: background-color 220ms ease;
 }
+
+.order-novi-reaction[data-novi-mood="alert"] .order-novi-mark { background: var(--pink); }
+.order-novi-reaction[data-novi-mood="confident"] .order-novi-mark { background: var(--green); }
+.order-novi-reaction[data-novi-mood="thinking"] .order-novi-mark { background: var(--violet); }
+.order-novi-reaction[data-novi-mood="serious"] .order-novi-mark { background: var(--navy-ink); }
+.order-novi-reaction[data-novi-mood="success"] .order-novi-mark { background: var(--green-mid); }
+.order-novi-reaction[data-novi-mood="pleased"] .order-novi-mark { background: var(--plum-deep); }
 
 .order-controls {
   display: flex;
@@ -1423,5 +1431,324 @@
 @media (max-width: 767px) and (prefers-reduced-motion: reduce) {
   .story-fragments {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ─── Novi desk cinematic scene ──────────────────────────────── */
+
+.story-desk {
+  background: linear-gradient(180deg, var(--cream-warm), #fff);
+}
+
+.desk-scene {
+  position: relative;
+  margin-top: 1.5rem;
+  min-height: 420px;
+  border: 1px solid rgba(41, 37, 47, 0.2);
+  border-radius: var(--radius-xl, 24px);
+  overflow: hidden;
+  background: #fffdf9;
+}
+
+.desk-backdrop {
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+}
+
+.desk-shelf {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(16, 37, 63, 0.14);
+}
+
+.desk-shelf:nth-child(1) { top: 18%; }
+.desk-shelf:nth-child(2) { top: 34%; }
+
+.desk-box {
+  position: absolute;
+  width: 64px;
+  height: 52px;
+  border: 2px solid rgba(16, 37, 63, 0.18);
+  border-radius: 4px;
+  background: rgba(255, 253, 249, 0.6);
+}
+
+.desk-box-1 { top: 6%; left: 6%; }
+.desk-box-2 { top: 8%; left: 16%; width: 42px; height: 36px; }
+.desk-box-3 { top: 40%; right: 8%; }
+
+.desk-stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 0.4fr) minmax(0, 0.6fr);
+  gap: 2rem;
+  align-items: center;
+  padding: clamp(2rem, 5vw, 3.5rem);
+}
+
+.novi-desk-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.novi-desk-portrait {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+}
+
+.novi-desk-portrait-small {
+  width: 72px;
+  height: 72px;
+}
+
+.desk-art-label {
+  text-align: center;
+}
+
+.desk-props {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+}
+
+.desk-prop {
+  position: relative;
+  display: block;
+  border: 2px solid var(--navy-ink);
+}
+
+.desk-coffee {
+  width: 22px;
+  height: 26px;
+  border-radius: 0 0 8px 8px;
+  background: var(--cream-warm);
+}
+
+.desk-coffee .desk-prop-handle {
+  position: absolute;
+  top: 4px;
+  right: -9px;
+  width: 10px;
+  height: 12px;
+  border: 2px solid var(--navy-ink);
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+}
+
+.desk-energy {
+  width: 16px;
+  height: 30px;
+  border-radius: 2px;
+  background: var(--green-mid);
+}
+
+.desk-scanner {
+  position: relative;
+  width: 28px;
+  height: 20px;
+  border-radius: 3px;
+  background: var(--ink);
+  overflow: hidden;
+}
+
+.desk-scanner .desk-prop-beam {
+  position: absolute;
+  inset: 40% 10%;
+  height: 2px;
+  background: var(--green);
+}
+
+.desk-caption {
+  margin: 1rem 0 0;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.desk-screen {
+  padding: 1.1rem;
+  border: 1px solid var(--navy-ink);
+  border-radius: 10px;
+  background: var(--navy-deep);
+  color: #fff;
+}
+
+.desk-screen-bar {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.desk-notification {
+  margin-top: 0.9rem;
+  padding: 0.9rem;
+  border-left: 3px solid var(--pink);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.desk-notification strong {
+  display: block;
+  font-family: "Iowan Old Style", serif;
+  font-size: 1.05rem;
+}
+
+.desk-notification span {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.desk-stage[data-desk-state="active"] .novi-desk-portrait {
+  outline: 2px solid var(--pink);
+  outline-offset: 6px;
+  border-radius: 50%;
+}
+
+.desk-stage[data-desk-state="active"] .desk-notification {
+  border-left-color: var(--green);
+}
+
+.story-motion .desk-notification {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.story-motion .desk-stage[data-desk-state="active"] .desk-notification {
+  opacity: 1;
+  transform: none;
+  transition: opacity 320ms ease, transform 320ms ease;
+}
+
+/* ─── Exception-first resolved / decision-linked records ─────── */
+
+.record-field span[data-decision-linked] {
+  border: 1px solid var(--pink);
+  font-weight: 800;
+}
+
+/* ─── SKU / label sequence ────────────────────────────────────── */
+
+.label-sequence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.label-sequence li {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.label-sequence li.is-active {
+  border-color: var(--violet);
+  color: var(--violet);
+  background: var(--violet-mist);
+}
+
+.scan-trigger-btn {
+  min-height: 44px;
+  margin-top: 1rem;
+  padding: 0 1rem;
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  background: transparent;
+  color: #3c6b4f;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.scan-trigger-btn:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+/* ─── Dream Grant scene ───────────────────────────────────────── */
+
+.story-dream-grant {
+  background: linear-gradient(160deg, var(--violet-mist), var(--cream-warm));
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.story-dream-grant-inner {
+  max-width: 760px;
+}
+
+.story-dream-grant h2 {
+  margin-top: 0.8rem;
+  font-family: "Iowan Old Style", serif;
+  font-size: clamp(1.7rem, 3.4vw, 2.6rem);
+  color: var(--plum-deep);
+}
+
+.story-dream-grant-lead {
+  margin-top: 1rem;
+  color: var(--ink-soft);
+  max-width: 62ch;
+}
+
+.story-dream-grant-status {
+  margin-top: 1rem;
+}
+
+.story-dream-grant .story-actions {
+  margin-top: 1.3rem;
+  align-items: center;
+}
+
+/* ─── Story resolution coda ───────────────────────────────────── */
+
+.story-resolution {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 0 auto 1.5rem;
+  padding-bottom: 1.5rem;
+  max-width: 62ch;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.story-resolution-text {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 900px) {
+  .desk-stage {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-motion .desk-notification {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .story-motion .record-field span {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }

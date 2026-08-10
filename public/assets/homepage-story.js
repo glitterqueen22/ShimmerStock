@@ -147,11 +147,38 @@
     "Novi is pleased — Care can reply with full context."
   ];
 
+  const orderMoods = ["alert", "confident", "thinking", "serious", "success", "pleased"];
+
+  function markDeskActive() {
+    const stage = story.querySelector("[data-desk-scene] .desk-stage");
+    const caption = story.querySelector("[data-desk-caption]");
+    if (!stage || stage.dataset.deskState === "active") return;
+    stage.dataset.deskState = "active";
+    if (caption) caption.textContent = "Go time. Novi is on it.";
+  }
+
+  function initNoviDeskScene() {
+    const scene = story.querySelector("[data-desk-scene]");
+    const orderSection = story.querySelector("[data-order-story]");
+    if (!scene || !orderSection || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          markDeskActive();
+          observer.disconnect();
+        }
+      });
+    }, { threshold: 0.3 });
+    observer.observe(orderSection);
+  }
+
   function initOrderJourneyPlayer() {
     const root = story.querySelector("[data-order-story]");
     const steps = Array.from(story.querySelectorAll("[data-order-step]"));
     const jumpButtons = Array.from(story.querySelectorAll("[data-order-jump]"));
     const progress = story.querySelector("[data-order-progress]");
+    const reactionEl = story.querySelector("[data-order-reaction]");
     const reactionText = story.querySelector("[data-order-reaction-text]");
     const playBtn = story.querySelector("[data-order-play]");
     const pauseBtn = story.querySelector("[data-order-pause]");
@@ -174,6 +201,7 @@
       if (window.gsap) window.gsap.set(progress, { scaleX: scale });
       else progress.style.transform = "scaleX(" + scale + ")";
       if (reactionText) reactionText.textContent = orderReactions[activeIndex] || orderReactions[0];
+      if (reactionEl) reactionEl.dataset.noviMood = orderMoods[activeIndex] || orderMoods[0];
     }
 
     function stop() {
@@ -195,21 +223,62 @@
       }, STEP_MS);
     }
 
-    playBtn.addEventListener("click", start);
+    playBtn.addEventListener("click", function () { markDeskActive(); start(); });
     pauseBtn.addEventListener("click", stop);
     replayBtn.addEventListener("click", function () {
       stop();
       render(0);
+      markDeskActive();
       start();
     });
     jumpButtons.forEach((button, index) => {
       button.addEventListener("click", function () {
         stop();
+        markDeskActive();
         render(index);
       });
     });
 
     render(0);
+  }
+
+  function initSkuSequence() {
+    const list = story.querySelector("[data-label-sequence]");
+    const scanBtn = story.querySelector("[data-scan-trigger]");
+    const beam = story.querySelector(".scan-beam");
+    if (!list) return;
+
+    const stages = Array.from(list.querySelectorAll("[data-label-stage]"));
+    let stageIndex = 0;
+    let timer = null;
+
+    function render(index) {
+      stageIndex = index % stages.length;
+      stages.forEach((stage, i) => stage.classList.toggle("is-active", i === stageIndex));
+    }
+
+    if (!reduceMotion.matches) {
+      timer = setInterval(function () { render(stageIndex + 1); }, 1800);
+    }
+
+    stages.forEach((stage, index) => {
+      stage.addEventListener("click", function () {
+        if (timer) { clearInterval(timer); timer = null; }
+        render(index);
+      });
+    });
+
+    if (scanBtn && beam) {
+      scanBtn.addEventListener("click", function () {
+        render(stages.length - 1);
+        if (window.gsap && !reduceMotion.matches) {
+          window.gsap.timeline()
+            .set(beam, { autoAlpha: 1, y: 0 })
+            .to(beam, { y: function () { return beam.parentElement.clientHeight - 2; }, duration: 0.75, ease: "power1.inOut" })
+            .to(beam, { autoAlpha: 0, duration: 0.18 });
+        }
+      });
+    }
   }
 
   function initDecisionPreviews() {
@@ -294,6 +363,8 @@
 
       const reduction = story.querySelector("[data-novi-reduction]");
       const records = story.querySelectorAll(".record-field span");
+      const resolvedRecords = story.querySelectorAll(".record-field span:not([data-decision-linked])");
+      const linkedRecords = story.querySelectorAll(".record-field span[data-decision-linked]");
       const brief = story.querySelector(".novi-brief-frame");
       if (reduction && records.length && brief) {
         gsap.timeline({
@@ -301,7 +372,9 @@
         })
           .from(records, { autoAlpha: 0, scale: 0.82, stagger: { amount: 0.35, from: "random" }, duration: 0.45, immediateRender: false })
           .from(brief, { autoAlpha: 0, x: 70, duration: 0.5, immediateRender: false }, "-=0.2")
-          .to(records, { autoAlpha: 0.26, scale: 0.94, stagger: { amount: 0.2, from: "edges" }, duration: 0.35 });
+          .addLabel("resolve")
+          .to(resolvedRecords, { autoAlpha: 0.22, scale: 0.86, y: 6, stagger: { amount: 0.2, from: "edges" }, duration: 0.35 }, "resolve")
+          .to(linkedRecords, { autoAlpha: 1, scale: 1.06, borderColor: "var(--pink)", stagger: 0.04, duration: 0.35 }, "resolve");
       }
 
       const scan = story.querySelector(".scan-result");
@@ -325,6 +398,8 @@
   initIndustryTabs();
   initDecisionPreviews();
   initOrderJourneyPlayer();
+  initNoviDeskScene();
+  initSkuSequence();
   const motionContext = initializeMotion();
 
   window.addEventListener("pagehide", function () {
