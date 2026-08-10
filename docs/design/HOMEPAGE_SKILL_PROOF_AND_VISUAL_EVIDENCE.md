@@ -107,3 +107,75 @@ Checks not re-run in this step:
 
 - This pass is explicitly prepared for owner visual review only.
 - Auto-merge is intentionally not requested.
+
+## 7) Novi desk visual acceptance correction (follow-up pass)
+
+Date: 2026-08-10
+Branch: fix/novi-desk-visual-acceptance-correction
+
+### Exact skill invocation and use
+
+UI/UX Pro Max invocation executed for this pass:
+- `python3 .github/prompts/ui-ux-pro-max/scripts/search.py "cinematic novi desk focal point asymmetrical composition queue interaction responsive desktop tablet mobile reduced motion" --design-system -p "ShimmerStock" --page "novi-desk-scene" --variance 9 --motion 7 --density 5`
+
+Taste skill source used directly during implementation:
+- `.agents/skills/design-taste-frontend/SKILL.md`
+- Applied Design Read for this pass: cinematic product-business environment with Novi as focal subject, asymmetrical editorial composition, queue-linked storytelling, and anti-generic spacing discipline.
+- Applied dials in code decisions: `DESIGN_VARIANCE=9`, `MOTION_INTENSITY=7`, `VISUAL_DENSITY=5`.
+
+GSAP guidance source used for implementation review:
+- `.github/instructions/gsap-core.instructions.md`
+- `.github/instructions/gsap-scrolltrigger.instructions.md`
+- `.github/instructions/gsap-timeline.instructions.md`
+- `.github/instructions/gsap-performance.instructions.md`
+
+### Recommendations received and decisions taken
+
+UI/UX Pro Max recommended:
+- asymmetric composition and depth over flat sections
+- light but present motion
+- responsive checkpoints and reduced-motion parity
+
+Recommendations adopted:
+- desk scene changed from small-in-box composition to asymmetric environment where Novi carries stronger visual weight
+- queue panel given live idle summary plus go-time transition state
+- responsive stack explicitly preserved on mobile with Novi remaining prominent
+- reduced-motion state retained with equivalent content
+
+Recommendations rejected or not adopted verbatim:
+- generated pattern/color/font recommendations that conflict with established ShimmerStock brand system (for example app-store layout, blue/orange defaults, futuristic type pairing) were not applied
+- retained existing homepage architecture and existing Order Journey state machine to avoid disconnected demo flows
+
+### Concrete code changes caused by skill guidance
+
+- Novi focal correction and environmental depth:
+	- `public/index.html` desk scene markup recomposed with layered shelves/bins/screens, larger Novi frame, and integrated queue panel
+	- `public/assets/marketing/homepage-story.css` desk scene restyled for stronger character prominence, connected layering, and responsive hierarchy
+
+- Queue panel now performs real narrative work:
+	- idle queue snapshot visible by default (`14 ready`, `2 need production`, `1 customer waiting`)
+	- go-time sequence injects `Order #8197` into queue and then transitions same token into Order Journey dock
+
+- Ambient and cinematic motion behavior:
+	- `public/assets/homepage-story.js` adds restrained ambient motion (breath, blink, glance, steam, queue glow)
+	- go-time sequence: idle -> alert -> focused with queue-state changes and token handoff
+	- scroll-triggered spatial entry of desk environment (scale/depth/parallax) without scroll-jacking
+
+- Owner acceptance evidence automation:
+	- `scripts/serve-homepage-preview.mjs`
+	- `scripts/capture-novi-desk-acceptance.mjs`
+
+Acceptance capture commands executed:
+- `node scripts/serve-homepage-preview.mjs`
+- `node scripts/capture-novi-desk-acceptance.mjs`
+
+Generated owner acceptance artifacts for this correction pass:
+- `qa-results/novi-desk-acceptance/desktop-idle-desk.png`
+- `qa-results/novi-desk-acceptance/desktop-new-order-alert.png`
+- `qa-results/novi-desk-acceptance/desktop-focused-go-time.png`
+- `qa-results/novi-desk-acceptance/desktop-transition-into-order-journey.png`
+- `qa-results/novi-desk-acceptance/mobile-idle.png`
+- `qa-results/novi-desk-acceptance/mobile-alert.png`
+- `qa-results/novi-desk-acceptance/reduced-motion-equivalent-static-state.png`
+- `qa-results/novi-desk-acceptance/video/page@2851358ae78b2c3ac877f0607b5c3cd7.webm`
+- `qa-results/novi-desk-acceptance/novi-desk-acceptance-report.json`

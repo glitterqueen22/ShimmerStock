@@ -68,20 +68,47 @@
     <section class="story-section story-desk" id="novi-desk" aria-labelledby="desk-title" data-desk-scene>
       <div class="container-wide desk-layout">
         <header class="story-section-heading"><p class="story-kicker">ENTERING THE WORKSPACE</p><h2 id="desk-title">Novi is already at her desk.</h2><p>Shelves, thermal labels, and a scanner within reach, and one order about to change the morning.</p></header>
-        <div class="desk-scene">
-          <div class="desk-backdrop" aria-hidden="true"><span class="desk-shelf"></span><span class="desk-shelf"></span><span class="desk-box desk-box-1"></span><span class="desk-box desk-box-2"></span><span class="desk-box desk-box-3"></span></div>
+        <div class="desk-scene" data-desk-enter>
+          <div class="desk-backdrop" aria-hidden="true">
+            <span class="desk-depth-haze"></span>
+            <span class="desk-shelf"></span>
+            <span class="desk-shelf"></span>
+            <span class="desk-bin desk-bin-1"></span>
+            <span class="desk-bin desk-bin-2"></span>
+            <span class="desk-bin desk-bin-3"></span>
+            <span class="desk-screen-glow"></span>
+            <span class="desk-label-roll"></span>
+            <span class="desk-shipper desk-shipper-1"></span>
+            <span class="desk-shipper desk-shipper-2"></span>
+          </div>
           <div class="desk-stage" data-desk-state="idle">
-            <div class="novi-desk-frame">
-              <img src="/assets/novi/novi-idle-desk.webp" alt="Novi, ShimmerStock's tuxedo-cat mascot, working at her desk" class="novi-desk-portrait" data-novi-portrait width="360" height="360" loading="lazy" decoding="async">
+            <div class="desk-novi-zone">
+              <div class="novi-desk-frame">
+                <img src="/assets/novi/novi-idle-desk.webp" alt="Novi, ShimmerStock's tuxedo-cat mascot, working at her desk" class="novi-desk-portrait" data-novi-portrait width="500" height="500" loading="lazy" decoding="async">
+                <span class="desk-blink" data-desk-blink aria-hidden="true"></span>
+              </div>
+              <div class="desk-props" aria-hidden="true">
+                <span class="desk-prop desk-coffee"><span class="desk-prop-handle"></span><span class="desk-steam"><span></span><span></span></span></span>
+                <span class="desk-prop desk-energy"></span>
+                <span class="desk-prop desk-scanner"><span class="desk-prop-beam"></span></span>
+                <span class="desk-prop desk-label-stack"></span>
+              </div>
+              <p class="desk-caption" data-desk-caption>Coffee. Energy drink. Yes, possibly both. Novi is watching today's queue.</p>
             </div>
-            <p class="desk-caption" data-desk-caption>Coffee. Energy drink. Yes, possibly both. Novi is watching the queue.</p>
-            <div class="desk-screen">
+            <aside class="desk-queue-panel" data-queue-panel data-queue-state="idle" aria-live="polite">
               <span class="desk-screen-bar">SHIMMERSTOCK / QUEUE</span>
-              <div class="desk-notification" data-desk-notification>
+              <p class="desk-queue-title">TODAY</p>
+              <ul class="desk-queue-summary" data-desk-queue-summary>
+                <li><span>Ready</span><strong data-queue-ready>14 ready</strong></li>
+                <li><span>Need production</span><strong data-queue-production>2 need production</strong></li>
+                <li><span>Customer waiting</span><strong data-queue-customer>1 customer waiting</strong></li>
+              </ul>
+              <div class="desk-notification" data-desk-notification hidden>
                 <strong>NEW ORDER</strong><span>Order #8197 - Vanilla Cupcake Kit x 2</span>
                 <span class="desk-order-token" data-order-token>Order #8197</span>
               </div>
-            </div>
+              <p class="desk-queue-lane" data-queue-lane>Queue calm. Monitoring live.</p>
+            </aside>
           </div>
         </div>
       </div>
