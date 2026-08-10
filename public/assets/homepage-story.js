@@ -148,30 +148,31 @@
     "Novi is pleased — Care can reply with full context."
   ];
 
-  const orderMoods = ["alert", "confident", "thinking", "serious", "success", "pleased"];
+  const orderStates = ["alert", "focused", "thinking", "serious", "success", "cozy-end"];
 
   const NOVI_ASSET_MANIFEST = {
-    idle: { src: "/assets/novi/novi-idle-desk.webp", fallback: "/assets/novi/novi-idle-desk.svg" },
-    alert: { src: "/assets/novi/novi-alert.webp", fallback: "/assets/novi/novi-alert.svg" },
-    confident: { src: "/assets/novi/novi-focused.webp", fallback: "/assets/novi/novi-focused.svg" },
-    thinking: { src: "/assets/novi/novi-thinking.webp", fallback: "/assets/novi/novi-thinking.svg" },
-    serious: { src: "/assets/novi/novi-serious.webp", fallback: "/assets/novi/novi-serious.svg" },
-    success: { src: "/assets/novi/novi-success.webp", fallback: "/assets/novi/novi-success.svg" },
-    pleased: { src: "/assets/novi/novi-success.webp", fallback: "/assets/novi/novi-success.svg" },
-    cozy: { src: "/assets/novi/novi-cozy-end.webp", fallback: "/assets/novi/novi-cozy-end.svg" }
+    idle: "/assets/novi/novi-idle-desk.webp",
+    alert: "/assets/novi/novi-alert.webp",
+    focused: "/assets/novi/novi-focused.webp",
+    thinking: "/assets/novi/novi-thinking.webp",
+    serious: "/assets/novi/novi-serious.webp",
+    success: "/assets/novi/novi-success.webp",
+    "cozy-end": "/assets/novi/novi-cozy-end.webp"
   };
 
-  let currentNoviMood = null;
+  let currentNoviState = null;
   let noviInitialized = false;
 
-  function applyNoviAsset(portrait, src, useMotion) {
-    const doSwap = function () { portrait.setAttribute("src", src); };
+  function applyNoviAsset(portraits, src, useMotion) {
+    const doSwap = function () {
+      portraits.forEach(function (portrait) { portrait.setAttribute("src", src); });
+    };
     if (useMotion && window.gsap && !reduceMotion.matches) {
-      window.gsap.to(portrait, {
+      window.gsap.to(portraits, {
         autoAlpha: 0, scale: 0.94, duration: 0.16,
         onComplete: function () {
           doSwap();
-          window.gsap.to(portrait, { autoAlpha: 1, scale: 1, duration: 0.22, ease: "power2.out" });
+          window.gsap.to(portraits, { autoAlpha: 1, scale: 1, duration: 0.22, ease: "power2.out" });
         }
       });
     } else {
@@ -179,41 +180,20 @@
     }
   }
 
-  /**
-   * Default HTML src is always the guaranteed-good SVG placeholder, so no-JS
-   * and JS-disabled visitors never see a broken image. This only UPGRADES to
-   * the real approved WebP after confirming (via a background probe image)
-   * that it actually loads — it never writes an unverified src into the DOM.
-   */
-  function swapNoviPortrait(moodKey) {
-    if (moodKey === currentNoviMood) return;
+  function swapNoviPortrait(stateKey) {
+    if (stateKey === currentNoviState) return;
     const isFirstCall = !noviInitialized;
-    currentNoviMood = moodKey;
+    currentNoviState = stateKey;
     noviInitialized = true;
-    const portrait = story.querySelector("[data-novi-portrait]");
-    const asset = NOVI_ASSET_MANIFEST[moodKey];
-    if (!portrait || !asset) return;
+    const portraits = Array.from(story.querySelectorAll("[data-novi-portrait]"));
+    const asset = NOVI_ASSET_MANIFEST[stateKey];
+    if (!portraits.length || !asset) return;
 
     const probe = new Image();
     probe.onload = function () {
-      if (currentNoviMood === moodKey) applyNoviAsset(portrait, asset.src, !isFirstCall);
+      if (currentNoviState === stateKey) applyNoviAsset(portraits, asset, !isFirstCall);
     };
-    probe.onerror = function () {
-      if (currentNoviMood === moodKey && portrait.getAttribute("src") !== asset.fallback) {
-        applyNoviAsset(portrait, asset.fallback, !isFirstCall);
-      }
-    };
-    probe.src = asset.src;
-  }
-
-  /** One-time upgrade attempt for a static (non-mood-driven) portrait, e.g. the story-resolution coda. */
-  function upgradeStaticPortrait(selector, moodKey) {
-    const portrait = story.querySelector(selector);
-    const asset = NOVI_ASSET_MANIFEST[moodKey];
-    if (!portrait || !asset) return;
-    const probe = new Image();
-    probe.onload = function () { portrait.setAttribute("src", asset.src); };
-    probe.src = asset.src;
+    probe.src = asset;
   }
 
   function markDeskActive() {
@@ -231,7 +211,6 @@
     if (!scene) return;
 
     swapNoviPortrait("idle");
-    upgradeStaticPortrait("[data-novi-cozy-portrait]", "cozy");
 
     if (!orderSection || typeof IntersectionObserver === "undefined") return;
 
@@ -274,10 +253,10 @@
       if (window.gsap) window.gsap.set(progress, { scaleX: scale });
       else progress.style.transform = "scaleX(" + scale + ")";
       if (reactionText) reactionText.textContent = orderReactions[activeIndex] || orderReactions[0];
-      if (reactionEl) reactionEl.dataset.noviMood = orderMoods[activeIndex] || orderMoods[0];
+      if (reactionEl) reactionEl.dataset.noviState = orderStates[activeIndex] || orderStates[0];
       const deskStage = story.querySelector("[data-desk-scene] .desk-stage");
       if (deskStage && deskStage.dataset.deskState === "active") {
-        swapNoviPortrait(orderMoods[activeIndex] || orderMoods[0]);
+        swapNoviPortrait(orderStates[activeIndex] || orderStates[0]);
       }
     }
 

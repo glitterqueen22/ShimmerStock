@@ -18,7 +18,9 @@ describe("repository instruction safety contract", () => {
     const instructions = await Bun.file(".github/copilot-instructions.md").text();
 
     expect(instructions).toContain("black-and-white tuxedo-cat mascot");
-    expect(instructions).toContain("Final Novi character and logo artwork require owner approval");
+    expect(instructions).toContain("Novi's approved character reference is docs/brand/novi-sprite-sheet.png");
+    expect(instructions).toContain("production Novi assets live in public/assets/novi/");
+    expect(instructions).toContain("Do not redesign or substitute the mascot without owner approval");
     expect(instructions).toContain("not GGE software");
     expect(instructions).toContain("pink for Monica's spark and primary brand personality");
     expect(instructions).toContain("navy and grey for her husband's grounding partnership");
