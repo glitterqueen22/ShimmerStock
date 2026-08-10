@@ -95,22 +95,6 @@
     });
   }
   const industryData = {
-    craft: {
-      title: "Craft supplies workspace",
-      focus: "Catalog depth and supplier timing",
-      copy: "Rhinestones, blanks, vinyl rolls, and packaging inserts stay connected to reorder pressure.",
-      inventory: "Rhinestones / Blanks / Vinyl",
-      production: "Restock Build #118",
-      alert: "Best-selling blank below 7-day runway"
-    },
-    brand: {
-      title: "E-commerce brand workspace",
-      focus: "Demand pace and connected handoffs",
-      copy: "Hero SKUs, bundle components, campaign orders, and customer context move through one operating rhythm.",
-      inventory: "Hero SKU / Bundles / Seasonal variants",
-      production: "Fulfillment Wave #22",
-      alert: "Bundle component risk flagged for Friday"
-    },
     freshies: {
       title: "Freshies workspace",
       focus: "Formula, batch, and material runway",
@@ -604,10 +588,7 @@
       if (reactionEl) reactionEl.dataset.noviState = orderStates[activeIndex] || orderStates[0];
       if (stageState) stageState.textContent = orderStageMessages[activeIndex] || orderStageMessages[0];
       if (anchor) anchor.setAttribute("data-order-stage", String(activeIndex));
-      const deskStage = story.querySelector("[data-desk-scene] .desk-stage");
-      if (deskStage && deskStage.dataset.deskState !== "idle") {
-        swapNoviPortrait(orderStates[activeIndex] || orderStates[0]);
-      }
+      swapNoviPortrait(orderStates[activeIndex] || orderStates[0]);
     }
 
     function stop() {

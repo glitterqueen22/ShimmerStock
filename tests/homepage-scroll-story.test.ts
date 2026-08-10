@@ -1,17 +1,23 @@
 import { describe, expect, it } from "bun:test";
+import { stat } from "node:fs/promises";
 
 describe("homepage scroll story contract", () => {
-  it("keeps the homepage to eleven truthful narrative chapters", async () => {
+  it("keeps the homepage to eight truthful narrative chapters", async () => {
     const html = await Bun.file("public/index.html").text();
 
-    expect(html.match(/<section\b/g)).toHaveLength(11);
+    expect(html.match(/<section\b/g)).toHaveLength(8);
     expect(html.match(/<h1\b/g)).toHaveLength(1);
-    expect(html).toContain("ONE ORDER / ONE CONNECTED JOURNEY");
-    expect(html).toContain("Twenty-six records. Three owner decisions.");
-    expect(html).toContain("Shopify connection: Early Access / Read-only Beta");
-    expect(html).toContain("Internal barcodes support your operations. They are not retail UPCs or GTINs.");
+    expect(html).toContain("Your business has a lot going on. <em>Novi's already on it.</em>");
+    expect(html).toContain("Watch ShimmerStock. Try how ShimmerStock thinks.");
+    expect(html).toContain("Your business doesn't need another dashboard. It needs priorities.");
+    expect(html).toContain("YOUR STORE. YOUR DATA. YOUR APPROVAL.");
+    expect(html).toContain('id="order-journey"');
     expect(html).toContain('id="people-behind-the-colors"');
-    expect(html).toContain('id="missions-title"');
+    expect(html).toContain('id="dream-grant-title"');
+    expect(html).not.toContain('id="scene-desk"');
+    expect(html).not.toContain('id="scene-label"');
+    expect(html).not.toContain('id="scene-brief"');
+    expect(html).not.toContain('id="missions-title"');
     expect(html).not.toContain('id="savings-title"');
     expect(html).not.toContain("novi-character.png");
     expect(html).not.toContain("Shopify Updated");
@@ -32,13 +38,13 @@ describe("homepage scroll story contract", () => {
     expect(server).toContain('/assets/vendor/gsap/ScrollTrigger.min.js');
   });
 
-  it("adds a connected scene rail for A Day With Novi navigation", async () => {
+  it("adds a connected scene rail for the shortened Novi homepage", async () => {
     const html = await Bun.file("public/index.html").text();
     const controller = await Bun.file("public/assets/homepage-story.js").text();
 
     expect(html).toContain('class="story-film-nav"');
     expect(html).toContain('A DAY WITH NOVI');
-    expect(html).toContain('data-scene-jump="#scene-order"');
+    expect(html).toContain('data-scene-jump="#order-journey"');
     expect(html).toContain('data-scene-readout');
     expect(controller).toContain('function initSceneFilmNav()');
     expect(controller).toContain('initSceneFilmNav();');
@@ -58,7 +64,22 @@ describe("homepage scroll story contract", () => {
     expect(styles).not.toContain("scroll-snap-type");
   });
 
-  it("keeps Novi previews and industry tabs keyboard-readable", async () => {
+  it("keeps the cinematic hero connected to the interactive Order #8197 journey", async () => {
+    const html = await Bun.file("public/index.html").text();
+    const controller = await Bun.file("public/assets/homepage-story.js").text();
+
+    expect(html).toContain('data-novi-hero-video');
+    expect(html).toContain('id="order-journey"');
+    expect(html).toContain('data-order-play');
+    expect(html).toContain('data-order-stage-state');
+    expect(html).toContain('data-order-reaction-text');
+    expect(html).toContain('data-decision-linked="0"');
+    expect(controller).toContain('function initOrderJourneyPlayer()');
+    expect(controller).toContain('initOrderJourneyPlayer();');
+    expect(controller).toContain('swapNoviPortrait(orderStates[activeIndex] || orderStates[0]);');
+  });
+
+  it("keeps the compact industry language and decision previews keyboard-readable", async () => {
     const html = await Bun.file("public/index.html").text();
     const controller = await Bun.file("public/assets/homepage-story.js").text();
 
@@ -66,59 +87,13 @@ describe("homepage scroll story contract", () => {
     expect(html).toContain('<span class="story-demo-label">Demo</span>');
     expect(html.match(/class="decision-action cta-novi" aria-pressed="false"/g)).toHaveLength(3);
     expect(html).toContain('id="industry-workspace" role="tabpanel"');
-    expect(html.match(/aria-controls="industry-workspace"/g)).toHaveLength(8);
+    expect(html.match(/aria-controls="industry-workspace"/g)).toHaveLength(6);
+    expect(html).toContain('data-industry="freshies"');
+    expect(html).toContain('data-industry="bath"');
     expect(controller).toContain('event.key === "ArrowRight"');
     expect(controller).toContain('event.key === "ArrowLeft"');
     expect(controller).toContain('event.key === "Home"');
     expect(controller).toContain('event.key === "End"');
-  });
-
-  it("gives the Order Journey independent Play, Pause, Replay, and manual stage controls", async () => {
-    const html = await Bun.file("public/index.html").text();
-    const controller = await Bun.file("public/assets/homepage-story.js").text();
-
-    expect(html).toContain('data-order-play');
-    expect(html).toContain('data-order-pause');
-    expect(html).toContain('data-order-replay');
-    expect(html.match(/data-order-jump="[0-5]"/g)).toHaveLength(6);
-    expect(html).toContain('data-order-reaction-text');
-    expect(html).toContain('data-order-stage-state');
-    expect(controller).toContain('function initOrderJourneyPlayer()');
-    expect(controller).toContain('initOrderJourneyPlayer();');
-    expect(controller).not.toContain('ScrollTrigger.create({\n          trigger: orderStory');
-    expect(controller).toContain('setInterval(function ()');
-    expect(controller).toContain('aria-current');
-    expect(controller).toContain('orderStageMessages');
-  });
-
-  it("gives Novi a cinematic desk scene that connects to the same Order #8197", async () => {
-    const html = await Bun.file("public/index.html").text();
-    const controller = await Bun.file("public/assets/homepage-story.js").text();
-
-    expect(html).toContain('id="novi-desk"');
-    expect(html).toContain('alt="Novi, ShimmerStock\'s tuxedo-cat mascot, working at her desk"');
-    expect(html).toContain('/assets/novi/novi-idle-desk.webp');
-    expect(html).toContain('data-novi-portrait');
-    expect(html).toContain('class="novi-desk-portrait"');
-    expect(html).toContain('data-desk-enter');
-    expect(html).toContain('data-queue-panel');
-    expect(html).toContain('data-queue-state="idle"');
-    expect(html).toContain('TODAY');
-    expect(html).toContain('14 ready');
-    expect(html).toContain('2 need production');
-    expect(html).toContain('1 customer waiting');
-    expect(html).toContain('Order #8197 - Vanilla Cupcake Kit x 2');
-    expect(html).toContain('data-desk-notification');
-    expect(html).toContain('data-desk-notification hidden');
-    expect(html).toContain('data-desk-blink');
-    expect(html).toContain('data-order-token');
-    expect(html).toContain('data-order-token-dock');
-    expect(controller).toContain('function initNoviDeskScene()');
-    expect(controller).toContain('function markDeskActive()');
-    expect(controller).toContain('function startDeskAmbientMotion()');
-    expect(controller).toContain('function setDeskQueueSnapshot(counts)');
-    expect(controller).toContain('function animateOrderTokenHandoff()');
-    expect(controller).toContain('IntersectionObserver');
   });
 
   it("uses the seven approved WebP states without placeholder artwork", async () => {
@@ -130,9 +105,10 @@ describe("homepage scroll story contract", () => {
       "novi-serious", "novi-success", "novi-cozy-end"
     ];
     for (const state of states) {
-      const file = Bun.file(`public/assets/novi/${state}.webp`);
+      const path = `public/assets/novi/${state}.webp`;
+      const file = Bun.file(path);
       expect(await file.exists()).toBe(true);
-      expect(file.size).toBeGreaterThan(100_000);
+      expect((await stat(path)).size).toBeGreaterThan(100_000);
     }
 
     expect(controller).toContain("const NOVI_ASSET_MANIFEST");
@@ -142,7 +118,6 @@ describe("homepage scroll story contract", () => {
     expect(controller).toContain("const probe = new Image()");
     expect(controller).toContain("probe.onload = function ()");
     expect(controller).toContain('swapNoviPortrait("idle")');
-    expect(html).toContain('<img src="/assets/novi/novi-idle-desk.webp"');
     expect(html).toContain('<img src="/assets/novi/novi-alert.webp"');
     expect(html).toContain('<img src="/assets/novi/novi-cozy-end.webp"');
     expect(html).not.toContain("approved art pending");
@@ -171,49 +146,27 @@ describe("homepage scroll story contract", () => {
     expect(controller).toContain('linkedRecords');
   });
 
-  it("upgrades the SKU/label scene with a real sequence and a manual scan trigger", async () => {
+  it("introduces the people-behind-the-colors section and an authoritative Dream Grant state", async () => {
     const html = await Bun.file("public/index.html").text();
     const controller = await Bun.file("public/assets/homepage-story.js").text();
 
-    expect(html).toContain('data-label-sequence');
-    expect(html.match(/data-label-stage="[0-4]"/g)).toHaveLength(5);
-    expect(html).toContain('data-scan-trigger');
-    expect(html).toContain('data-label-action="review"');
-    expect(html).toContain('data-label-action="approve"');
-    expect(html).toContain('data-label-action="print"');
-    expect(html).toContain('data-thermal-printer');
-    expect(html).toContain('data-thermal-label');
-    expect(html).toContain('data-label-output');
-    expect(controller).toContain('function initSkuSequence()');
-    expect(controller).toContain('function printLabel(triggeredByUser)');
-  });
-
-  it("introduces mission previews and a people-behind-the-colors section with truthful CTAs", async () => {
-    const html = await Bun.file("public/index.html").text();
-    const controller = await Bun.file("public/assets/homepage-story.js").text();
-
-    expect(html.match(/data-mission-preview="[0-2]"/g)).toHaveLength(3);
-    expect(html).toContain('data-mission-preview-output');
-    expect(controller).toContain('function initMissionPreviews()');
-    expect(controller).toContain('initMissionPreviews();');
     expect(html).toContain('id="people-behind-the-colors"');
+    expect(html).toContain('Pink is Monica\'s spark. Purple is her dad\'s steady support. Green is her mom\'s momentum and growth. Navy and grey are her husband\'s grounding trust and partnership.');
+    expect(html.match(/class="people-card /g)).toHaveLength(4);
+    expect(html).toContain('Coming Soon');
     expect(html).toContain('href="/about#people-behind-the-colors"');
-    expect(html).toContain('cta-primary');
-    expect(html).toContain('cta-secondary');
-    expect(html).toContain('cta-novi');
     expect(html).toContain('cta-utility');
+    expect(controller).toContain('initDecisionPreviews();');
   });
 
-  it("adds a truthful Dream Grant scene and a story-resolution coda without duplicating People Behind the Colors", async () => {
+  it("ends with a concise cozy coda and one primary CTA", async () => {
     const html = await Bun.file("public/index.html").text();
-    const dreamGrantSection = html.slice(html.indexOf('id="dream-grant-title"'), html.indexOf('id="final-title"'));
 
-    expect(dreamGrantSection).toContain('Coming Soon');
-    expect(dreamGrantSection).not.toMatch(/\$\d/);
-    expect(dreamGrantSection).not.toMatch(/\b(20\d{2}|january|february|march|april|may|june|july|august|september|october|november|december)\b/i);
-    expect(html).toContain('href="/about#people-behind-the-colors"');
-    expect(html).toContain('id="people-behind-the-colors"');
+    expect(html).toContain('Support received. Support passed forward.');
+    expect(html).toContain('id="final-title"');
     expect(html).toContain('data-desk-resolution');
-    expect(html).toContain("You're caught up.");
+    expect(html).toContain("You\'re caught up.");
+    expect(html.match(/cta-primary/g)).toHaveLength(2);
+    expect(html).not.toContain('story-provenance">No fake urgency');
   });
 });
