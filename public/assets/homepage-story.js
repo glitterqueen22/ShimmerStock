@@ -4,6 +4,96 @@
   document.documentElement.classList.add("story-enhanced");
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  function initHeroVideo() {
+    const heroRoot = story.querySelector("[data-novi-hero]");
+    const film = story.querySelector("[data-hero-film]");
+    const video = story.querySelector("[data-novi-hero-video]");
+    const fallback = story.querySelector("[data-hero-poster-fallback]");
+    const loading = story.querySelector("[data-hero-loading]");
+    const toggle = story.querySelector("[data-hero-toggle]");
+    const status = story.querySelector("[data-hero-status]");
+    if (!heroRoot || !film || !video || !toggle || !status) return;
+
+    let userPaused = false;
+
+    function setStatus(text) {
+      status.textContent = text;
+    }
+
+    function setReady() {
+      film.classList.remove("is-loading");
+      film.classList.add("is-ready");
+      if (loading) loading.hidden = true;
+      if (fallback) fallback.classList.remove("is-visible");
+      setStatus(userPaused ? "Film paused." : "Novi film is playing.");
+    }
+
+    function setFallback(message) {
+      film.classList.remove("is-loading", "is-ready");
+      film.classList.add("is-fallback");
+      if (loading) loading.hidden = true;
+      if (fallback) fallback.classList.add("is-visible");
+      setStatus(message);
+      toggle.hidden = true;
+    }
+
+    if (reduceMotion.matches) {
+      setFallback("Reduced motion is on. Showing poster.");
+      return;
+    }
+
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute("muted", "");
+    video.setAttribute("playsinline", "");
+
+    const onCanPlay = function () {
+      setReady();
+      video.play().then(function () {
+        toggle.textContent = "Pause film";
+        toggle.setAttribute("aria-pressed", "true");
+      }).catch(function () {
+        setFallback("Autoplay is blocked. Showing poster.");
+      });
+    };
+
+    const onError = function () {
+      setFallback("Film unavailable right now. Showing poster.");
+    };
+
+    video.addEventListener("canplay", onCanPlay, { once: true });
+    video.addEventListener("error", onError, { once: true });
+    video.addEventListener("stalled", function () {
+      if (!film.classList.contains("is-ready")) setStatus("Still loading Novi film.");
+    });
+
+    toggle.addEventListener("click", function () {
+      if (video.paused) {
+        userPaused = false;
+        video.play().then(function () {
+          toggle.textContent = "Pause film";
+          toggle.setAttribute("aria-pressed", "true");
+          setStatus("Novi film is playing.");
+        }).catch(function () {
+          setFallback("Playback not available right now. Showing poster.");
+        });
+      } else {
+        userPaused = true;
+        video.pause();
+        toggle.textContent = "Play film";
+        toggle.setAttribute("aria-pressed", "false");
+        setStatus("Film paused.");
+      }
+    });
+
+    reduceMotion.addEventListener("change", function (event) {
+      if (!event.matches) return;
+      video.pause();
+      setFallback("Reduced motion is on. Showing poster.");
+    });
+  }
   const industryData = {
     craft: {
       title: "Craft supplies workspace",
@@ -323,6 +413,7 @@
   }
 
   initIndustryTabs();
+  initHeroVideo();
   initDecisionPreviews();
   initOrderJourneyPlayer();
   const motionContext = initializeMotion();
