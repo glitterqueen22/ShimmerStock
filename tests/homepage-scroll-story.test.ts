@@ -89,7 +89,7 @@ describe("homepage scroll story contract", () => {
     expect(controller).toContain('IntersectionObserver');
   });
 
-  it("wires a real 7-state Novi asset manifest with honest pending labeling and no code changes needed to activate final art", async () => {
+  it("defaults to the guaranteed-good SVG placeholder (safe under no-JS) and only upgrades to the real approved WebP after confirming it loads", async () => {
     const controller = await Bun.file("public/assets/homepage-story.js").text();
     const html = await Bun.file("public/index.html").text();
 
@@ -106,10 +106,21 @@ describe("homepage scroll story contract", () => {
     }
 
     expect(controller).toContain("const NOVI_ASSET_MANIFEST");
-    expect(controller).toContain('idle: "/assets/novi/novi-idle-desk.svg"');
-    expect(controller).toContain('cozy: "/assets/novi/novi-cozy-end.svg"');
+    expect(controller).toContain('idle: { src: "/assets/novi/novi-idle-desk.webp", fallback: "/assets/novi/novi-idle-desk.svg" }');
+    expect(controller).toContain('cozy: { src: "/assets/novi/novi-cozy-end.webp", fallback: "/assets/novi/novi-cozy-end.svg" }');
     expect(controller).toContain("function swapNoviPortrait(moodKey)");
-    expect(html).toContain('/assets/novi/novi-cozy-end.svg');
+    expect(controller).toContain("function upgradeStaticPortrait(selector, moodKey)");
+    expect(controller).toContain("const probe = new Image()");
+    expect(controller).toContain("probe.onload = function ()");
+    expect(controller).toContain("probe.onerror = function ()");
+    expect(controller).toContain('swapNoviPortrait("idle")');
+    expect(controller).toContain('upgradeStaticPortrait("[data-novi-cozy-portrait]", "cozy")');
+
+    // Both portraits default to the SVG directly in HTML, so no-JS visitors
+    // never depend on a JavaScript error handler to avoid a broken image.
+    expect(html).toContain('<img src="/assets/novi/novi-idle-desk.svg"');
+    expect(html).toContain('<img src="/assets/novi/novi-cozy-end.svg"');
+    expect(html).not.toContain(".webp\"");
     expect(html).not.toContain("novi-art-pending.svg");
   });
 
