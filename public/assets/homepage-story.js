@@ -138,6 +138,80 @@
     render(tabs[0], false);
   }
 
+  const orderReactions = [
+    "Novi is watching Order #8197 arrive.",
+    "Novi confirms Vanilla Base has six days of runway.",
+    "Novi is focused on Batch #52's component check.",
+    "Novi caught the one exception: a label reprint is holding the pack lane.",
+    "Novi is proud — the handoff completed and the order shipped.",
+    "Novi is pleased — Care can reply with full context."
+  ];
+
+  function initOrderJourneyPlayer() {
+    const root = story.querySelector("[data-order-story]");
+    const steps = Array.from(story.querySelectorAll("[data-order-step]"));
+    const jumpButtons = Array.from(story.querySelectorAll("[data-order-jump]"));
+    const progress = story.querySelector("[data-order-progress]");
+    const reactionText = story.querySelector("[data-order-reaction-text]");
+    const playBtn = story.querySelector("[data-order-play]");
+    const pauseBtn = story.querySelector("[data-order-pause]");
+    const replayBtn = story.querySelector("[data-order-replay]");
+    if (!root || !steps.length || !jumpButtons.length || !progress || !playBtn || !pauseBtn || !replayBtn) return;
+
+    let activeIndex = 0;
+    let playing = false;
+    let timer = null;
+    const STEP_MS = 2200;
+
+    function render(index) {
+      activeIndex = Math.max(0, Math.min(steps.length - 1, index));
+      steps.forEach((step, i) => step.classList.toggle("is-active", i === activeIndex));
+      jumpButtons.forEach((button, i) => {
+        if (i === activeIndex) button.setAttribute("aria-current", "step");
+        else button.removeAttribute("aria-current");
+      });
+      const scale = Math.max(0.08, (activeIndex + 1) / steps.length);
+      if (window.gsap) window.gsap.set(progress, { scaleX: scale });
+      else progress.style.transform = "scaleX(" + scale + ")";
+      if (reactionText) reactionText.textContent = orderReactions[activeIndex] || orderReactions[0];
+    }
+
+    function stop() {
+      playing = false;
+      if (timer) { clearInterval(timer); timer = null; }
+      playBtn.setAttribute("aria-pressed", "false");
+      pauseBtn.setAttribute("aria-pressed", "true");
+    }
+
+    function start() {
+      if (playing) return;
+      playing = true;
+      playBtn.setAttribute("aria-pressed", "true");
+      pauseBtn.setAttribute("aria-pressed", "false");
+      if (activeIndex >= steps.length - 1) render(0);
+      timer = setInterval(function () {
+        if (activeIndex >= steps.length - 1) { stop(); return; }
+        render(activeIndex + 1);
+      }, STEP_MS);
+    }
+
+    playBtn.addEventListener("click", start);
+    pauseBtn.addEventListener("click", stop);
+    replayBtn.addEventListener("click", function () {
+      stop();
+      render(0);
+      start();
+    });
+    jumpButtons.forEach((button, index) => {
+      button.addEventListener("click", function () {
+        stop();
+        render(index);
+      });
+    });
+
+    render(0);
+  }
+
   function initDecisionPreviews() {
     const boundary = story.querySelector(".novi-boundary");
     const actions = story.querySelectorAll(".decision-action");
@@ -218,23 +292,6 @@
           .to(fragments, { boxShadow: "0 7px 18px rgba(16,37,63,0.10)", duration: 0.15 });
       }
 
-      const orderStory = story.querySelector("[data-order-story]");
-      const orderSteps = Array.from(story.querySelectorAll("[data-order-step]"));
-      const progress = story.querySelector("[data-order-progress]");
-      if (orderStory && orderSteps.length && progress) {
-        ScrollTrigger.create({
-          trigger: orderStory,
-          start: "top 45%",
-          end: "bottom 55%",
-          scrub: true,
-          onUpdate: function (self) {
-            const activeIndex = Math.min(orderSteps.length - 1, Math.floor(self.progress * orderSteps.length));
-            orderSteps.forEach((step, index) => step.classList.toggle("is-active", index === activeIndex));
-            gsap.set(progress, { scaleX: Math.max(0.08, self.progress) });
-          }
-        });
-      }
-
       const reduction = story.querySelector("[data-novi-reduction]");
       const records = story.querySelectorAll(".record-field span");
       const brief = story.querySelector(".novi-brief-frame");
@@ -267,6 +324,7 @@
 
   initIndustryTabs();
   initDecisionPreviews();
+  initOrderJourneyPlayer();
   const motionContext = initializeMotion();
 
   window.addEventListener("pagehide", function () {

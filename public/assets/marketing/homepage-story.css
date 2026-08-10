@@ -422,6 +422,65 @@
   transform-origin: left;
 }
 
+.order-novi-reaction {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.order-novi-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--pink);
+  color: #fff;
+  font-family: "Iowan Old Style", serif;
+  font-weight: 800;
+}
+
+.order-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.order-control-btn {
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.order-control-btn:hover {
+  border-color: var(--pink);
+}
+
+.order-control-btn:focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 2px;
+}
+
+.order-control-btn[aria-pressed="true"] {
+  background: var(--pink);
+  border-color: var(--pink);
+}
+
 .order-steps,
 .decision-list {
   margin: 0;
@@ -430,28 +489,45 @@
 }
 
 .order-step {
-  min-height: 210px;
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
-  gap: 1rem;
-  align-items: start;
-  padding: 1.5rem 0;
   border-top: 1px solid var(--story-rule);
-  opacity: 1;
-  transition: background-color 180ms ease, box-shadow 180ms ease;
-}
-
-.story-motion .order-step {
-  opacity: 1;
 }
 
 .order-step:last-child {
   border-bottom: 1px solid var(--story-rule);
 }
 
+.order-step-select {
+  width: 100%;
+  min-height: 210px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: start;
+  padding: 1.5rem 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  opacity: 1;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.order-step-select:focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: -2px;
+}
+
+.story-motion .order-step {
+  opacity: 1;
+}
+
 .order-step.is-active {
   background: rgba(244, 63, 114, 0.035);
   box-shadow: inset 3px 0 0 var(--pink);
+}
+
+.order-step-body {
+  display: block;
 }
 
 .order-step-index,
