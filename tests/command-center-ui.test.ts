@@ -34,11 +34,28 @@ describe("Novi Command Center UI contract", () => {
     expect(html).toContain('content="#f43f72"');
   });
 
-  it("gives Novi a warm, wider silhouette with restrained eyes", async () => {
+  it("renders Novi from an explicit approved-art manifest without generating character artwork", async () => {
     const source = await Bun.file("client/src/components/Novi.tsx").text();
-    expect(source).toContain("warm pebble silhouette");
-    expect(source).toContain("cfg.eyeRx * 0.82");
-    expect(source).toContain('primary: "#9B6BD3"');
-    expect(source).toContain('core: "#FFF8F4"');
+    const wrappers = await Bun.file("client/src/components/novi/NoviArtwork.tsx").text();
+    const styles = await Bun.file("client/src/components/Novi.css").text();
+    const placeholder = await Bun.file("client/public/brand/novi/novi-art-pending.svg").text();
+
+    for (const asset of ["default", "thinking", "happy", "serious", "sassy", "comforting", "success", "scan", "label"]) {
+      expect(source).toContain(`/brand/novi/novi-${asset}.png`);
+    }
+    expect(source).toContain('VITE_NOVI_APPROVED_ART === "true"');
+    expect(source).toContain('<img');
+    expect(source).toContain('loading={priority || size === "micro" || size === "sm" ? "eager" : "lazy"}');
+    expect(source).toContain('decoding="async"');
+    expect(source).toContain('data-art-status={NOVI_APPROVED_ART_AVAILABLE ? "approved" : "temporary-reference"}');
+    expect(source).toContain("event.currentTarget.src = TEMPORARY_REFERENCE_ASSET");
+    expect(wrappers).toContain("export function NoviAvatar");
+    expect(wrappers).toContain("export function NoviState");
+    expect(wrappers).toContain("export function NoviCallout");
+    expect(wrappers).toContain("export function NoviEmptyState");
+    expect(wrappers).toContain("export function NoviHomepageAppearance");
+    expect(styles).toContain("prefers-reduced-motion: reduce");
+    expect(placeholder).toContain("Temporary non-character placeholder");
+    expect(await Bun.file("client/src/components/NoviCharacter.tsx").exists()).toBe(false);
   });
 });

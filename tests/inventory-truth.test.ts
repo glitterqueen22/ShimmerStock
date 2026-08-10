@@ -69,6 +69,24 @@ describe("canonical inventory truth", () => {
     expect(lowStock).toContainEqual(expect.objectContaining({ id: productId, stock_count: 4 }));
   });
 
+  it("never presents a synthetic product key as a merchant SKU", () => {
+    db.run("UPDATE products SET sku = 'SHOPIFY-100' WHERE id = ?", [productId]);
+    let product = store.listProducts(db, businessId)[0] as {
+      sku: string; display_sku: string | null; sku_count: number; variant_count: number;
+    };
+    expect(product).toMatchObject({
+      sku: "SHOPIFY-100", display_sku: "PRODUCT-A", sku_count: 1, variant_count: 1,
+    });
+
+    db.run(`
+      INSERT INTO product_variants
+        (product_id, business_id, sku, variant_type, variant_value, stock_count, sku_sync_state)
+      VALUES (?, ?, 'PRODUCT-B', 'option', 'B', 0, 'SAVED_LOCAL')
+    `, [productId, businessId]);
+    product = store.listProducts(db, businessId)[0] as typeof product;
+    expect(product).toMatchObject({ display_sku: null, sku_count: 2, variant_count: 2 });
+  });
+
   it("does not describe untracked Shopify inventory as zero or low stock", () => {
     db.run("UPDATE product_variants SET inventory_tracked = 0, stock_count = 0 WHERE id = ?", [variantId]);
 
@@ -76,6 +94,137 @@ describe("canonical inventory truth", () => {
     expect(product.stock_count).toBeNull();
     expect(product.inventory_tracked).toBe(false);
     expect(store.getLowStockProducts(db, businessId)).toHaveLength(0);
+    const summary = getHQSummary(db, businessId);
+    expect(summary.catalogHealth).toMatchObject({ inventoryKnown: 0, inventoryUnknown: 1, outOfStock: 0, lowStock: 0 });
+    expect(summary.commandCenter.exceptions).toContainEqual(expect.objectContaining({
+      key: "inventory-unknown", count: 1, link: "/products",
+    }));
+  });
+
+  it("uses tenant-scoped canonical inventory for reorder recommendations", () => {
+    db.run(
+      "INSERT INTO inventory_thresholds (business_id, product_id, reorder_point, reorder_quantity) VALUES (?, ?, 5, 10)",
+      [businessId, productId],
+    );
+    db.run(
+      "INSERT INTO shopify_inventory_levels (business_id, shopify_inventory_item_id, shopify_location_id, available) VALUES (?, '300', '400', 12)",
+      [businessId],
+    );
+    const otherProductId = Number(db.run(
+      "INSERT INTO products (name, sku, stock_count, business_id) VALUES ('Other Product', 'OTHER', 0, ?)",
+      [otherBusinessId],
+    ).lastInsertRowid);
+    db.run(
+      "INSERT INTO inventory_thresholds (business_id, product_id, reorder_point, reorder_quantity) VALUES (?, ?, 5, 10)",
+      [otherBusinessId, otherProductId],
+    );
+
+    expect(store.getReorderRecommendations(db, businessId)).toHaveLength(0);
+
+    db.run("UPDATE product_variants SET inventory_tracked = 0 WHERE id = ?", [variantId]);
+    expect(store.getReorderRecommendations(db, businessId)).toHaveLength(0);
+  });
+
+  it("resolves stale detector opportunities without reactivating user decisions", () => {
+    const staleId = Number(store.createOpportunity(db, {
+      businessId,
+      source: "opportunity-center",
+      sourceEventType: "reorder",
+      engine: "purchasing",
+      title: "Reorder Product",
+      impact: "high",
+    }));
+    store.createOpportunity(db, {
+      businessId: otherBusinessId,
+      source: "opportunity-center",
+      sourceEventType: "reorder",
+      engine: "purchasing",
+      title: "Reorder Other Product",
+      impact: "high",
+    });
+
+    expect(store.reconcileDetectorOpportunities(db, businessId, "opportunity-center", [])).toBe(1);
+    expect(store.getOpportunity(db, staleId)).toMatchObject({ status: "completed", completed_by: null });
+    expect(store.getOpportunitySummary(db, otherBusinessId).active).toBe(1);
+
+    store.upsertOpportunity(db, {
+      businessId,
+      source: "opportunity-center",
+      sourceEventType: "reorder",
+      engine: "purchasing",
+      title: "Reorder Product",
+      impact: "high",
+    });
+    expect(store.getOpportunity(db, staleId)).toMatchObject({ status: "completed" });
+  });
+
+  it("separates raw Novi volume from grouped owner decisions", () => {
+    for (const title of ["Low Stock: A", "Low Stock: B", "Out of Stock: C"]) {
+      store.createOpportunity(db, {
+        businessId,
+        source: "novi",
+        sourceEventType: title.startsWith("Low") ? "low_inventory" : "out_of_stock",
+        engine: "inventory",
+        title,
+        impact: "high",
+        actionLink: "/purchasing",
+      });
+    }
+    store.createOpportunity(db, {
+      businessId,
+      source: "novi",
+      sourceEventType: "missing_skus",
+      engine: "inventory",
+      title: "Missing SKUs",
+      impact: "medium",
+      actionLink: "/products?filter=missing-sku",
+    });
+    for (const title of ["Message A", "Message B", "Message C"]) {
+      store.createNoviMessage(db, {
+        businessId,
+        eventType: "low_inventory",
+        title,
+        description: title,
+        severity: "warning",
+      });
+    }
+
+    expect(store.getOwnerAttentionSummary(db, businessId)).toMatchObject({
+      rawEventCount: 3,
+      opportunityCount: 4,
+      groupedIssueCount: 3,
+      actionableDecisionCount: 2,
+    });
+    expect(store.getOwnerAttentionSummary(db, otherBusinessId)).toMatchObject({
+      rawEventCount: 0,
+      opportunityCount: 0,
+      groupedIssueCount: 0,
+      actionableDecisionCount: 0,
+    });
+  });
+
+  it("distinguishes disconnected, connected-only, reconciled, and reconciliation-required imports", () => {
+    expect(getHQSummary(db, businessId).syncHealth).toMatchObject({
+      state: "DISCONNECTED", label: "Not connected", isConnected: false, isReconciled: false, needsReview: false,
+    });
+    db.run(`INSERT INTO provider_credentials
+      (business_id, provider, credentials, is_active, sync_status)
+      VALUES (?, 'shopify', '{}', 1, 'connected')`, [businessId]);
+    expect(getHQSummary(db, businessId).syncHealth).toMatchObject({
+      state: "CONNECTED", label: "Connected — import not started", isConnected: true, isReconciled: false,
+    });
+    const sessionId = Number(db.run(
+      "INSERT INTO shopify_import_sessions (business_id, state) VALUES (?, 'SYNCED')", [businessId],
+    ).lastInsertRowid);
+    expect(getHQSummary(db, businessId).syncHealth).toMatchObject({
+      state: "SYNCED", label: "Imported and reconciled", isReconciled: true, needsReview: false,
+    });
+    db.run("UPDATE shopify_import_sessions SET state = 'RECONCILIATION_REQUIRED' WHERE id = ?", [sessionId]);
+    const summary = getHQSummary(db, businessId);
+    expect(summary.syncHealth).toMatchObject({
+      state: "RECONCILIATION_REQUIRED", label: "Reconciliation required", isReconciled: false, needsReview: true,
+    });
+    expect(summary.commandCenter.exceptions).toContainEqual(expect.objectContaining({ key: "sync", link: "/commerce" }));
   });
 
   it("builds tenant-scoped Novi exceptions with operational action links", () => {

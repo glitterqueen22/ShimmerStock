@@ -1,3 +1,5 @@
+import { projectSkuTruth } from "./sku-truth.js";
+
 function variantInventoryQuery(whereClause) {
   return `
     SELECT v.id, v.product_id, v.business_id, v.shopify_inventory_item_id,
@@ -43,13 +45,51 @@ export function listProductInventory(db, businessId) {
 
 export function listProductsWithInventory(db, businessId) {
   const inventory = new Map(listProductInventory(db, businessId).map(row => [row.id, row.available]));
+  const variantsByProduct = new Map();
+  const variants = db.query(`
+    SELECT v.id, v.product_id, v.sku, v.shopify_sku, v.shopify_variant_id, v.sku_sync_state,
+      v.barcode, ib.barcode_value AS internal_barcode
+    FROM product_variants v
+    LEFT JOIN generated_internal_barcodes ib
+      ON ib.business_id = v.business_id AND ib.variant_id = v.id
+    WHERE v.business_id = ? AND v.is_active = 1
+    ORDER BY v.id
+  `).all(businessId);
+  for (const variant of variants) {
+    const productVariants = variantsByProduct.get(variant.product_id) || [];
+    productVariants.push(variant);
+    variantsByProduct.set(variant.product_id, productVariants);
+  }
+
   return db.query(
     "SELECT id, name, sku, barcode, stock_count, shopify_product_id FROM products WHERE business_id = ? ORDER BY name ASC"
-  ).all(businessId).map(product => ({
-    ...product,
-    stock_count: inventory.has(product.id) ? inventory.get(product.id) : product.stock_count,
-    inventory_tracked: !inventory.has(product.id) || inventory.get(product.id) !== null,
-  }));
+  ).all(businessId).map(product => {
+    const productVariants = variantsByProduct.get(product.id) || [];
+    const variantSkus = [...new Set(productVariants
+      .map(variant => projectSkuTruth(variant).effectiveSku)
+      .filter(Boolean))];
+    const retailBarcodes = [...new Set(productVariants.map(variant => String(variant.barcode || "").trim()).filter(Boolean))];
+    const internalBarcodes = [...new Set(productVariants.map(variant => variant.internal_barcode).filter(Boolean))];
+    const productSku = String(product.sku || "").trim();
+    const displaySku = variantSkus.length === 1
+      ? variantSkus[0]
+      : productVariants.length === 0 && productSku && !productSku.startsWith("SHOPIFY-") ? productSku : null;
+    const displayBarcode = retailBarcodes.length === 1
+      ? retailBarcodes[0]
+      : retailBarcodes.length === 0 && internalBarcodes.length === 1 ? internalBarcodes[0]
+        : productVariants.length === 0 ? product.barcode : null;
+
+    return {
+      ...product,
+      display_sku: displaySku,
+      display_barcode: displayBarcode,
+      display_barcode_kind: retailBarcodes.length === 1 ? "retail" : internalBarcodes.length === 1 ? "shimmerstock" : null,
+      variant_count: productVariants.length,
+      sku_count: variantSkus.length,
+      stock_count: inventory.has(product.id) ? inventory.get(product.id) : product.stock_count,
+      inventory_tracked: !inventory.has(product.id) || inventory.get(product.id) !== null,
+    };
+  });
 }
 
 export function getProductWithInventory(db, businessId, productId) {

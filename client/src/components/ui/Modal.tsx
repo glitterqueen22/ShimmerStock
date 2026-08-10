@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import Button from './Button';
 
 // ── Modal Props ──────────────────────────────────────────────────
@@ -28,22 +28,51 @@ export function Modal({
   size = 'md',
   className = '',
 }: ModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
   // Close on Escape key
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
+      if (e.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )];
+      if (focusable.length === 0) {
+        e.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     },
     [onClose]
   );
 
   useEffect(() => {
     if (open) {
+      returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => {
+        const first = dialogRef.current?.querySelector<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        (first || dialogRef.current)?.focus();
+      });
     }
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
+      if (open) returnFocusRef.current?.focus();
     };
   }, [open, handleKeyDown]);
 
@@ -64,6 +93,8 @@ export function Modal({
 
       {/* Card */}
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className={`
           relative w-full ${sizeClasses[size]} bg-white rounded-2xl shadow-xl
           animate-in zoom-in-95 duration-200
@@ -78,6 +109,7 @@ export function Modal({
               variant="ghost"
               size="sm"
               onClick={onClose}
+              aria-label="Close dialog"
               className="!min-w-[36px] !min-h-[36px] !p-0"
             >
               ✕
@@ -91,6 +123,7 @@ export function Modal({
             variant="ghost"
             size="sm"
             onClick={onClose}
+            aria-label="Close dialog"
             className="absolute top-3 right-3 !min-w-[36px] !min-h-[36px] !p-0"
           >
             ✕

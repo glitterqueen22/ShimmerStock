@@ -445,6 +445,7 @@ export function mountOpportunityRoutes(app, db) {
   app.get("/api/opportunities/summary", requireAuth(db, "reports.read"), (req, res) => {
     try {
       const summary = store.getOpportunitySummary(db, req.businessId);
+      const ownerAttention = store.getOwnerAttentionSummary(db, req.businessId);
       const topOpportunities = store.getOpportunities(db, req.businessId, { status: "active", limit: 5 });
 
       // Compute type breakdown from source_event_type
@@ -462,6 +463,7 @@ export function mountOpportunityRoutes(app, db) {
           highImpact: summary.highImpact || 0,
           byStatus: summary.byStatus || {},
         },
+        ownerAttention,
         topOpportunities: topOpportunities.map(o => ({
           id: o.id,
           type: o.source_event_type,

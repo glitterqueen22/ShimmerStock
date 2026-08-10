@@ -9,6 +9,8 @@ interface ProductCore {
   id: number;
   name: string;
   sku: string;
+  display_sku?: string | null;
+  sku_count?: number;
   barcode: string | null;
   stock_count: number;
   created_at: string;
@@ -340,7 +342,7 @@ export default function ProductHQ() {
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold text-[#121212] font-[family-name:var(--font-heading)] truncate">{p.name}</h1>
             <div className="flex flex-wrap items-center gap-2 mt-1">
-              <span className="text-sm text-rose-400 font-mono">SKU: {p.sku}</span>
+              <span className="text-sm text-rose-400 font-mono">SKU: {p.display_sku ?? ((p.sku_count ?? 0) > 1 ? "Multiple variant SKUs" : "Not assigned")}</span>
               {p.barcode && <span className="text-sm text-rose-400 font-mono">• Barcode: {p.barcode}</span>}
             </div>
             <div className="flex flex-wrap items-center gap-2 mt-2">

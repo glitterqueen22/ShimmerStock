@@ -10,6 +10,8 @@
  */
 
 import * as store from "./store.js";
+import { listProductsWithInventory } from "./inventory-truth.js";
+import { getEffectiveImportState, getLatestImportSession, IMPORT_STATES } from "./shopify-import.js";
 import { listVariantSkuTruth } from "./sku-truth.js";
 
 /**
@@ -29,8 +31,15 @@ export function getHQSummary(db, businessId) {
   const overduePOs = getOverduePOs(db, businessId);
   const unfulfilledOrders = getUnfulfilledOrders(db, businessId);
   const identifierExceptions = getIdentifierExceptions(db, businessId);
+  const catalogHealth = buildCatalogHealth(db, businessId, identifierExceptions);
+  const syncHealth = buildSyncHealth(db, businessId);
+  const customerCareUnread = getCustomerCareUnread(db, businessId);
   const commandCenter = buildCommandCenter(db, businessId, {
     lowStock, pendingBatches, unfulfilledOrders, identifierExceptions,
+    catalogHealth, syncHealth, customerCareUnread,
+  });
+  const operationalPulse = buildOperationalPulse({
+    catalogHealth, syncHealth, pendingBatches, overduePOs, unfulfilledOrders, customerCareUnread,
   });
 
   // ── 3. WHAT TO DO NEXT ──────────────────────────────────────────
@@ -61,8 +70,104 @@ export function getHQSummary(db, businessId) {
       identifierExceptions,
     },
     commandCenter,
+    catalogHealth,
+    syncHealth,
+    operationalPulse,
     whatToDoNext,
     opportunities,
+  };
+}
+
+function buildCatalogHealth(db, businessId, identifierExceptions) {
+  const products = listProductsWithInventory(db, businessId);
+  const skuTruth = listVariantSkuTruth(db, businessId);
+  const barcodeRows = db.query(`
+    SELECT id, barcode, barcode_sync_state FROM product_variants
+    WHERE business_id = ? AND is_active = 1
+  `).all(businessId);
+  const barcodeById = new Map(barcodeRows.map(row => [row.id, row]));
+  const missingSkus = skuTruth.filter(variant => !variant.skuTruth.effectiveSku).length;
+  const missingBarcodes = barcodeRows.filter(row => !String(row.barcode || "").trim()).length;
+  const readyToPrint = skuTruth.filter(variant => {
+    const barcode = barcodeById.get(variant.id);
+    return Boolean(variant.skuTruth.effectiveSku && String(barcode?.barcode || "").trim())
+      && !variant.skuTruth.needsReview
+      && !["REVIEW_REQUIRED", "SHOPIFY_UPDATE_FAILED"].includes(barcode?.barcode_sync_state);
+  }).length;
+  const inventoryUnknown = products.filter(product => !product.inventory_tracked).length;
+  const outOfStock = products.filter(product => product.inventory_tracked && product.stock_count === 0).length;
+  const lowStock = products.filter(product => product.inventory_tracked && product.stock_count > 0 && product.stock_count <= 5).length;
+  return {
+    products: products.length,
+    variants: skuTruth.length,
+    missingSkus,
+    missingBarcodes,
+    identifierReview: identifierExceptions.length,
+    readyToPrint,
+    inventoryKnown: products.length - inventoryUnknown,
+    inventoryUnknown,
+    outOfStock,
+    lowStock,
+  };
+}
+
+function buildSyncHealth(db, businessId) {
+  const state = getEffectiveImportState(db, businessId);
+  const session = getLatestImportSession(db, businessId);
+  const labels = {
+    [IMPORT_STATES.DISCONNECTED]: "Not connected",
+    [IMPORT_STATES.CONNECTED]: "Connected — import not started",
+    [IMPORT_STATES.IMPORT_PENDING]: "Import queued",
+    [IMPORT_STATES.IMPORTING]: "Import in progress",
+    [IMPORT_STATES.RECONCILIATION_REQUIRED]: "Reconciliation required",
+    [IMPORT_STATES.SYNCED]: "Imported and reconciled",
+    [IMPORT_STATES.IMPORT_FAILED]: "Import failed",
+    [IMPORT_STATES.TOKEN_REVOKED]: "Shopify authorization expired",
+    [IMPORT_STATES.CONNECTION_ERROR]: "Connection error",
+  };
+  return {
+    state,
+    label: labels[state] || "Status unavailable",
+    isConnected: state !== IMPORT_STATES.DISCONNECTED,
+    isReconciled: state === IMPORT_STATES.SYNCED,
+    needsReview: [IMPORT_STATES.RECONCILIATION_REQUIRED, IMPORT_STATES.IMPORT_FAILED,
+      IMPORT_STATES.TOKEN_REVOKED, IMPORT_STATES.CONNECTION_ERROR].includes(state),
+    lastSuccessfulImportAt: session?.last_successful_import_at || null,
+    importedCounts: {
+      products: session?.persisted_products_count || 0,
+      variants: session?.persisted_variants_count || 0,
+      orders: session?.persisted_orders_count || 0,
+      locations: session?.persisted_locations_count || 0,
+      inventoryLevels: session?.persisted_inventory_levels_count || 0,
+    },
+  };
+}
+
+function getCustomerCareUnread(db, businessId) {
+  return db.query(`
+    SELECT COUNT(*) AS count
+    FROM customer_messages message
+    JOIN customer_conversations conversation ON conversation.id = message.conversation_id
+    WHERE conversation.business_id = ? AND message.direction = 'inbound' AND message.is_read = 0
+  `).get(businessId).count;
+}
+
+function buildOperationalPulse({ catalogHealth, syncHealth, pendingBatches, overduePOs, unfulfilledOrders, customerCareUnread }) {
+  const factors = [
+    { key: "sync", label: syncHealth.label, needsAttention: syncHealth.needsReview, weight: syncHealth.needsReview ? 20 : 0 },
+    { key: "identifiers", label: `${catalogHealth.identifierReview} identifier reviews`, needsAttention: catalogHealth.identifierReview > 0, weight: Math.min(20, catalogHealth.identifierReview * 2) },
+    { key: "inventory", label: `${catalogHealth.inventoryUnknown} products with unknown stock`, needsAttention: catalogHealth.inventoryUnknown > 0, weight: Math.min(15, catalogHealth.inventoryUnknown * 3) },
+    { key: "orders", label: `${unfulfilledOrders.length} orders waiting`, needsAttention: unfulfilledOrders.length > 0, weight: Math.min(20, unfulfilledOrders.length * 2) },
+    { key: "production", label: `${pendingBatches.length} production batches waiting`, needsAttention: pendingBatches.length > 0, weight: Math.min(10, pendingBatches.length * 2) },
+    { key: "purchasing", label: `${overduePOs.length} overdue purchase orders`, needsAttention: overduePOs.length > 0, weight: Math.min(10, overduePOs.length * 2) },
+    { key: "customers", label: `${customerCareUnread} unread customer messages`, needsAttention: customerCareUnread > 0, weight: Math.min(10, customerCareUnread * 2) },
+  ];
+  const score = Math.max(0, 100 - factors.reduce((total, factor) => total + factor.weight, 0));
+  return {
+    score,
+    label: score >= 90 ? "Calm" : score >= 70 ? "Steady" : score >= 50 ? "Needs focus" : "Needs attention",
+    factors,
+    methodology: "Starts at 100 and deducts only for current tenant-scoped operational exceptions.",
   };
 }
 
@@ -78,7 +183,10 @@ function getIdentifierExceptions(db, businessId) {
     .slice(0, 25);
 }
 
-function buildCommandCenter(db, businessId, { lowStock, pendingBatches, unfulfilledOrders, identifierExceptions }) {
+function buildCommandCenter(db, businessId, {
+  lowStock, pendingBatches, unfulfilledOrders, identifierExceptions,
+  catalogHealth, syncHealth, customerCareUnread,
+}) {
   const ordersToday = db.query(
     "SELECT COUNT(*) AS count FROM orders WHERE business_id = ? AND date(created_at) = date('now')"
   ).get(businessId).count;
@@ -94,6 +202,16 @@ function buildCommandCenter(db, businessId, { lowStock, pendingBatches, unfulfil
     key: "identifiers", count: identifierExceptions.length,
     title: `${identifierExceptions.length} product variant${identifierExceptions.length === 1 ? "" : "s"} need identifier review`,
     detail: "Novi prepared the catalog exceptions without changing Shopify.", link: "/products/sku-label-studio", tone: "pink",
+  });
+  if (syncHealth.needsReview) exceptions.push({
+    key: "sync", count: 1,
+    title: syncHealth.label,
+    detail: "Shopify is not marked reconciled. Review the latest import details before trusting it as complete.", link: "/commerce", tone: "red",
+  });
+  if (catalogHealth.inventoryUnknown) exceptions.push({
+    key: "inventory-unknown", count: catalogHealth.inventoryUnknown,
+    title: `${catalogHealth.inventoryUnknown} product${catalogHealth.inventoryUnknown === 1 ? " has" : "s have"} unknown stock`,
+    detail: "Unknown or untracked inventory is not treated as out of stock.", link: "/products", tone: "amber",
   });
   if (pendingBatches.length) exceptions.push({
     key: "production", count: pendingBatches.length,
@@ -115,6 +233,11 @@ function buildCommandCenter(db, businessId, { lowStock, pendingBatches, unfulfil
     title: `One customer has been waiting ${waitingHours} hour${waitingHours === 1 ? "" : "s"}`,
     detail: `Order #${oldestWaiting.order_number || oldestWaiting.id} is the oldest pending order.`, link: "/orders", tone: "red",
   });
+  if (customerCareUnread) exceptions.push({
+    key: "customer-care", count: customerCareUnread,
+    title: `${customerCareUnread} unread customer message${customerCareUnread === 1 ? "" : "s"}`,
+    detail: "Open Customer Hub to review the real inbound queue.", link: "/customers", tone: "pink",
+  });
   const preferences = db.query(
     "SELECT preferred_workflow, production_priority, packing_preference, updated_at FROM novi_business_preferences WHERE business_id = ?"
   ).get(businessId) || { preferred_workflow: null, production_priority: "oldest_orders_first", packing_preference: null, updated_at: null };
@@ -122,6 +245,7 @@ function buildCommandCenter(db, businessId, { lowStock, pendingBatches, unfulfil
     brief: {
       ordersToday, readyToPack, productionWaiting: pendingBatches.length,
       lowStock: lowStock.length, oldestCustomerWaitHours: waitingHours,
+      customerCareUnread,
       message: exceptions.length
         ? `Good morning. ${ordersToday} order${ordersToday === 1 ? " came" : "s came"} in today. I found ${exceptions.length} operational exception${exceptions.length === 1 ? "" : "s"} and sorted them by urgency.`
         : `Good morning. ${ordersToday} order${ordersToday === 1 ? " came" : "s came"} in today. You're caught up. Go do literally anything more fun than inventory.`,

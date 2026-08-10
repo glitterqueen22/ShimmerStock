@@ -165,21 +165,35 @@ export async function executeWriteback(db, businessId, userId, previewId, confir
         productItems.map(item => ({ id: item.shopifyVariantId, sku: item.requestedSku, barcode: item.requestedBarcode }))
       );
       const payload = response?.data?.productVariantsBulkUpdate;
-      const errors = [...(response?.errors || []), ...(payload?.userErrors || [])];
+      const globalErrors = response?.errors || [];
+      const userErrors = payload?.userErrors || [];
       const updatedIds = new Set((payload?.productVariants || []).map(variant => variant.id));
       let verifiedById = new Map();
-      if (errors.length === 0 && productItems.every(item => updatedIds.has(item.shopifyVariantId))) {
+      const itemErrors = productItems.map((_, index) => [
+        ...globalErrors,
+        ...userErrors.filter(error => {
+          const field = Array.isArray(error.field) ? error.field : [];
+          const variantIndex = field[0] === "variants" ? Number(field[1]) : null;
+          return variantIndex === null || Number.isNaN(variantIndex) || variantIndex === index;
+        }),
+      ]);
+      const verificationIds = productItems
+        .filter((item, index) => itemErrors[index].length === 0 && updatedIds.has(item.shopifyVariantId))
+        .map(item => item.shopifyVariantId);
+      if (verificationIds.length > 0) {
         const verification = await gatewayProductVariantsByIds(
-          credential.shop, credential.accessToken, productItems.map(item => item.shopifyVariantId)
+          credential.shop, credential.accessToken, verificationIds
         );
         verifiedById = new Map((verification?.data?.nodes || []).filter(Boolean).map(variant => [variant.id, variant]));
       }
-      for (const item of productItems) {
+      for (let index = 0; index < productItems.length; index++) {
+        const item = productItems[index];
         const verified = verifiedById.get(item.shopifyVariantId);
+        const errors = itemErrors[index];
         const updated = errors.length === 0 && updatedIds.has(item.shopifyVariantId)
           && normalizeIdentifier(verified?.inventoryItem?.sku) === normalizeIdentifier(item.requestedSku)
           && normalizeIdentifier(verified?.barcode) === normalizeIdentifier(item.requestedBarcode);
-        const itemErrors = updated ? [] : errors.length > 0 ? errors : [{ message: "Shopify verification did not match the approved identifiers" }];
+        const auditErrors = updated ? [] : errors.length > 0 ? errors : [{ message: "Shopify verification did not match the approved identifiers" }];
         if (updated) {
           db.run(`UPDATE product_variants SET shopify_sku = ?, shopify_barcode = ?,
             sku_sync_state = 'SHOPIFY_UPDATED', barcode_sync_state = 'SHOPIFY_UPDATED'
@@ -191,8 +205,8 @@ export async function executeWriteback(db, businessId, userId, previewId, confir
             [item.variantId, businessId]);
         }
         const result = updated ? "SHOPIFY_UPDATED" : "SHOPIFY_UPDATE_FAILED";
-        auditResult(db, businessId, userId, credential.shop, item, result, itemErrors);
-        results.push({ variantId: item.variantId, result, errors: itemErrors });
+        auditResult(db, businessId, userId, credential.shop, item, result, auditErrors);
+        results.push({ variantId: item.variantId, result, errors: auditErrors });
       }
     } catch (error) {
       setIdentifierStates(db, businessId, productItems, "SHOPIFY_UPDATE_FAILED");

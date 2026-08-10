@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Novi from "../components/Novi";
-import { Button, ErrorBanner, PageHeader, Skeleton, useToast } from "../components/ui";
+import { Button, ErrorBanner, Modal, PageHeader, Skeleton, useToast } from "../components/ui";
 import { apiGet, apiPost, apiPut } from "../lib/api";
 
 type StudioItem = {
@@ -24,6 +24,7 @@ type StudioItem = {
   price: number | null;
   sku_sync_state?: string;
   barcode_sync_state?: string;
+  shopify_barcode?: string | null;
   skuTruth?: {
     localSku: string | null;
     shopifySku: string | null;
@@ -33,6 +34,19 @@ type StudioItem = {
     mismatch: boolean;
     needsReview: boolean;
   };
+};
+
+type WritebackResult = {
+  variantId: number;
+  result: "SHOPIFY_UPDATED" | "SHOPIFY_UPDATE_FAILED";
+  errors: Array<{ field?: string[]; message: string; code?: string }>;
+};
+
+type PendingWriteback = {
+  previewId: string;
+  chosen: StudioItem[];
+  skuChanges: number;
+  barcodeChanges: number;
 };
 
 type StudioData = {
@@ -126,12 +140,15 @@ export default function SkuLabelStudio() {
   const [customize, setCustomize] = useState(false);
   const [stage, setStage] = useState<"welcome" | "review" | "save" | "print" | "complete" | "scan">("welcome");
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [resultSummary, setResultSummary] = useState<{ skus: number; barcodes: number; preserved: number; destination: "local" | "shopify" | "print"; verified: number; failed: number } | null>(null);
+  const [resultSummary, setResultSummary] = useState<{ processed: number; skus: number; barcodes: number; preserved: number; destination: "local" | "shopify" | "print"; verified: number; failed: number; results: WritebackResult[] } | null>(null);
+  const [pendingWriteback, setPendingWriteback] = useState<PendingWriteback | null>(null);
+  const [writebackErrors, setWritebackErrors] = useState<Map<number, WritebackResult["errors"]>>(new Map());
   const [printQuantity, setPrintQuantity] = useState(1);
   const [testPrinted, setTestPrinted] = useState(false);
   const [customText, setCustomText] = useState("");
   const [scanValue, setScanValue] = useState("");
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const issueTableRef = useRef<HTMLElement>(null);
 
   async function load() {
     setLoading(true);
@@ -182,24 +199,62 @@ export default function SkuLabelStudio() {
       }
     }
     setItems(next);
-    return next.filter(item => selected.has(item.id));
+    const chosenIds = new Set(chosen.map(item => item.id));
+    return next.filter(item => chosenIds.has(item.id));
   }
 
-  async function save(destination: "local" | "shopify" | "print") {
+  async function executePendingWriteback(pending: PendingWriteback, confirmation: "UPDATE SHOPIFY" | "AUTO_APPROVED") {
+    setWorking(true);
+    try {
+      const result = await apiPost<{ updated: number; failed: number; results: WritebackResult[] }>("/api/sku-label-studio/shopify-writeback", {
+        previewId: pending.previewId,
+        confirmation,
+      });
+      setWritebackErrors(new Map(result.results
+        .filter(row => row.result === "SHOPIFY_UPDATE_FAILED")
+        .map(row => [row.variantId, row.errors])));
+      const createdSkus = pending.chosen.filter(item => item.missingSku).length;
+      const createdBarcodes = pending.chosen.filter(item => item.missingBarcode).length;
+      setResultSummary({
+        processed: pending.chosen.length,
+        skus: createdSkus,
+        barcodes: createdBarcodes,
+        preserved: pending.chosen.filter(item => Boolean(item.barcode) && !item.missingBarcode).length,
+        destination: "shopify",
+        verified: result.updated,
+        failed: result.failed,
+        results: result.results,
+      });
+      setPendingWriteback(null);
+      setStage("complete");
+      if (result.failed) toast(`${result.updated} verified in Shopify. ${result.failed} need review.`, "warning");
+      await load();
+    } catch (saveError: any) {
+      toast(saveError.message || "Nothing was changed in Shopify.", "error");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function save(destination: "local" | "shopify" | "print", chosenOverride?: StudioItem[]) {
     if (!settings) return;
-    const chosen = items.filter(item => selected.has(item.id));
+    const chosen = chosenOverride ?? items.filter(item => selected.has(item.id));
     if (chosen.length === 0) return toast("Choose at least one ready item.", "warning");
     setWorking(true);
     try {
       const prepared = await materializeInternalBarcodes(chosen);
-      const payloadItems = prepared.map(item => ({
-        variantId: item.id,
-        sku: item.proposedSku ?? item.sku,
-        barcode: item.barcode ?? item.internal_barcode,
-        generateInternalBarcode: !item.barcode && !item.internal_barcode,
-        replaceSku: Boolean(item.sku && item.proposedSku !== item.sku),
-        replaceBarcode: false,
-      }));
+      const payloadItems = prepared.map(item => {
+        const sku = item.proposedSku ?? item.sku;
+        const barcode = item.barcode ?? item.internal_barcode;
+        return {
+          variantId: item.id,
+          sku,
+          barcode,
+          generateInternalBarcode: !item.barcode && !item.internal_barcode,
+          replaceSku: sku !== item.skuTruth?.shopifySku,
+          replaceBarcode: barcode !== item.shopify_barcode,
+        };
+      });
       if (destination === "shopify") {
         if (data?.shopifyMode !== "writeback") {
           if (!data?.shopDomain) throw new Error("Connect Shopify before requesting Product Editing permission.");
@@ -210,20 +265,22 @@ export default function SkuLabelStudio() {
         const writeSettings = { ...settings, writebackEnabled: true };
         await apiPut("/api/sku-label-studio/settings", writeSettings);
         const preview = await apiPost<{ id: string }>("/api/sku-label-studio/shopify-preview", { items: payloadItems, accepted: true });
-        if (!settings.autoWritebackEnabled && !window.confirm("Update only these approved SKUs and barcodes in Shopify? Nothing else in your store will change.")) return;
-        const result = await apiPost<{ updated: number; failed: number }>("/api/sku-label-studio/shopify-writeback", {
+        const pending = {
           previewId: preview.id,
-          confirmation: settings.autoWritebackEnabled ? "AUTO_APPROVED" : "UPDATE SHOPIFY",
-        });
-        if (result.failed) toast(`${result.updated} updated and ${result.failed} need review.`, "warning");
-        setResultSummary({ skus: chosen.filter(item => item.missingSku).length, barcodes: chosen.filter(item => item.missingBarcode).length, preserved: chosen.filter(item => Boolean(item.barcode) && !item.missingBarcode).length, destination, verified: result.updated, failed: result.failed });
+          chosen,
+          skuChanges: chosen.filter((item, index) => payloadItems[index].sku !== item.skuTruth?.shopifySku).length,
+          barcodeChanges: chosen.filter((item, index) => payloadItems[index].barcode !== item.shopify_barcode).length,
+        };
+        if (settings.autoWritebackEnabled) await executePendingWriteback(pending, "AUTO_APPROVED");
+        else setPendingWriteback(pending);
+        return;
       } else {
         await apiPost("/api/sku-label-studio/save-local", { items: payloadItems, settings });
       }
       const createdSkus = chosen.filter(item => item.missingSku).length;
       const createdBarcodes = chosen.filter(item => item.missingBarcode).length;
       const preserved = chosen.filter(item => Boolean(item.barcode) && !item.missingBarcode).length;
-      if (destination !== "shopify") setResultSummary({ skus: createdSkus, barcodes: createdBarcodes, preserved, destination, verified: 0, failed: 0 });
+      setResultSummary({ processed: chosen.length, skus: createdSkus, barcodes: createdBarcodes, preserved, destination, verified: 0, failed: 0, results: [] });
       setStage(destination === "print" ? "print" : "complete");
       await load();
     } catch (saveError: any) {
@@ -286,10 +343,14 @@ export default function SkuLabelStudio() {
   const examples = items.filter(item => item.proposedSku && item.proposedSku !== item.sku).slice(0, 5);
   const labelSize = LABEL_SIZES[settings.preferredLabelSize] || LABEL_SIZES["2x1"];
   const printable = items.filter(item => selected.has(item.id) && (item.barcode || item.internal_barcode));
+  const issueItems = items.filter(item => item.needsReview || writebackErrors.has(item.id)
+    || item.sku_sync_state === "SHOPIFY_UPDATE_FAILED" || item.barcode_sync_state === "SHOPIFY_UPDATE_FAILED");
+  const issueIds = new Set(issueItems.map(item => item.id));
+  const orderedItems = [...items].sort((left, right) => Number(issueIds.has(right.id)) - Number(issueIds.has(left.id)));
 
   return (
     <div className="space-y-5 sku-label-studio">
-      <PageHeader title="Novi SKU & Label Studio" description="A clean, scan-ready catalog without the busywork" novi={<Novi size="sm" expression="focused" accessory="warehouse" />} actions={<Button variant="secondary" onClick={() => { setStage("scan"); setTimeout(() => scanRef.current?.focus(), 0); }}>Scan Something</Button>} />
+      <PageHeader title="Novi SKU & Label Studio" description="A clean, scan-ready catalog without the busywork" novi={<Novi size="sm" expression="label" accessory="warehouse" />} actions={<Button variant="secondary" onClick={() => { setStage("scan"); setTimeout(() => scanRef.current?.focus(), 0); }}>Scan Something</Button>} />
 
       {stage === "welcome" && (
         <section className="bg-white border border-purple-100 rounded-lg overflow-hidden shadow-sm">
@@ -337,7 +398,18 @@ export default function SkuLabelStudio() {
             )}
           </section>
 
-          <section className="bg-white border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
+          <section className={`border rounded-lg p-4 ${issueItems.length ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase text-neutral-600">Catalog exceptions</p>
+                <p className="font-semibold text-neutral-900 mt-1">{issueItems.length ? `${issueItems.length} variant${issueItems.length === 1 ? "" : "s"} need a decision` : "No identifier exceptions need review"}</p>
+                <p className="text-sm text-neutral-600">Healthy rows stay available below, but issues come first.</p>
+              </div>
+              {issueItems.length > 0 && <Button variant="secondary" onClick={() => issueTableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>Review {issueItems.length} Issues</Button>}
+            </div>
+          </section>
+
+          <section ref={issueTableRef} className="bg-white border border-neutral-200 rounded-lg overflow-hidden shadow-sm scroll-mt-4">
             <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-100">
               <div><h2 className="font-bold text-neutral-900">{items.length} variants <span className="text-emerald-600">{reviewReady} ready</span> <span className="text-amber-700">{items.length - reviewReady} need review</span></h2><p className="text-sm text-neutral-500">Internal barcodes are for your labels and operations. They are not retail UPCs or GTINs.</p></div>
               <Button onClick={() => setStage("save")}>Approve {selected.size} Ready Items</Button>
@@ -345,28 +417,37 @@ export default function SkuLabelStudio() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px]">
                 <thead className="bg-neutral-50 text-xs uppercase text-neutral-500"><tr><th className="p-3 text-left">Use</th><th className="p-3 text-left">Product</th><th className="p-3 text-left">Variant</th><th className="p-3 text-left">SKU</th><th className="p-3 text-left">Barcode</th><th className="p-3 text-left">Status</th></tr></thead>
-                <tbody className="divide-y divide-neutral-100">{items.map(item => { const displayStatus = identifierStatus(item); return <tr key={item.id} className={item.needsReview ? "bg-amber-50/40" : ""}>
+                <tbody className="divide-y divide-neutral-100">{orderedItems.map(item => { const displayStatus = identifierStatus(item); const rowErrors = writebackErrors.get(item.id); return <tr key={item.id} className={issueIds.has(item.id) ? "bg-amber-50/40" : ""}>
                   <td className="p-3"><input type="checkbox" checked={selected.has(item.id)} onChange={event => setSelected(current => { const next = new Set(current); event.target.checked ? next.add(item.id) : next.delete(item.id); return next; })} aria-label={`Select ${item.product_name} ${item.variant_value}`} /></td>
                   <td className="p-3 text-sm font-semibold text-neutral-900">{item.product_name}</td><td className="p-3 text-sm text-neutral-600">{item.variant_value}</td>
                   <td className="p-3"><input value={item.proposedSku ?? item.sku ?? ""} onChange={event => updateItem(item.id, "proposedSku", event.target.value)} className="w-48 px-2 py-1.5 border border-neutral-300 rounded font-mono text-xs" /></td>
                   <td className="p-3"><input value={item.barcode ?? item.internal_barcode ?? "Internal barcode on save"} onChange={event => updateItem(item.id, "barcode", event.target.value)} className="w-48 px-2 py-1.5 border border-neutral-300 rounded font-mono text-xs" aria-label={`Barcode for ${item.product_name}`} /></td>
-                  <td className="p-3"><span className={`inline-flex px-2 py-1 rounded border text-xs font-semibold ${STATUS_STYLES[displayStatus.key]}`}>{displayStatus.label}</span></td>
+                  <td className="p-3"><span className={`inline-flex px-2 py-1 rounded border text-xs font-semibold ${STATUS_STYLES[displayStatus.key]}`}>{displayStatus.label}</span>{rowErrors?.map((rowError, index) => <details key={`${rowError.message}-${index}`} className="mt-2 max-w-xs text-xs text-red-800"><summary className="cursor-pointer font-semibold">Why this failed</summary><p className="mt-1 break-words">{rowError.message}</p>{rowError.code && <code className="block mt-1 text-[11px] text-neutral-600">Shopify code: {rowError.code}</code>}</details>)}</td>
                 </tr>; })}</tbody>
               </table>
             </div>
           </section>
 
-          {stage === "save" && <section className="bg-neutral-900 text-white rounded-lg p-6"><div className="max-w-3xl"><p className="text-emerald-300 text-sm font-bold uppercase">One last decision</p><h2 className="text-2xl font-bold mt-1">Where should I save these?</h2><p className="text-neutral-300 mt-2">Nothing goes back to Shopify unless you choose it and confirm the exact preview.</p><div className="grid md:grid-cols-3 gap-3 mt-5"><SaveChoice title="ShimmerStock only" text="No Shopify changes." onClick={() => save("local")} disabled={working} /><SaveChoice title="ShimmerStock + Shopify" text={data.shopifyMode === "writeback" ? "Update approved product identifiers too." : "Grant Product Editing permission first."} onClick={() => save("shopify")} disabled={working} /><SaveChoice title="Save now and print" text="Save locally, then print labels." onClick={() => save("print")} disabled={working} /></div></div></section>}
+          {stage === "save" && <section className="bg-neutral-900 text-white rounded-lg p-6"><div className="max-w-3xl"><p className="text-emerald-300 text-sm font-bold uppercase">One last decision</p><h2 className="text-2xl font-bold mt-1">Where should I save these?</h2><p className="text-neutral-300 mt-2">Each option saves the approved identifiers in ShimmerStock. Shopify changes require Product Editing permission and an exact confirmation.</p><div className="grid md:grid-cols-3 gap-3 mt-5"><SaveChoice title="ShimmerStock only" text="Save approved identifiers here. Shopify is not changed." onClick={() => save("local")} disabled={working} /><SaveChoice title={data.shopifyMode === "writeback" ? "ShimmerStock + Shopify" : "Enable Shopify Product Editing"} text={data.shopifyMode === "writeback" ? "Save here, update only approved Shopify identifiers, then verify them." : data.shopDomain ? "Review Shopify permission before any identifier write." : "Connect Shopify first. This option is unavailable."} onClick={() => save("shopify")} disabled={working || !data.shopDomain} /><SaveChoice title="Save now and print" text="Save here, then open the thermal label test flow. Shopify is not changed." onClick={() => save("print")} disabled={working} /></div></div></section>}
         </>
       )}
 
       {stage === "print" && <section className="bg-white border border-emerald-200 rounded-lg p-5 shadow-sm"><div className="flex flex-col lg:flex-row gap-6"><div className="flex-1"><p className="text-emerald-700 font-bold">Labels are ready. What are we printing?</p><h2 className="text-xl font-bold mt-1">Start with one test label.</h2><p className="text-neutral-600 mt-1">Let's make sure your printer sizing looks right before the full batch.</p><label className="block mt-5 text-sm font-semibold">Label size<select value={settings.preferredLabelSize} onChange={event => setSettings({ ...settings, preferredLabelSize: event.target.value })} className="mt-1 block w-full max-w-xs border rounded-md px-3 py-2">{Object.entries(LABEL_SIZES).map(([value, size]) => <option key={value} value={value}>{size.label}</option>)}</select></label><label className="block mt-4 text-sm font-semibold">Copies per item<input type="number" min="1" max="1000" value={printQuantity} onChange={event => setPrintQuantity(Math.max(1, Number(event.target.value)))} className="mt-1 block w-28 border rounded-md px-3 py-2" /></label><div className="flex flex-wrap gap-3 mt-5"><Button onClick={() => printLabels(true)}>Print one test label</Button>{testPrinted && <Button variant="secondary" onClick={() => printLabels(false)}>Looks good — Print {printable.length * printQuantity}</Button>}<Button variant="outline" onClick={() => setCustomize(true)}>Adjust size</Button></div></div><LabelPreview item={printable[0]} size={labelSize} fields={settings.labelFields} customText={customText} /></div></section>}
 
-      {stage === "complete" && resultSummary && <section className="bg-white border border-emerald-200 rounded-lg p-7 text-center shadow-sm"><Novi size="lg" expression={resultSummary.failed ? "concerned" : "proud"} accessory="warehouse" /><h2 className="text-2xl font-bold text-neutral-900 mt-3">{resultSummary.destination === "shopify" && !resultSummary.failed ? "Verified in Shopify" : "Saved in ShimmerStock"}</h2><p className="text-neutral-600 mt-2">{selected.size} variants checked · {resultSummary.skus} SKUs created · {resultSummary.barcodes} internal barcodes created · {resultSummary.preserved} retail barcodes preserved</p>{resultSummary.destination === "shopify" ? <p className={`text-sm font-medium mt-3 ${resultSummary.failed ? "text-amber-700" : "text-emerald-700"}`}>{resultSummary.verified} verified in Shopify{resultSummary.failed ? ` · ${resultSummary.failed} failed verification and need review` : ""}</p> : <p className="text-sm font-medium text-neutral-700 mt-3">Shopify was not changed{data.shopifyMode !== "writeback" ? " — Product Editing permission is not enabled." : "."}</p>}<div className="flex flex-wrap justify-center gap-3 mt-6"><Button onClick={() => setStage("print")}>Print Labels</Button><Button variant="secondary" onClick={() => setStage("scan")}>Scan a Product</Button><Button variant="outline" onClick={() => navigate("/products")}>View Products</Button><Button variant="ghost" onClick={() => navigate("/products")}>Close</Button></div></section>}
+      {stage === "complete" && resultSummary && <section className={`bg-white border rounded-lg p-7 shadow-sm ${resultSummary.failed ? "border-amber-200" : "border-emerald-200"}`}><div className="text-center"><Novi size="lg" expression={resultSummary.failed ? "concerned" : "proud"} accessory="warehouse" /><h2 className="text-2xl font-bold text-neutral-900 mt-3">{resultSummary.failed ? "Saved locally, with Shopify issues to review" : resultSummary.destination === "shopify" ? "Verified in Shopify" : "Saved in ShimmerStock"}</h2><p className="text-neutral-600 mt-2">{resultSummary.processed} processed · {resultSummary.skus} SKUs created · {resultSummary.barcodes} internal barcodes created · {resultSummary.preserved} retail barcodes preserved</p>{resultSummary.destination === "shopify" ? <p className={`text-sm font-medium mt-3 ${resultSummary.failed ? "text-amber-700" : "text-emerald-700"}`}>{resultSummary.verified} verified in Shopify · {resultSummary.failed} failed</p> : <p className="text-sm font-medium text-neutral-700 mt-3">Shopify was not changed{data.shopifyMode !== "writeback" ? " — Product Editing permission is not enabled." : "."}</p>}</div>{resultSummary.failed > 0 && <div className="max-w-2xl mx-auto mt-5 border border-red-200 bg-red-50 rounded-md p-4"><h3 className="font-semibold text-red-900">Review {resultSummary.failed} Shopify issue{resultSummary.failed === 1 ? "" : "s"}</h3><div className="mt-3 space-y-3">{resultSummary.results.filter(row => row.result === "SHOPIFY_UPDATE_FAILED").map(row => { const item = items.find(candidate => candidate.id === row.variantId); return <div key={row.variantId} className="bg-white border border-red-100 rounded p-3"><p className="font-medium text-neutral-900">{item?.product_name || `Variant ${row.variantId}`} · {item?.variant_value || "Variant"}</p>{row.errors.map((rowError, index) => <p key={`${rowError.message}-${index}`} className="text-sm text-red-800 mt-1">{rowError.message}{rowError.code ? ` (${rowError.code})` : ""}</p>)}</div>; })}</div></div>}<div className="flex flex-wrap justify-center gap-3 mt-6">{resultSummary.failed > 0 && <Button onClick={() => save("shopify", items.filter(item => resultSummary.results.some(row => row.variantId === item.id && row.result === "SHOPIFY_UPDATE_FAILED")))}>Retry Failed Rows</Button>}<Button variant={resultSummary.failed ? "secondary" : "primary"} onClick={() => setStage("print")}>Print Labels</Button><Button variant="secondary" onClick={() => setStage("scan")}>Scan a Product</Button><Button variant="outline" onClick={() => navigate("/products")}>View Products</Button></div></section>}
 
       {stage === "scan" && <section className="bg-white border border-purple-100 rounded-lg p-5 shadow-sm"><div className="flex items-start gap-4"><Novi size="md" expression="focused" accessory="warehouse" /><div className="flex-1"><h2 className="text-xl font-bold">Scan Something</h2><p className="text-sm text-neutral-600">USB and Bluetooth scanners work automatically when they type a code and press Enter.</p><form onSubmit={scan} className="flex gap-2 mt-4"><input ref={scanRef} value={scanValue} onChange={event => setScanValue(event.target.value)} placeholder="Scan or type a barcode or SKU" className="flex-1 min-w-0 border-2 border-purple-200 rounded-md px-4 py-3 font-mono focus:border-purple-500 outline-none" autoFocus /><Button type="submit">Find Item</Button></form>{scanResult?.status === "found" && scanResult.match && <ScanMatch item={scanResult.match} navigate={navigate} />}{scanResult?.status === "ambiguous" && <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-md"><p className="font-semibold text-amber-900">I found more than one legacy match, so I won't guess.</p><p className="text-sm text-amber-800">Choose the exact product from the matching records.</p></div>}{scanResult?.status === "not_found" && <p className="mt-4 text-sm text-neutral-600">I couldn't find that code in this workspace.</p>}</div></div></section>}
 
       <div className="print-label-sheet">{printable.flatMap(item => Array.from({ length: printQuantity }, (_, index) => <LabelPreview key={`${item.id}-${index}`} item={item} size={labelSize} fields={settings.labelFields} customText={customText} print />))}</div>
+      <Modal
+        open={Boolean(pendingWriteback)}
+        onClose={() => { if (!working) setPendingWriteback(null); }}
+        title="UPDATE SHOPIFY?"
+        size="md"
+        footer={<><Button variant="secondary" disabled={working} onClick={() => setPendingWriteback(null)}>Cancel</Button><Button loading={working} disabled={working || !pendingWriteback} onClick={() => pendingWriteback && executePendingWriteback(pendingWriteback, "UPDATE SHOPIFY")}>Update Shopify</Button></>}
+      >
+        {pendingWriteback && <div className="space-y-4"><p className="text-sm text-neutral-700">Only these approved identifiers will be updated. Nothing else in Shopify will change.</p><div className="grid grid-cols-3 gap-3"><Summary value={pendingWriteback.chosen.length} label="approved variants" tone="purple" /><Summary value={pendingWriteback.skuChanges} label="SKU changes" tone="green" /><Summary value={pendingWriteback.barcodeChanges} label="barcode changes" tone="amber" /></div><details className="border border-neutral-200 rounded-md p-3"><summary className="cursor-pointer text-sm font-semibold text-neutral-800">Review exact changes</summary><div className="mt-3 max-h-52 overflow-auto space-y-2">{pendingWriteback.chosen.map(item => <div key={item.id} className="text-xs border-t border-neutral-100 pt-2"><p className="font-semibold text-neutral-900">{item.product_name} · {item.variant_value}</p><p className="font-mono text-neutral-600">SKU: {item.proposedSku ?? item.sku ?? "clear"}</p><p className="font-mono text-neutral-600">Barcode: {item.barcode ?? item.internal_barcode ?? "clear"}</p></div>)}</div></details>{working && <p role="status" className="text-sm font-medium text-purple-700">Updating approved identifiers, then verifying Shopify's saved values…</p>}</div>}
+      </Modal>
       <style>{`@media print { body * { visibility: hidden !important; } .print-label-sheet, .print-label-sheet * { visibility: visible !important; } .print-label-sheet { display: grid !important; position: absolute; inset: 0; gap: 0; } .thermal-label { break-after: page; } @page { size: ${labelSize.width}in ${labelSize.height}in; margin: 0; } } @media screen { .print-label-sheet { display: none; } }`}</style>
     </div>
   );

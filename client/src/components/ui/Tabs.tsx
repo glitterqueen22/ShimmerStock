@@ -22,7 +22,7 @@ export function Tabs({ tabs, active, activeId, activeTab, onChange, onTabChange,
   const handleChange = onChange ?? onTabChange ?? (() => {});
 
   return (
-    <div className={`bg-rose-50 p-1 rounded-xl inline-flex gap-0.5 ${className}`}>
+    <div className={`bg-rose-50 p-1 rounded-xl inline-flex max-w-full gap-0.5 overflow-x-auto ${className}`}>
       {tabs.map((tab, index) => {
         const tabId = tab.id ?? tab.key ?? `tab-${index}`;
         const count = tab.count ?? (typeof tab.badge === 'number' ? tab.badge : undefined);
@@ -33,7 +33,7 @@ export function Tabs({ tabs, active, activeId, activeTab, onChange, onTabChange,
             key={tabId}
             onClick={() => handleChange(tabId)}
             className={`
-              relative px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200
+              relative shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200
               focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500
               touch-target
               ${

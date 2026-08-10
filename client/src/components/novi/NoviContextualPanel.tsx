@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { apiGet } from "../../lib/api";
+import Novi from "../Novi";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -218,7 +219,7 @@ export default function NoviContextualPanel() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3 min-w-0">
-              <span className="text-xl flex-shrink-0 mt-0.5">{sev.icon}</span>
+              <Novi expression={message.severity === "urgent" ? "protective" : "suspicious"} size="sm" animated={false} />
               <div className="min-w-0">
                 <p className="font-semibold text-sm text-[#121212]">
                   {message.title}
@@ -276,7 +277,7 @@ export default function NoviContextualPanel() {
       {/* Header bar with severity color */}
       <div className={`${sev.border} border-l-4 pl-3 pr-2 py-3 flex items-start justify-between`}>
         <div className="flex items-start gap-2 min-w-0">
-          <span className="text-lg flex-shrink-0 mt-0.5">{sev.icon}</span>
+          <Novi expression={message.severity === "celebration" ? "proud" : "curious"} size="sm" animated={false} />
           <div className="min-w-0">
             <p className="font-semibold text-sm text-[#121212]">{message.title}</p>
             {message.description && (

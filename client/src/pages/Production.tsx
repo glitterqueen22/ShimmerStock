@@ -7,7 +7,8 @@ import { useTerms } from "../context/IndustryContext";
 // ── Types ───────────────────────────────────────────────────────────
 
 interface Product {
-  id: number; name: string; sku: string; barcode: string | null; stock_count: number;
+  id: number; name: string; sku: string; display_sku?: string | null; sku_count?: number;
+  barcode: string | null; stock_count: number | null;
 }
 
 interface BomItem {
@@ -637,7 +638,7 @@ export default function Production() {
             <select value={bomOutputId ?? ""} onChange={(e) => setBomOutputId(parseInt(e.target.value) || null)}
               className="touch-target w-full px-4 py-2.5 border border-rose-200 rounded-xl text-sm focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition-all duration-300 bg-rose-50/50">
               <option value="">Select product…</option>
-              {products.map((p) => (<option key={p.id} value={p.id}>{p.name} ({p.sku}) — stock: {p.stock_count}</option>))}
+              {products.map((p) => (<option key={p.id} value={p.id}>{p.name} ({p.display_sku ?? ((p.sku_count ?? 0) > 1 ? "multiple SKUs" : "SKU not assigned")}) — stock: {p.stock_count ?? "unknown"}</option>))}
             </select>
           </div>
           <div className="flex gap-3">
@@ -687,7 +688,7 @@ export default function Production() {
             <select value={addItemProductId ?? ""} onChange={(e) => setAddItemProductId(parseInt(e.target.value) || null)}
               className="touch-target w-full px-3 py-2 border border-rose-200 rounded-lg text-xs focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none bg-rose-50/50">
               <option value="">Select…</option>
-              {products.map((p) => (<option key={p.id} value={p.id}>{p.name} ({p.sku})</option>))}
+              {products.map((p) => (<option key={p.id} value={p.id}>{p.name} ({p.display_sku ?? ((p.sku_count ?? 0) > 1 ? "multiple SKUs" : "SKU not assigned")})</option>))}
             </select>
           </div>
           <div className="flex gap-2">

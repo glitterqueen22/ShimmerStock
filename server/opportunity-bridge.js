@@ -105,6 +105,7 @@ export async function runAllDetectors(database, businessId) {
   console.log(`[opportunity-bridge] Running all detectors for business ${businessId}...`);
   let noviCount = 0;
   let oppCenterCount = 0;
+  let resolved = 0;
 
   // 1. Re-activate snoozed opportunities whose time has passed
   const reactivated = store.reactivateSnoozedOpportunities(database, businessId);
@@ -151,12 +152,18 @@ export async function runAllDetectors(database, businessId) {
         console.error(`[opportunity-bridge] Failed to upsert opp-center opp "${opp.title}":`, err.message);
       }
     }
-    console.log(`[opportunity-bridge] Opportunity Center: ${oppCenterCount} upserted`);
+    resolved = store.reconcileDetectorOpportunities(
+      database,
+      businessId,
+      "opportunity-center",
+      result.opportunities.map(opp => ({ sourceEventType: opp.type, title: opp.title })),
+    );
+    console.log(`[opportunity-bridge] Opportunity Center: ${oppCenterCount} upserted, ${resolved} resolved`);
   } catch (err) {
     console.error("[opportunity-bridge] Opportunity Center detection error:", err.message);
   }
 
-  return { novi: noviCount, oppCenter: oppCenterCount, reactivated };
+  return { novi: noviCount, oppCenter: oppCenterCount, reactivated, resolved };
 }
 
 // ═══════════════════════════════════════════════════════════════════════

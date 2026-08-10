@@ -158,9 +158,19 @@ body {
 
 .novi-card-enter { animation: noviCardEnter 0.3s ease-out both; }
 
+.hq-reveal {
+  animation: hqReveal 520ms cubic-bezier(.22,.8,.28,1) both;
+}
+
+@keyframes hqReveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .novi-card-enter,
+  .hq-reveal,
   *[style*="noviBannerSlideDown"],
   *[style*="noviSlideInRight"],
   *[style*="noviSheetUp"],

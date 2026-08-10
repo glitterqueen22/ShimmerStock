@@ -17,7 +17,15 @@ interface Product {
   barcode: string | null;
   stock_count: number | null;
   inventory_tracked?: boolean;
+  display_sku?: string | null;
+  display_barcode?: string | null;
+  display_barcode_kind?: "retail" | "shimmerstock" | null;
+  variant_count?: number;
+  sku_count?: number;
 }
+
+const productSkuLabel = (product: Product) => product.display_sku
+  ?? (product.sku_count && product.sku_count > 1 ? "Multiple variant SKUs" : "SKU not assigned");
 
 interface ProductFormData {
   name: string;
@@ -181,8 +189,8 @@ export default function Products() {
     ? products.filter(
         (p) =>
           p.name.toLowerCase().includes(search.toLowerCase()) ||
-          p.sku.toLowerCase().includes(search.toLowerCase()) ||
-          (p.barcode && p.barcode.includes(search))
+          productSkuLabel(p).toLowerCase().includes(search.toLowerCase()) ||
+          (p.display_barcode && p.display_barcode.includes(search))
       )
     : products;
 
@@ -301,10 +309,13 @@ export default function Products() {
                       {product.name}
                     </td>
                     <td className="px-6 py-4 text-sm text-rose-400 font-mono">
-                      {product.sku}
+                      {productSkuLabel(product)}
                     </td>
                     <td className="px-6 py-4 text-sm text-rose-400 font-mono">
-                      {product.barcode ?? "—"}
+                      {product.display_barcode ?? "Not assigned"}
+                      {product.display_barcode_kind === "shimmerstock" && (
+                        <span className="ml-2 font-sans text-[11px] text-neutral-500">ShimmerStock internal</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-right">
                       <span
@@ -350,11 +361,11 @@ export default function Products() {
                       {product.name}
                     </p>
                     <p className="text-xs text-rose-400 font-mono mt-0.5">
-                      SKU: {product.sku}
+                      SKU: {productSkuLabel(product)}
                     </p>
-                    {product.barcode && (
+                    {product.display_barcode && (
                       <p className="text-xs text-rose-400 font-mono">
-                        Barcode: {product.barcode}
+                        {product.display_barcode_kind === "shimmerstock" ? "Internal barcode" : "Barcode"}: {product.display_barcode}
                       </p>
                     )}
                   </div>
