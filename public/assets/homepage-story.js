@@ -4,7 +4,6 @@
   document.documentElement.classList.add("story-enhanced");
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-  let noviBreathTween = null;
   const industryData = {
     craft: {
       title: "Craft supplies workspace",
@@ -163,6 +162,8 @@
   let currentNoviState = null;
   let noviInitialized = false;
   let orderTokenMoved = false;
+  let deskActivationStarted = false;
+  const deskAmbientTweens = [];
 
   function applyNoviAsset(portraits, src, useMotion) {
     const doSwap = function () {
@@ -197,14 +198,148 @@
     probe.src = asset;
   }
 
+  function setDeskQueueSnapshot(counts) {
+    const ready = story.querySelector("[data-queue-ready]");
+    const production = story.querySelector("[data-queue-production]");
+    const customer = story.querySelector("[data-queue-customer]");
+    if (ready) ready.textContent = counts.ready;
+    if (production) production.textContent = counts.production;
+    if (customer) customer.textContent = counts.customer;
+  }
+
+  function startDeskAmbientMotion() {
+    if (!window.gsap || reduceMotion.matches) return;
+    const portrait = story.querySelector(".desk-stage .novi-desk-portrait");
+    const blink = story.querySelector("[data-desk-blink]");
+    const steam = Array.from(story.querySelectorAll(".desk-steam span"));
+    const panel = story.querySelector("[data-queue-panel]");
+    const props = story.querySelector(".desk-props");
+
+    if (portrait) {
+      deskAmbientTweens.push(window.gsap.to(portrait, {
+        y: -2,
+        scale: 1.022,
+        duration: 2.8,
+        ease: "sine.inOut",
+        repeat: -1,
+        yoyo: true,
+        transformOrigin: "center 62%"
+      }));
+      deskAmbientTweens.push(window.gsap.timeline({ repeat: -1, repeatDelay: 2.4 })
+        .to(portrait, { x: 4, rotation: -0.6, duration: 0.34, ease: "sine.out" })
+        .to(portrait, { x: 0, rotation: 0, duration: 0.42, ease: "sine.inOut" }));
+    }
+
+    if (blink) {
+      deskAmbientTweens.push(window.gsap.timeline({ repeat: -1, repeatDelay: 3.1 })
+        .set(blink, { autoAlpha: 0 })
+        .to(blink, { autoAlpha: 0.72, duration: 0.06 })
+        .to(blink, { autoAlpha: 0, duration: 0.08 })
+        .to(blink, { autoAlpha: 0.66, duration: 0.05 }, "+=0.09")
+        .to(blink, { autoAlpha: 0, duration: 0.08 }));
+    }
+
+    if (steam.length) {
+      deskAmbientTweens.push(window.gsap.to(steam, {
+        y: -5,
+        x: function (index) { return index ? 2 : -2; },
+        autoAlpha: 0.22,
+        duration: 1.7,
+        ease: "sine.inOut",
+        repeat: -1,
+        yoyo: true,
+        stagger: 0.16
+      }));
+    }
+
+    if (panel) {
+      deskAmbientTweens.push(window.gsap.to(panel, {
+        boxShadow: "0 22px 40px rgba(16,37,63,0.42)",
+        duration: 2.2,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut"
+      }));
+    }
+
+    if (props) {
+      deskAmbientTweens.push(window.gsap.to(props, {
+        y: -1,
+        duration: 2,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut"
+      }));
+    }
+  }
+
   function markDeskActive() {
     const stage = story.querySelector("[data-desk-scene] .desk-stage");
     const caption = story.querySelector("[data-desk-caption]");
-    if (!stage || stage.dataset.deskState === "active") return;
-    stage.dataset.deskState = "active";
-    if (caption) caption.textContent = "Go time. Novi is on it.";
-    swapNoviPortrait("alert");
-    animateOrderTokenHandoff();
+    const notification = story.querySelector("[data-desk-notification]");
+    const queuePanel = story.querySelector("[data-queue-panel]");
+    const queueLane = story.querySelector("[data-queue-lane]");
+    if (!stage || deskActivationStarted) return;
+
+    deskActivationStarted = true;
+
+    const finalize = function () {
+      stage.dataset.deskState = "focused";
+      if (queuePanel) queuePanel.dataset.queueState = "focused";
+      if (caption) caption.textContent = "Go time. Novi moved Order #8197 into the live journey.";
+      if (queueLane) queueLane.textContent = "Queue active. Order #8197 moved into the journey.";
+      setDeskQueueSnapshot({
+        ready: "15 ready",
+        production: "2 need production",
+        customer: "1 customer waiting"
+      });
+      swapNoviPortrait("focused");
+      animateOrderTokenHandoff();
+    };
+
+    if (!notification) {
+      finalize();
+      return;
+    }
+
+    notification.hidden = false;
+
+    if (!window.gsap || reduceMotion.matches) {
+      stage.dataset.deskState = "alert";
+      if (queuePanel) queuePanel.dataset.queueState = "alert";
+      if (caption) caption.textContent = "Order notification in. Novi is shifting from calm to alert.";
+      if (queueLane) queueLane.textContent = "Queue waking up. Routing Order #8197 now.";
+      setDeskQueueSnapshot({
+        ready: "14 ready",
+        production: "3 need production",
+        customer: "1 customer waiting"
+      });
+      swapNoviPortrait("alert");
+      finalize();
+      return;
+    }
+
+    const portrait = story.querySelector(".desk-stage .novi-desk-portrait");
+    const tl = window.gsap.timeline({ defaults: { ease: "power2.out" } });
+    tl
+      .set(notification, { autoAlpha: 0, y: 16, scale: 0.97 })
+      .call(function () {
+        stage.dataset.deskState = "alert";
+        if (queuePanel) queuePanel.dataset.queueState = "alert";
+        if (caption) caption.textContent = "Order notification in. Novi notices the queue changed.";
+        if (queueLane) queueLane.textContent = "Queue waking up. Routing Order #8197 now.";
+        setDeskQueueSnapshot({
+          ready: "14 ready",
+          production: "3 need production",
+          customer: "1 customer waiting"
+        });
+        swapNoviPortrait("alert");
+      })
+      .to(notification, { autoAlpha: 1, y: 0, scale: 1, duration: 0.34 })
+      .to(notification, { borderLeftColor: "#9ddab8", duration: 0.24 }, "<")
+      .to(portrait, { x: 7, rotation: -1, duration: 0.24 }, "<")
+      .to(portrait, { x: 0, rotation: 0, duration: 0.28 })
+      .call(finalize);
   }
 
   function animateOrderTokenHandoff() {
@@ -266,7 +401,13 @@
     const orderSection = story.querySelector("[data-order-story]");
     if (!scene) return;
 
+    setDeskQueueSnapshot({
+      ready: "14 ready",
+      production: "2 need production",
+      customer: "1 customer waiting"
+    });
     swapNoviPortrait("idle");
+    startDeskAmbientMotion();
 
     if (!orderSection || typeof IntersectionObserver === "undefined") return;
 
@@ -311,7 +452,7 @@
       if (reactionText) reactionText.textContent = orderReactions[activeIndex] || orderReactions[0];
       if (reactionEl) reactionEl.dataset.noviState = orderStates[activeIndex] || orderStates[0];
       const deskStage = story.querySelector("[data-desk-scene] .desk-stage");
-      if (deskStage && deskStage.dataset.deskState === "active") {
+      if (deskStage && deskStage.dataset.deskState !== "idle") {
         swapNoviPortrait(orderStates[activeIndex] || orderStates[0]);
       }
     }
@@ -440,21 +581,31 @@
     gsap.registerPlugin(ScrollTrigger);
     document.documentElement.classList.add("story-motion");
 
-    const noviPortrait = story.querySelector("[data-novi-portrait]");
-    if (noviPortrait) {
-      noviBreathTween = gsap.to(noviPortrait, {
-        scale: 1.02,
-        duration: 2.4,
-        ease: "sine.inOut",
-        repeat: -1,
-        yoyo: true,
-        transformOrigin: "center"
-      });
-    }
-
     const media = gsap.matchMedia();
 
     media.add("(min-width: 1101px) and (prefers-reduced-motion: no-preference)", function () {
+      const deskScene = story.querySelector("[data-desk-enter]");
+      const deskHeading = story.querySelector(".story-desk .story-section-heading");
+      const deskBackdrop = story.querySelector(".desk-backdrop");
+      const deskNovi = story.querySelector(".desk-novi-zone");
+      const deskQueue = story.querySelector("[data-queue-panel]");
+      if (deskScene && deskHeading && deskBackdrop && deskNovi && deskQueue) {
+        gsap.timeline({
+          defaults: { ease: "none" },
+          scrollTrigger: {
+            trigger: deskScene,
+            start: "top 82%",
+            end: "bottom 46%",
+            scrub: 0.5
+          }
+        })
+          .fromTo(deskScene, { y: 56, scale: 0.955, autoAlpha: 0.88 }, { y: 0, scale: 1, autoAlpha: 1, immediateRender: false }, 0)
+          .fromTo(deskHeading, { y: 34, autoAlpha: 0.55 }, { y: 0, autoAlpha: 1, immediateRender: false }, 0)
+          .fromTo(deskBackdrop, { yPercent: -8 }, { yPercent: 6, immediateRender: false }, 0)
+          .fromTo(deskNovi, { y: 22, x: -14 }, { y: 0, x: 0, immediateRender: false }, 0.08)
+          .fromTo(deskQueue, { y: 26, x: 28, autoAlpha: 0.8 }, { y: 0, x: 0, autoAlpha: 1, immediateRender: false }, 0.1);
+      }
+
       const assembly = story.querySelector("[data-story-assembly]");
       const stageWrap = story.querySelector(".story-stage-wrap");
       const frame = story.querySelector("[data-command-frame]");
@@ -548,6 +699,8 @@
 
   window.addEventListener("pagehide", function () {
     if (motionContext) motionContext.revert();
-    if (noviBreathTween) noviBreathTween.kill();
+    deskAmbientTweens.forEach(function (tween) {
+      if (tween && typeof tween.kill === "function") tween.kill();
+    });
   }, { once: true });
 })();
