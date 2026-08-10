@@ -68,14 +68,23 @@
       <div class="container-wide story-order-layout">
         <header class="story-section-heading"><p class="story-kicker">ONE ORDER / ONE CONNECTED JOURNEY</p><h2 id="order-title">The record stays intact while the work moves.</h2><p>Order #8197 carries its inventory, production, fulfillment, shipment, and customer context with it. No automatic actions are implied.</p></header>
         <div class="order-story" data-order-story>
-          <div class="order-anchor"><span class="order-source">SHOPIFY / READ-ONLY BETA</span><strong>Order #8197</strong><span>Vanilla Cupcake Kit x 2</span><div class="order-progress" aria-hidden="true"><span data-order-progress></span></div></div>
-          <ol class="order-steps">
-            <li class="order-step is-active" data-order-step="0"><span class="order-step-index">01</span><div><strong>Order intake</strong><p>The Shopify order arrives with product and customer context.</p></div><span class="order-status">Imported</span></li>
-            <li class="order-step" data-order-step="1"><span class="order-step-index">02</span><div><strong>Inventory check</strong><p>Available stock and Vanilla Base runway are visible together.</p></div><span class="order-status">6 days</span></li>
-            <li class="order-step" data-order-step="2"><span class="order-step-index">03</span><div><strong>Production context</strong><p>Batch #52 shows the component relationship without starting work automatically.</p></div><span class="order-status">Review</span></li>
-            <li class="order-step" data-order-step="3"><span class="order-step-index">04</span><div><strong>Fulfillment exception</strong><p>A label reprint is holding the pack lane, with the reason attached.</p></div><span class="order-status">Attention</span></li>
-            <li class="order-step" data-order-step="4"><span class="order-step-index">05</span><div><strong>Shipment state</strong><p>The operational record moves to shipped after the team completes the handoff.</p></div><span class="order-status">Shipped</span></li>
-            <li class="order-step" data-order-step="5"><span class="order-step-index">06</span><div><strong>Customer context</strong><p>Care sees the order, fulfillment state, and conversation in one place.</p></div><span class="order-status">Ready to reply</span></li>
+          <div class="order-anchor">
+            <span class="order-source">SHOPIFY / READ-ONLY BETA</span><strong>Order #8197</strong><span>Vanilla Cupcake Kit x 2</span>
+            <div class="order-progress" aria-hidden="true"><span data-order-progress></span></div>
+            <div class="order-novi-reaction" data-order-reaction aria-live="polite"><span class="order-novi-mark" aria-hidden="true">N</span><span data-order-reaction-text>Novi is watching Order #8197 arrive.</span></div>
+            <div class="order-controls" role="group" aria-label="Order Journey playback">
+              <button type="button" class="order-control-btn" data-order-play aria-pressed="false">Play</button>
+              <button type="button" class="order-control-btn" data-order-pause aria-pressed="false">Pause</button>
+              <button type="button" class="order-control-btn" data-order-replay>Replay</button>
+            </div>
+          </div>
+          <ol class="order-steps" data-order-stage-list>
+            <li class="order-step is-active" data-order-step="0"><button type="button" class="order-step-select" data-order-jump="0" aria-current="step"><span class="order-step-index">01</span><span class="order-step-body"><strong>Order intake</strong><p>The Shopify order arrives with product and customer context.</p></span><span class="order-status">Imported</span></button></li>
+            <li class="order-step" data-order-step="1"><button type="button" class="order-step-select" data-order-jump="1"><span class="order-step-index">02</span><span class="order-step-body"><strong>Inventory check</strong><p>Available stock and Vanilla Base runway are visible together.</p></span><span class="order-status">6 days</span></button></li>
+            <li class="order-step" data-order-step="2"><button type="button" class="order-step-select" data-order-jump="2"><span class="order-step-index">03</span><span class="order-step-body"><strong>Production context</strong><p>Batch #52 shows the component relationship without starting work automatically.</p></span><span class="order-status">Review</span></button></li>
+            <li class="order-step" data-order-step="3"><button type="button" class="order-step-select" data-order-jump="3"><span class="order-step-index">04</span><span class="order-step-body"><strong>Fulfillment exception</strong><p>A label reprint is holding the pack lane, with the reason attached.</p></span><span class="order-status">Attention</span></button></li>
+            <li class="order-step" data-order-step="4"><button type="button" class="order-step-select" data-order-jump="4"><span class="order-step-index">05</span><span class="order-step-body"><strong>Shipment state</strong><p>The operational record moves to shipped after the team completes the handoff.</p></span><span class="order-status">Shipped</span></button></li>
+            <li class="order-step" data-order-step="5"><button type="button" class="order-step-select" data-order-jump="5"><span class="order-step-index">06</span><span class="order-step-body"><strong>Customer context</strong><p>Care sees the order, fulfillment state, and conversation in one place.</p></span><span class="order-status">Ready to reply</span></button></li>
           </ol>
         </div>
       </div>

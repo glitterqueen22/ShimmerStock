@@ -56,4 +56,20 @@ describe("homepage scroll story contract", () => {
     expect(controller).toContain('event.key === "Home"');
     expect(controller).toContain('event.key === "End"');
   });
+
+  it("gives the Order Journey independent Play, Pause, Replay, and manual stage controls", async () => {
+    const html = await Bun.file("public/index.html").text();
+    const controller = await Bun.file("public/assets/homepage-story.js").text();
+
+    expect(html).toContain('data-order-play');
+    expect(html).toContain('data-order-pause');
+    expect(html).toContain('data-order-replay');
+    expect(html.match(/data-order-jump="[0-5]"/g)).toHaveLength(6);
+    expect(html).toContain('data-order-reaction-text');
+    expect(controller).toContain('function initOrderJourneyPlayer()');
+    expect(controller).toContain('initOrderJourneyPlayer();');
+    expect(controller).not.toContain('ScrollTrigger.create({\n          trigger: orderStory');
+    expect(controller).toContain('setInterval(function ()');
+    expect(controller).toContain('aria-current');
+  });
 });
