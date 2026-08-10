@@ -60,7 +60,7 @@ ShimmerStock is an existing multi-tenant e-commerce operating system for product
 ## Novi and brand
 
 - Novi is ShimmerStock's fluffy black-and-white tuxedo-cat mascot. Do not redesign Novi as another animal, a robot, orb, blob, generic AI assistant, CSS drawing, emoji, or improvised SVG character.
-- Final Novi character and logo artwork require owner approval. Until approved assets exist, use clearly labeled neutral/reference slots through the established asset manifest; do not fabricate replacement identity.
+- Novi's approved character reference is docs/brand/novi-sprite-sheet.png and production Novi assets live in public/assets/novi/. Do not redesign or substitute the mascot without owner approval.
 - ShimmerStock is an independent product-business operating-system brand, not GGE software. GGE may be described only as founder experience that informed the product.
 - Use semantic color hierarchy: pink for Monica's spark and primary brand personality, purple for her dad's steady support, green for her mom's forward drive, navy and grey for her husband's grounding partnership, and cream for breathing room. Keep pink visually primary and avoid rainbow UI.
 - The people behind the colors are living people who continue to influence and support Monica. Family-brand and Dream Grant stories must express gratitude, ongoing love, partnership, encouragement, and passing support forward; never use memorial, remembrance, or posthumous framing.
@@ -78,6 +78,16 @@ ShimmerStock is an existing multi-tenant e-commerce operating system for product
 - Protect LCP, CLS, INP, mobile CPU/memory, and bundle size. Measure before and after significant public-experience work and document intentional dependency impact.
 - Operational screens prioritize clarity, density, explicit feedback, and efficient repeated action. Do not apply landing-page motion or decorative card layouts to data tables and warehouse workflows.
 - Empty, loading, partial-success, and error states must explain what is happening and provide the next useful action without fabricating activity.
+
+## GSAP implementation rules
+
+- For homepage and marketing motion code, apply the path-specific Copilot instruction files under `.github/instructions/`:
+	- `gsap-core.instructions.md`
+	- `gsap-timeline.instructions.md`
+	- `gsap-scrolltrigger.instructions.md`
+	- `gsap-performance.instructions.md`
+- Use GSAP timelines and ScrollTrigger as the only animation runtime for homepage scroll storytelling; do not introduce an additional animation framework.
+- Prefer transform and autoAlpha animation primitives, predictable timeline positioning, explicit cleanup/revert behavior, and complete reduced-motion parity.
 
 ## Required verification
 

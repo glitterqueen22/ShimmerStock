@@ -17,16 +17,36 @@
   <div data-marketing-header></div>
 
   <main id="main-content" data-homepage-story>
-    <section class="story-opening" aria-labelledby="story-title">
+    <aside class="story-film-nav" aria-label="A Day With Novi scene progression">
+      <p class="story-film-label">A DAY WITH NOVI</p>
+      <ol class="story-film-list">
+        <li><button type="button" data-scene-jump="#scene-enter">Enter</button></li>
+        <li><button type="button" data-scene-jump="#scene-desk">Desk</button></li>
+        <li><button type="button" data-scene-jump="#scene-order">Order</button></li>
+        <li><button type="button" data-scene-jump="#scene-chaos">Clarity</button></li>
+        <li><button type="button" data-scene-jump="#scene-label">Label</button></li>
+        <li><button type="button" data-scene-jump="#scene-brief">Brief</button></li>
+        <li><button type="button" data-scene-jump="#scene-industry">Adapt</button></li>
+        <li><button type="button" data-scene-jump="#scene-trust">Trust</button></li>
+        <li><button type="button" data-scene-jump="#people-behind-the-colors">People</button></li>
+        <li><button type="button" data-scene-jump="#scene-grant">Grant</button></li>
+        <li><button type="button" data-scene-jump="#scene-resolution">Resolve</button></li>
+      </ol>
+      <p class="story-film-current" data-scene-readout>Scene: Enter ShimmerStock</p>
+    </aside>
+
+    <section class="story-opening" aria-labelledby="story-title" id="scene-enter" data-scene-title="Enter ShimmerStock">
       <div class="story-opening-copy container-wide">
         <div class="story-hero-copy">
+      <span id="novi-desk" aria-hidden="true"></span>
           <p class="story-kicker">THE COMMERCE OPERATING SYSTEM FOR PRODUCT BUSINESSES</p>
           <h1 id="story-title">Your storefront sells the product. <em>ShimmerStock runs everything behind it.</em></h1>
           <p class="story-lead">One operating system for the orders, stock, production, fulfillment, customer care, and owner decisions that begin after checkout.</p>
           <div class="story-actions">
-            <a class="btn btn-primary" href="/early-access">Join Early Access</a>
-            <a class="story-text-link" href="#order-journey">Follow one order <span aria-hidden="true">↓</span></a>
+            <a class="btn btn-primary cta-primary" href="/early-access">Join Early Access</a>
+            <a class="btn btn-secondary cta-secondary" href="/product">See the Platform</a>
           </div>
+          <a class="story-text-link cta-utility" href="#order-journey">Follow Order #8197 Through the Journey <span aria-hidden="true">↓</span></a>
           <p class="story-provenance">Built from real craft-supply and e-commerce operations. Shopify connection: Early Access / Read-only Beta.</p>
         </div>
         <div class="story-hero-media" data-novi-hero>
@@ -52,7 +72,7 @@
         </div>
       </div>
 
-      <div class="story-assembly" data-story-assembly>
+      <div class="story-assembly" data-story-assembly data-scene-title="The Day Begins">
         <div class="story-stage-wrap container-wide">
           <div class="story-stage-copy">
             <p class="story-kicker">AFTER THE SALE</p>
@@ -89,18 +109,69 @@
       </div>
     </section>
 
-    <section class="story-section story-order" id="order-journey" aria-labelledby="order-title">
+    <section class="story-section story-desk" id="scene-desk" aria-labelledby="desk-title" data-desk-scene data-scene-title="Novi At Her Desk">
+      <div class="container-wide desk-layout">
+        <header class="story-section-heading"><p class="story-kicker">ENTERING THE WORKSPACE</p><h2 id="desk-title">Novi is already at her desk.</h2><p>Shelves, thermal labels, and a scanner within reach, and one order about to change the morning.</p></header>
+        <div class="desk-scene" data-desk-enter>
+          <div class="desk-backdrop" aria-hidden="true">
+            <span class="desk-depth-haze"></span>
+            <span class="desk-shelf"></span>
+            <span class="desk-shelf"></span>
+            <span class="desk-bin desk-bin-1"></span>
+            <span class="desk-bin desk-bin-2"></span>
+            <span class="desk-bin desk-bin-3"></span>
+            <span class="desk-screen-glow"></span>
+            <span class="desk-label-roll"></span>
+            <span class="desk-shipper desk-shipper-1"></span>
+            <span class="desk-shipper desk-shipper-2"></span>
+          </div>
+          <div class="desk-stage" data-desk-state="idle">
+            <div class="desk-novi-zone">
+              <div class="novi-desk-frame">
+                <img src="/assets/novi/novi-idle-desk.webp" alt="Novi, ShimmerStock's tuxedo-cat mascot, working at her desk" class="novi-desk-portrait" data-novi-portrait width="500" height="500" loading="lazy" decoding="async">
+                <span class="desk-blink" data-desk-blink aria-hidden="true"></span>
+              </div>
+              <div class="desk-props" aria-hidden="true">
+                <span class="desk-prop desk-coffee"><span class="desk-prop-handle"></span><span class="desk-steam"><span></span><span></span></span></span>
+                <span class="desk-prop desk-energy"></span>
+                <span class="desk-prop desk-scanner"><span class="desk-prop-beam"></span></span>
+                <span class="desk-prop desk-label-stack"></span>
+              </div>
+              <p class="desk-caption" data-desk-caption>Coffee. Energy drink. Yes, possibly both. Novi is watching today's queue.</p>
+            </div>
+            <aside class="desk-queue-panel" data-queue-panel data-queue-state="idle" aria-live="polite">
+              <span class="desk-screen-bar">SHIMMERSTOCK / QUEUE</span>
+              <p class="desk-queue-title">TODAY</p>
+              <ul class="desk-queue-summary" data-desk-queue-summary>
+                <li><span>Ready</span><strong data-queue-ready>14 ready</strong></li>
+                <li><span>Need production</span><strong data-queue-production>2 need production</strong></li>
+                <li><span>Customer waiting</span><strong data-queue-customer>1 customer waiting</strong></li>
+              </ul>
+              <div class="desk-notification" data-desk-notification hidden>
+                <strong>NEW ORDER</strong><span>Order #8197 - Vanilla Cupcake Kit x 2</span>
+                <span class="desk-order-token" data-order-token>Order #8197</span>
+              </div>
+              <p class="desk-queue-lane" data-queue-lane>Queue calm. Monitoring live.</p>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="story-section story-order" id="scene-order" aria-labelledby="order-title" data-scene-title="Order #8197 In Motion">
       <div class="container-wide story-order-layout">
         <header class="story-section-heading"><p class="story-kicker">ONE ORDER / ONE CONNECTED JOURNEY</p><h2 id="order-title">The record stays intact while the work moves.</h2><p>Order #8197 carries its inventory, production, fulfillment, shipment, and customer context with it. No automatic actions are implied.</p></header>
         <div class="order-story" data-order-story>
           <div class="order-anchor">
             <span class="order-source">SHOPIFY / READ-ONLY BETA</span><strong>Order #8197</strong><span>Vanilla Cupcake Kit x 2</span>
             <div class="order-progress" aria-hidden="true"><span data-order-progress></span></div>
-            <div class="order-novi-reaction" data-order-reaction aria-live="polite"><span class="order-novi-mark" aria-hidden="true">N</span><span data-order-reaction-text>Novi is watching Order #8197 arrive.</span></div>
+            <div class="order-token-dock" data-order-token-dock aria-live="polite">Awaiting desk handoff</div>
+            <p class="order-stage-state" data-order-stage-state aria-live="polite">Order intake: context is connected and ready.</p>
+            <div class="order-novi-reaction" data-order-reaction data-novi-state="alert" aria-live="polite"><img src="/assets/novi/novi-alert.webp" alt="" class="order-novi-mark" data-novi-portrait width="72" height="72" loading="lazy" decoding="async"><span data-order-reaction-text>Novi is watching Order #8197 arrive.</span></div>
             <div class="order-controls" role="group" aria-label="Order Journey playback">
-              <button type="button" class="order-control-btn" data-order-play aria-pressed="false">Play</button>
-              <button type="button" class="order-control-btn" data-order-pause aria-pressed="false">Pause</button>
-              <button type="button" class="order-control-btn" data-order-replay>Replay</button>
+              <button type="button" class="order-control-btn cta-novi" data-order-play aria-pressed="false">Play</button>
+              <button type="button" class="order-control-btn cta-novi" data-order-pause aria-pressed="false">Pause</button>
+              <button type="button" class="order-control-btn cta-novi" data-order-replay>Replay</button>
             </div>
           </div>
           <ol class="order-steps" data-order-stage-list>
@@ -115,18 +186,18 @@
       </div>
     </section>
 
-    <section class="story-section story-novi" id="novi-section" aria-labelledby="novi-title">
+    <section class="story-section story-novi" id="scene-chaos" aria-labelledby="novi-title" data-scene-title="Chaos To Clarity">
       <div class="container-wide">
         <header class="story-section-heading story-section-heading-light"><p class="story-kicker">NOVI / OPERATING INTELLIGENCE</p><h2 id="novi-title">Twenty-six records. Three owner decisions.</h2><p>Novi reduces the noise, shows the reasoning, and leaves the decision where it belongs.</p></header>
         <div class="novi-reduction" data-novi-reduction>
-          <div class="record-field" aria-hidden="true"><span>Order hold</span><span>Bin count</span><span>Late reply</span><span>Lead time</span><span>Batch note</span><span>Pack queue</span><span>SKU conflict</span><span>Open PO</span><span>Runway</span><span>Carrier state</span><span>Order note</span><span>Stock move</span><span>Label job</span><span>Demand pace</span><span>Supplier</span><span>Location</span><span>Customer</span><span>Variant</span><span>Committed</span><span>Incoming</span><span>Batch #52</span><span>Order #8197</span><span>Pick list</span><span>Barcode</span><span>Conversation</span><span>Review</span></div>
+          <div class="record-field" aria-hidden="true"><span>Order hold</span><span>Bin count</span><span>Late reply</span><span data-decision-linked="1">Lead time</span><span>Batch note</span><span data-decision-linked="0">Pack queue</span><span>SKU conflict</span><span>Open PO</span><span data-decision-linked="1">Runway</span><span>Carrier state</span><span>Order note</span><span>Stock move</span><span data-decision-linked="0">Label job</span><span>Demand pace</span><span>Supplier</span><span>Location</span><span data-decision-linked="2">Customer</span><span>Variant</span><span>Committed</span><span>Incoming</span><span>Batch #52</span><span>Order #8197</span><span data-decision-linked="0">Pick list</span><span>Barcode</span><span data-decision-linked="2">Conversation</span><span data-decision-linked="2">Review</span></div>
           <div class="novi-brief-frame">
-            <div class="novi-brief-head"><div class="novi-mark" aria-label="Novi approved artwork pending">N</div><div><span>MONDAY MORNING BRIEF</span><strong>Here is what I would handle first.</strong></div><span class="story-demo-label">Demo</span></div>
+            <div class="novi-brief-head"><img src="/assets/novi/novi-serious.webp" alt="Novi reviewing the morning brief" class="novi-mark" width="52" height="52" loading="lazy" decoding="async"><div><span>MONDAY MORNING BRIEF</span><strong>Here is what I would handle first.</strong></div><span class="story-demo-label">Demo</span></div>
             <p class="novi-voice">There are 26 records asking for your attention. Only three need your decision today.</p>
             <ol class="decision-list">
-              <li><span class="decision-number">01</span><div><strong>Clear the fulfillment exception</strong><p>Order #8197 needs a label reprint before the pack lane can move.</p><button type="button" class="decision-action" aria-pressed="false">Preview exception</button></div></li>
-              <li><span class="decision-number">02</span><div><strong>Decide on Vanilla Base</strong><p>Six days of runway is shorter than the nine-day supplier lead time. I prepared the math.</p><button type="button" class="decision-action" aria-pressed="false">Preview reasoning</button></div></li>
-              <li><span class="decision-number">03</span><div><strong>Reply with full context</strong><p>The customer conversation is already connected to the order and shipment state.</p><button type="button" class="decision-action" aria-pressed="false">Preview context</button></div></li>
+              <li><span class="decision-number">01</span><div><strong>Clear the fulfillment exception</strong><p>Order #8197 needs a label reprint before the pack lane can move.</p><button type="button" class="decision-action cta-novi" aria-pressed="false">Preview exception</button></div></li>
+              <li><span class="decision-number">02</span><div><strong>Decide on Vanilla Base</strong><p>Six days of runway is shorter than the nine-day supplier lead time. I prepared the math.</p><button type="button" class="decision-action cta-novi" aria-pressed="false">Preview reasoning</button></div></li>
+              <li><span class="decision-number">03</span><div><strong>Reply with full context</strong><p>The customer conversation is already connected to the order and shipment state.</p><button type="button" class="decision-action cta-novi" aria-pressed="false">Preview context</button></div></li>
             </ol>
             <p class="novi-boundary" aria-live="polite">Novi prepares and recommends. Nothing is sent or changed without review.</p>
           </div>
@@ -134,7 +205,7 @@
       </div>
     </section>
 
-    <section class="story-section story-industry" aria-labelledby="industry-title">
+    <section class="story-section story-industry" id="scene-industry" aria-labelledby="industry-title" data-scene-title="One Workspace, Many Businesses">
       <div class="container-wide">
         <header class="story-section-heading"><p class="story-kicker">ONE OPERATING SYSTEM / YOUR LANGUAGE</p><h2 id="industry-title">The workspace changes to fit the business.</h2><p>The structure stays steady. Inventory, production, and alert language adapt to the work in front of you.</p></header>
         <div class="industry-story" data-story-industry>
@@ -150,45 +221,86 @@
       </div>
     </section>
 
-    <section class="story-section story-labels" aria-labelledby="labels-title">
+    <section class="story-section story-labels" id="scene-label" aria-labelledby="labels-title" data-scene-title="SKU, Barcode, Label, Scan">
       <div class="container-wide story-label-layout">
         <header class="story-section-heading"><p class="story-kicker">IDENTITY AT THE SHELF</p><h2 id="labels-title">From identifier gap to a scan-ready label.</h2><p>Review the proposed identifier, save approved changes in ShimmerStock, print a real thermal label, then scan back to product and location context.</p><p class="story-truth-note">Internal barcodes support your operations. They are not retail UPCs or GTINs.</p></header>
+        <ol class="label-sequence" data-label-sequence aria-label="SKU and label preparation steps">
+          <li data-label-stage="0" class="is-active">SKU missing</li>
+          <li data-label-stage="1">Novi prepared</li>
+          <li data-label-stage="2">Owner approved</li>
+          <li data-label-stage="3">Internal barcode</li>
+          <li data-label-stage="4">Label ready</li>
+        </ol>
         <div class="label-workflow" aria-label="Illustrative SKU and label workflow">
-          <div class="label-review"><div class="label-review-head"><span>VARIANT REVIEW</span><span class="order-status">Needs review</span></div><strong>Vanilla Cupcake Kit / 8 oz</strong><dl><div><dt>Current SKU</dt><dd>Missing</dd></div><div><dt>Prepared SKU</dt><dd>VCK-8OZ</dd></div><div><dt>Internal barcode</dt><dd>SS-008197-02</dd></div></dl><div class="label-actions"><span>Review</span><span>Approve</span><span>Save locally</span></div></div>
-          <div class="thermal-label" aria-label="Two by one inch thermal label preview"><span>VANILLA CUPCAKE KIT</span><strong>8 oz / VCK-8OZ</strong><div class="barcode-bars" aria-hidden="true"></div><small>SS-008197-02</small></div>
-          <div class="scan-result"><span class="scan-beam" aria-hidden="true"></span><p class="story-kicker">SCAN MATCH</p><strong>Vanilla Cupcake Kit / 8 oz</strong><dl><div><dt>On hand</dt><dd>23</dd></div><div><dt>Bin</dt><dd>A-07</dd></div><div><dt>Location</dt><dd>Main Store</dd></div></dl></div>
+          <div class="label-review"><div class="label-review-head"><span>VARIANT REVIEW</span><span class="order-status">Needs review</span></div><strong>Vanilla Cupcake Kit / 8 oz</strong><dl><div><dt>Current SKU</dt><dd>Missing</dd></div><div><dt>Prepared SKU</dt><dd>VCK-8OZ</dd></div><div><dt>Internal barcode</dt><dd>SS-008197-02</dd></div></dl><div class="label-actions"><button type="button" class="label-action-btn cta-novi" data-label-action="review" aria-pressed="false">Review</button><button type="button" class="label-action-btn cta-novi" data-label-action="approve" aria-pressed="false">Approve</button><button type="button" class="label-action-btn cta-novi" data-label-action="print" aria-pressed="false">Print Label</button></div><p class="label-interaction-output" data-label-output aria-live="polite">Novi prepared VCK-8OZ for owner review.</p></div>
+          <div class="thermal-printer" data-thermal-printer aria-label="Illustrative thermal printer"><span class="printer-slot"></span><span class="printer-bezel"></span></div>
+          <div class="thermal-label" data-thermal-label aria-label="Two by one inch thermal label preview"><span>VANILLA CUPCAKE KIT</span><strong>8 oz / VCK-8OZ</strong><div class="barcode-bars" aria-hidden="true"></div><small>SS-008197-02</small></div>
+          <div class="scan-result"><span class="scan-beam" aria-hidden="true"></span><p class="story-kicker">SCAN MATCH</p><strong>Vanilla Cupcake Kit / 8 oz</strong><dl><div><dt>On hand</dt><dd>23</dd></div><div><dt>Bin</dt><dd>A-07</dd></div><div><dt>Location</dt><dd>Main Store</dd></div></dl><button type="button" class="scan-trigger-btn cta-novi" data-scan-trigger>Scan it</button></div>
         </div>
       </div>
     </section>
 
-    <section class="story-section story-savings" aria-labelledby="savings-title">
-      <div class="container-wide savings-layout">
-        <header class="story-section-heading"><p class="story-kicker">CONSOLIDATION / ILLUSTRATIVE EXAMPLE</p><h2 id="savings-title">Count the tools. Then count what clarity replaces.</h2><p>Start with this clearly labeled example, then enter your current monthly software costs. The comparison is not a promised customer outcome.</p></header>
-        <form class="savings-calculator" id="savings-calculator">
-          <div class="cost-inputs"><label><span>Inventory tool</span><span class="currency-input">$ <input type="number" min="0" value="79" inputmode="decimal" data-cost></span></label><label><span>Shipping tool</span><span class="currency-input">$ <input type="number" min="0" value="59" inputmode="decimal" data-cost></span></label><label><span>Support inbox</span><span class="currency-input">$ <input type="number" min="0" value="49" inputmode="decimal" data-cost></span></label><label><span>Production tracker</span><span class="currency-input">$ <input type="number" min="0" value="45" inputmode="decimal" data-cost></span></label><label><span>Affiliate tracker</span><span class="currency-input">$ <input type="number" min="0" value="39" inputmode="decimal" data-cost></span></label></div>
-          <div class="savings-result" aria-live="polite"><div><span>Current stack</span><strong id="stack-cost">$271/mo</strong></div><span class="savings-operator" aria-hidden="true">−</span><div><span>Comparison plan</span><strong id="stack-plan">$149/mo</strong></div><span class="savings-operator" aria-hidden="true">=</span><div class="savings-total"><span>Potential difference</span><strong id="stack-savings">$122/mo</strong></div><p>Illustrative preset using the values above. Edit any field to use your own stack. Plan fit and final pricing are confirmed during Early Access.</p></div>
-        </form>
+    <section class="story-section story-missions" id="scene-brief" aria-labelledby="missions-title" data-scene-title="Morning Brief and Missions">
+      <div class="container-wide missions-layout">
+        <header class="story-section-heading"><p class="story-kicker">MORNING BRIEF / OWNER MISSIONS</p><h2 id="missions-title">Good morning. Here is what actually needs you.</h2><p>Novi prepares context, not auto-actions. Owner approval still gates every sensitive move.</p></header>
+        <div class="morning-brief-panel" aria-label="Morning brief summary">
+          <p class="morning-brief-lead">Healthy work recedes. The decisions stay visible.</p>
+          <ul class="morning-brief-metrics">
+            <li><strong>14</strong><span>ready to pack</span></li>
+            <li><strong>2</strong><span>need production</span></li>
+            <li><strong>1</strong><span>customer waiting</span></li>
+          </ul>
+        </div>
+        <div class="missions-grid">
+          <article class="mission-card"><p class="mission-index">Mission 01</p><h3>Get today's orders out</h3><p>Review the label reprint exception and clear the fulfillment hold for Order #8197.</p><div class="mission-systems" aria-hidden="true"><span>Orders</span><span>Fulfillment</span><span>Labels</span></div><button type="button" class="mission-btn cta-novi" data-mission-preview="0">Preview mission</button></article>
+          <article class="mission-card"><p class="mission-index">Mission 02</p><h3>Restock best sellers</h3><p>Validate runway, lead time, and recommended quantity before committing to the reorder.</p><div class="mission-systems" aria-hidden="true"><span>Inventory</span><span>Supplier timing</span><span>Production</span></div><button type="button" class="mission-btn cta-novi" data-mission-preview="1">Preview mission</button></article>
+          <article class="mission-card"><p class="mission-index">Mission 03</p><h3>Send context-rich replies</h3><p>Confirm customer response with linked shipment and operational state before sending.</p><div class="mission-systems" aria-hidden="true"><span>Customer care</span><span>Shipment</span><span>Order context</span></div><button type="button" class="mission-btn cta-novi" data-mission-preview="2">Preview mission</button></article>
+        </div>
+        <p class="mission-preview-output" data-mission-preview-output aria-live="polite">Mission previews are read-only until owner approval.</p>
       </div>
     </section>
 
-    <section class="story-section story-trust" aria-labelledby="trust-title">
+    <section class="story-section story-trust" id="scene-trust" aria-labelledby="trust-title" data-scene-title="Trust and Boundaries">
       <div class="container-wide trust-layout">
         <header class="story-section-heading story-section-heading-light"><p class="story-kicker">THE QUIET PART / BUILT IN</p><h2 id="trust-title">Operational clarity is only useful when the boundaries are real.</h2></header>
-        <div class="story-trust-stack">
-          <dl class="trust-list"><div><dt>Tenant scoped</dt><dd>Business data access stays inside the active business boundary.</dd></div><div><dt>Role aware</dt><dd>Permissions govern who can read, review, and change operational records.</dd></div><div><dt>Encrypted</dt><dd>Credential material uses encrypted handling and controlled access.</dd></div><div><dt>Read first</dt><dd>Shopify Early Access remains read-only by default and real stores stay disconnected until approved.</dd></div><div><dt>Truth labeled</dt><dd>Live, Beta, Early Access, Demo, and Planned mean different things here.</dd></div><div><dt>Owner approved</dt><dd>Novi prepares and recommends; sensitive actions require explicit review.</dd></div></dl>
-          <article class="story-people" id="people-behind-the-colors" aria-labelledby="people-title">
-            <p class="story-kicker">PEOPLE BEHIND THE COLORS</p>
-            <h3 id="people-title">Built with heart. Run with discipline.</h3>
-            <p><strong>Pink</strong> leads with confident owner energy. <strong>Purple</strong> and <strong>green</strong> carry family encouragement and forward drive. <strong>Navy</strong> and <strong>soft gray</strong> keep the system grounded, calm, and trustworthy.</p>
-            <p>Novi brings those qualities together into one partner that helps orchestrate the work without pretending every answer is automatic.</p>
-          </article>
-        </div>
-        <a class="story-text-link story-text-link-light" href="/security">Read the security posture <span aria-hidden="true">→</span></a>
+        <dl class="trust-list"><div><dt>Tenant scoped</dt><dd>Business data access stays inside the active business boundary.</dd></div><div><dt>Role aware</dt><dd>Permissions govern who can read, review, and change operational records.</dd></div><div><dt>Encrypted</dt><dd>Credential material uses encrypted handling and controlled access.</dd></div><div><dt>Read first</dt><dd>Shopify Early Access remains read-only by default and real stores stay disconnected until approved.</dd></div><div><dt>Truth labeled</dt><dd>Live, Beta, Early Access, Demo, and Planned mean different things here.</dd></div><div><dt>Owner approved</dt><dd>Novi prepares and recommends; sensitive actions require explicit review.</dd></div></dl>
+        <a class="story-text-link story-text-link-light cta-utility" href="/security">Read the security posture <span aria-hidden="true">→</span></a>
       </div>
     </section>
 
-    <section class="story-section story-final" aria-labelledby="final-title">
-      <div class="container story-final-inner"><p class="story-kicker">PRIVATE EARLY ACCESS</p><h2 id="final-title">Your business grew up. <em>Your back office should too.</em></h2><p>ShimmerStock is onboarding product businesses in managed cohorts so the operating system can meet real workflow pressure with honest status labels and careful support.</p><div class="story-dream-grant" id="dream-grant-mention"><p class="story-kicker">DREAM GRANT / COMING SOON</p><p>Dream Grant extends the same support-forward spirit that shaped ShimmerStock by backing one product founder each round with practical momentum.</p><a class="story-text-link" href="/dream-grant/">See Dream Grant updates <span aria-hidden="true">→</span></a></div><div class="story-actions story-actions-centered"><a class="btn btn-primary" href="/early-access">Join Early Access</a><a class="btn btn-secondary" href="/product">See the platform</a></div><p class="story-provenance">No fake urgency. No public spot count. Applications are reviewed for rollout fit.</p></div>
+    <section class="story-section story-people" id="people-behind-the-colors" aria-labelledby="people-title" data-scene-title="People Behind the Colors">
+      <div class="container-wide people-layout">
+        <span id="scene-people" aria-hidden="true"></span>
+        <header class="story-section-heading"><p class="story-kicker">PEOPLE BEHIND THE COLORS</p><h2 id="people-title">Living support, translated into operating clarity.</h2><p>Pink carries Monica's spark. Purple reflects steady support. Green keeps momentum forward. Navy and grey ground every hard decision in partnership and truth.</p></header>
+        <div class="people-grid">
+          <article class="people-card people-card-pink"><h3>Pink: Spark in motion</h3><p>Creative urgency keeps work moving when the queue changes by the hour.</p></article>
+          <article class="people-card people-card-purple"><h3>Purple: Steady support</h3><p>Calm structure keeps priorities legible when the day gets noisy.</p></article>
+          <article class="people-card people-card-green"><h3>Green: Forward drive</h3><p>Practical momentum turns recommendations into approved, tracked work.</p></article>
+        </div>
+        <a class="btn btn-secondary cta-secondary" href="/about#people-behind-the-colors">Read the full story</a>
+      </div>
+    </section>
+
+    <section class="story-section story-dream-grant" id="scene-grant" aria-labelledby="dream-grant-title" data-scene-title="Dream Grant">
+      <div class="container story-dream-grant-inner">
+        <p class="story-kicker">DREAM GRANT</p>
+        <h2 id="dream-grant-title">I was supported while building my dream. I want to help someone else keep building theirs.</h2>
+        <p class="story-dream-grant-lead">Monica continues to have people in her life who believe in her, encourage her ideas, keep her grounded, and help her keep going. The Dream Grant is one way ShimmerStock can pass some of that support forward to another product-business founder.</p>
+        <p class="story-dream-grant-status"><span class="order-status">Coming Soon</span></p>
+        <div class="story-actions">
+          <a class="btn btn-secondary cta-secondary" href="/dream-grant">Dream Grant page →</a>
+          <a class="story-text-link cta-utility" href="/about#people-behind-the-colors">People Behind the Colors →</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="story-section story-final" id="scene-resolution" aria-labelledby="final-title" data-scene-title="Back At Novi's Desk">
+      <div class="container story-final-inner">
+        <div class="story-resolution" data-desk-resolution>
+          <img src="/assets/novi/novi-cozy-end.webp" alt="Novi, ShimmerStock's tuxedo-cat mascot, settled back at her desk" class="novi-desk-portrait novi-desk-portrait-small" width="132" height="110" loading="lazy" decoding="async">
+          <p class="story-resolution-text">Order #8197 shipped. The exception is cleared. Novi is back at her desk in cozy mode. <strong>You're caught up.</strong></p>
+        </div>
+        <p class="story-kicker">PRIVATE EARLY ACCESS</p><h2 id="final-title">Your business grew up. <em>Your back office should too.</em></h2><p>ShimmerStock is onboarding product businesses in managed cohorts so the operating system can meet real workflow pressure with honest status labels and careful support.</p><div class="story-actions story-actions-centered"><a class="btn btn-primary cta-primary" href="/early-access">Join Early Access</a><a class="btn btn-secondary cta-secondary" href="/product">See the platform</a></div><p class="story-provenance">No fake urgency. No public spot count. Applications are reviewed for rollout fit.</p></div>
     </section>
   </main>
 
