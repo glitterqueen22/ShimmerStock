@@ -148,6 +148,14 @@
   ];
 
   const orderStates = ["alert", "focused", "thinking", "serious", "success", "cozy-end"];
+  const orderStageMessages = [
+    "Order intake: context is connected and ready.",
+    "Inventory check: six days of Vanilla Base runway is visible.",
+    "Production context: Batch #52 dependencies are now in view.",
+    "One thing before this moves on: this label needs a reprint first.",
+    "Shipment state: exception cleared and handoff complete.",
+    "Customer context: reply is now fully connected to order and shipment state."
+  ];
 
   const NOVI_ASSET_MANIFEST = {
     idle: "/assets/novi/novi-idle-desk.webp",
@@ -164,6 +172,57 @@
   let orderTokenMoved = false;
   let deskActivationStarted = false;
   const deskAmbientTweens = [];
+
+  function initSceneFilmNav() {
+    const nav = story.querySelector(".story-film-nav");
+    if (!nav) return;
+
+    const buttons = Array.from(nav.querySelectorAll("[data-scene-jump]"));
+    const readout = nav.querySelector("[data-scene-readout]");
+    const sections = Array.from(story.querySelectorAll("[data-scene-title]"));
+    const byId = new Map();
+
+    sections.forEach(function (section) {
+      if (section.id) byId.set(`#${section.id}`, section);
+    });
+
+    function setActive(hash) {
+      buttons.forEach(function (button) {
+        button.classList.toggle("is-active", button.getAttribute("data-scene-jump") === hash);
+      });
+      const scene = byId.get(hash);
+      if (scene && readout) {
+        readout.textContent = `Scene: ${scene.getAttribute("data-scene-title")}`;
+        story.setAttribute("data-active-scene", scene.id);
+      }
+    }
+
+    buttons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        const hash = button.getAttribute("data-scene-jump");
+        const target = hash ? byId.get(hash) : null;
+        if (!target) return;
+        target.scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "start" });
+        setActive(hash);
+      });
+    });
+
+    if (typeof IntersectionObserver === "undefined") {
+      if (buttons[0]) setActive(buttons[0].getAttribute("data-scene-jump"));
+      return;
+    }
+
+    const observer = new IntersectionObserver(function (entries) {
+      const visible = entries
+        .filter(function (entry) { return entry.isIntersecting; })
+        .sort(function (a, b) { return b.intersectionRatio - a.intersectionRatio; })[0];
+      if (!visible || !visible.target.id) return;
+      setActive(`#${visible.target.id}`);
+    }, { threshold: [0.35, 0.5, 0.7] });
+
+    sections.forEach(function (section) { observer.observe(section); });
+    if (buttons[0]) setActive(buttons[0].getAttribute("data-scene-jump"));
+  }
 
   function applyNoviAsset(portraits, src, useMotion) {
     const doSwap = function () {
@@ -429,6 +488,8 @@
     const progress = story.querySelector("[data-order-progress]");
     const reactionEl = story.querySelector("[data-order-reaction]");
     const reactionText = story.querySelector("[data-order-reaction-text]");
+    const stageState = story.querySelector("[data-order-stage-state]");
+    const anchor = story.querySelector(".order-anchor");
     const playBtn = story.querySelector("[data-order-play]");
     const pauseBtn = story.querySelector("[data-order-pause]");
     const replayBtn = story.querySelector("[data-order-replay]");
@@ -451,6 +512,8 @@
       else progress.style.transform = "scaleX(" + scale + ")";
       if (reactionText) reactionText.textContent = orderReactions[activeIndex] || orderReactions[0];
       if (reactionEl) reactionEl.dataset.noviState = orderStates[activeIndex] || orderStates[0];
+      if (stageState) stageState.textContent = orderStageMessages[activeIndex] || orderStageMessages[0];
+      if (anchor) anchor.setAttribute("data-order-stage", String(activeIndex));
       const deskStage = story.querySelector("[data-desk-scene] .desk-stage");
       if (deskStage && deskStage.dataset.deskState !== "idle") {
         swapNoviPortrait(orderStates[activeIndex] || orderStates[0]);
@@ -499,15 +562,41 @@
     const list = story.querySelector("[data-label-sequence]");
     const scanBtn = story.querySelector("[data-scan-trigger]");
     const beam = story.querySelector(".scan-beam");
+    const actionButtons = Array.from(story.querySelectorAll("[data-label-action]"));
+    const thermalLabel = story.querySelector("[data-thermal-label]");
+    const output = story.querySelector("[data-label-output]");
     if (!list) return;
 
     const stages = Array.from(list.querySelectorAll("[data-label-stage]"));
     let stageIndex = 0;
     let timer = null;
+    let printed = false;
 
     function render(index) {
       stageIndex = index % stages.length;
       stages.forEach((stage, i) => stage.classList.toggle("is-active", i === stageIndex));
+    }
+
+    function setActionPressed(key) {
+      actionButtons.forEach(function (button) {
+        const pressed = button.getAttribute("data-label-action") === key;
+        button.setAttribute("aria-pressed", pressed ? "true" : "false");
+      });
+    }
+
+    function printLabel(triggeredByUser) {
+      printed = true;
+      render(stages.length - 1);
+      setActionPressed("print");
+      if (output) {
+        output.textContent = triggeredByUser
+          ? "Thermal label printed. Novi is ready for scan verification."
+          : "Novi printed the thermal label before scan verification.";
+      }
+      if (thermalLabel) thermalLabel.classList.add("is-printed");
+      if (window.gsap && !reduceMotion.matches && thermalLabel) {
+        window.gsap.fromTo(thermalLabel, { y: -42, autoAlpha: 0.4 }, { y: 0, autoAlpha: 1, duration: 0.38, ease: "power2.out" });
+      }
     }
 
     if (!reduceMotion.matches) {
@@ -521,9 +610,38 @@
       });
     });
 
+    actionButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        const action = button.getAttribute("data-label-action");
+        if (!action) return;
+        if (timer) { clearInterval(timer); timer = null; }
+
+        if (action === "review") {
+          setActionPressed("review");
+          render(0);
+          if (output) output.textContent = "Review mode: current identifier gaps are visible.";
+          return;
+        }
+
+        if (action === "approve") {
+          setActionPressed("approve");
+          render(2);
+          if (output) output.textContent = "Approved for save: VCK-8OZ with internal barcode SS-008197-02.";
+          return;
+        }
+
+        if (action === "print") {
+          printLabel(true);
+        }
+      });
+    });
+
     if (scanBtn && beam) {
       scanBtn.addEventListener("click", function () {
+        if (!printed) printLabel(false);
+        setActionPressed("print");
         render(stages.length - 1);
+        if (output) output.textContent = "Scan matched: product, variant, SKU, barcode, quantity, and bin are connected.";
         if (window.gsap && !reduceMotion.matches) {
           window.gsap.timeline()
             .set(beam, { autoAlpha: 1, y: 0 })
@@ -548,6 +666,12 @@
     buttons.forEach((button) => {
       button.addEventListener("click", function () {
         const index = Number(button.getAttribute("data-mission-preview")) || 0;
+        const card = button.closest(".mission-card");
+        buttons.forEach(function (item) {
+          const owner = item.closest(".mission-card");
+          if (owner) owner.classList.remove("is-active");
+        });
+        if (card) card.classList.add("is-active");
         output.textContent = messages[index] || messages[0];
       });
     });
@@ -690,6 +814,7 @@
   }
 
   initIndustryTabs();
+  initSceneFilmNav();
   initDecisionPreviews();
   initOrderJourneyPlayer();
   initNoviDeskScene();

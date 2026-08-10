@@ -49,3 +49,5 @@ backups/
 *.tmp
 tmp/
 client-ts-errors.txt
+
+qa-results/

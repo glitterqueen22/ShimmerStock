@@ -15,6 +15,71 @@
   background: var(--cream);
 }
 
+.story-film-nav {
+  position: fixed;
+  top: 105px;
+  right: clamp(0.5rem, 1.8vw, 1.4rem);
+  z-index: 35;
+  width: min(190px, 42vw);
+  padding: 0.8rem;
+  border: 1px solid rgba(16, 37, 63, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 253, 249, 0.78);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 28px rgba(16, 37, 63, 0.16);
+}
+
+.story-film-label {
+  margin: 0;
+  color: var(--violet);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+}
+
+.story-film-list {
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.32rem;
+}
+
+.story-film-list button {
+  min-height: 34px;
+  width: 100%;
+  border: 1px solid rgba(16, 37, 63, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.story-film-list button:hover {
+  border-color: rgba(236, 72, 153, 0.48);
+  color: var(--ink);
+}
+
+.story-film-list button:focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 2px;
+}
+
+.story-film-list button.is-active {
+  border-color: var(--pink);
+  background: rgba(236, 72, 153, 0.14);
+  color: var(--ink);
+}
+
+.story-film-current {
+  margin: 0.58rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.66rem;
+}
+
 .story-opening {
   position: relative;
   background:
@@ -179,6 +244,24 @@
   padding: 8rem 0;
   background: #f5efe8;
   border-top: 1px solid var(--story-rule);
+}
+
+.story-opening,
+.story-assembly,
+.story-section {
+  position: relative;
+}
+
+.story-opening::after,
+.story-section::before {
+  content: "";
+  position: absolute;
+  left: clamp(1.2rem, 3.8vw, 2.7rem);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(236, 72, 153, 0), rgba(236, 72, 153, 0.22), rgba(107, 33, 168, 0));
+  pointer-events: none;
 }
 
 .story-stage-wrap {
@@ -499,6 +582,27 @@
   border-color: var(--green-mid);
   color: #d3f6e6;
   background: rgba(35, 157, 102, 0.2);
+}
+
+.order-stage-state {
+  margin: 0.72rem 0 0;
+  min-height: 42px;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.74rem;
+}
+
+.order-anchor[data-order-stage="3"] .order-stage-state {
+  background: rgba(244, 63, 94, 0.2);
+  color: #ffe4ea;
+}
+
+.order-anchor[data-order-stage="4"] .order-stage-state,
+.order-anchor[data-order-stage="5"] .order-stage-state {
+  background: rgba(35, 157, 102, 0.2);
+  color: #d3f6e6;
 }
 
 .order-novi-reaction {
@@ -959,20 +1063,67 @@
   margin-top: 1rem;
 }
 
-.label-actions span {
+.label-action-btn {
   min-height: 42px;
   display: grid;
   place-items: center;
   padding: 0.3rem;
   border: 1px solid var(--line-strong);
   border-radius: 5px;
+  background: #fff;
   color: var(--violet);
   font-size: 0.68rem;
   font-weight: 800;
   text-align: center;
+  cursor: pointer;
+}
+
+.label-action-btn[aria-pressed="true"] {
+  border-color: var(--pink);
+  background: rgba(236, 72, 153, 0.1);
+  color: var(--ink);
+}
+
+.label-interaction-output {
+  margin: 0.8rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.thermal-printer {
+  position: relative;
+  min-height: 86px;
+  border: 1px solid rgba(16, 37, 63, 0.28);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #eef2f7, #dfe7f2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.printer-slot {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 28px;
+  height: 8px;
+  border-radius: 999px;
+  background: #314768;
+}
+
+.printer-bezel {
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  bottom: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(16, 37, 63, 0.22);
 }
 
 .thermal-label {
+  position: relative;
+  transform: translateY(-44px) scale(0.97);
+  transform-origin: top center;
+  opacity: 0.48;
   min-height: 180px;
   padding: 0.8rem;
   display: flex;
@@ -983,6 +1134,12 @@
   color: #111;
   box-shadow: 6px 6px 0 #dfe4e7;
   font-family: Arial, sans-serif;
+}
+
+.thermal-label.is-printed {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+  transition: transform 420ms ease, opacity 280ms ease;
 }
 
 .thermal-label span,
@@ -2017,6 +2174,68 @@
   background: linear-gradient(180deg, #fcf7fa, #fff);
 }
 
+.morning-brief-panel {
+  margin-top: 1.3rem;
+  padding: 1rem;
+  border: 1px solid rgba(16, 37, 63, 0.14);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(16, 37, 63, 0.04), rgba(236, 72, 153, 0.06));
+}
+
+.morning-brief-lead {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.morning-brief-metrics {
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.morning-brief-metrics li {
+  padding: 0.75rem;
+  border: 1px solid rgba(16, 37, 63, 0.12);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.morning-brief-metrics strong {
+  display: block;
+  font-family: "Iowan Old Style", serif;
+  font-size: 1.46rem;
+  color: var(--navy-deep);
+}
+
+.morning-brief-metrics span {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.mission-systems {
+  margin-top: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.mission-systems span {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 37, 63, 0.14);
+  color: var(--ink-soft);
+  font-size: 0.67rem;
+  font-weight: 800;
+}
+
 .missions-grid {
   margin-top: 1.7rem;
   display: grid;
@@ -2030,6 +2249,11 @@
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 10px 24px rgba(41, 37, 47, 0.08);
+}
+
+.mission-card.is-active {
+  border-color: rgba(236, 72, 153, 0.46);
+  box-shadow: 0 16px 30px rgba(236, 72, 153, 0.16);
 }
 
 .mission-index {
@@ -2171,6 +2395,10 @@
 }
 
 @media (max-width: 900px) {
+  .story-film-nav {
+    display: none;
+  }
+
   .desk-scene {
     min-height: 0;
   }
@@ -2205,6 +2433,10 @@
 
   .missions-grid,
   .people-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .morning-brief-metrics {
     grid-template-columns: 1fr;
   }
 
@@ -2244,6 +2476,12 @@
   .story-motion .desk-notification {
     opacity: 1 !important;
     transform: none !important;
+  }
+
+  .thermal-label,
+  .thermal-label.is-printed {
+    transform: none;
+    opacity: 1;
   }
 
   .desk-props,

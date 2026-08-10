@@ -179,3 +179,63 @@ Generated owner acceptance artifacts for this correction pass:
 - `qa-results/novi-desk-acceptance/reduced-motion-equivalent-static-state.png`
 - `qa-results/novi-desk-acceptance/video/page@2851358ae78b2c3ac877f0607b5c3cd7.webm`
 - `qa-results/novi-desk-acceptance/novi-desk-acceptance-report.json`
+
+## 8) Final cinematic transformation pass (A Day With Novi)
+
+Date: 2026-08-10
+Branch: feat/homepage-day-with-novi-cinematic
+Stop condition: owner visual review package produced, no auto-merge.
+
+### Exact commands and outcomes
+
+Skill-guided design invocation executed for this final pass:
+- `python3 .github/prompts/ui-ux-pro-max/scripts/search.py "cinematic connected homepage narrative one day with novi operational clarity order continuity pink-led navy-grounded" --design-system -p "ShimmerStock" --page "homepage-final-cinematic" --variance 9 --motion 8 --density 5`
+
+Homepage contract stabilization after cinematic ID migration:
+- Restored compatibility anchor and canonical section IDs for existing tests and QA selectors (`#novi-desk` and `#people-behind-the-colors`).
+- Updated final QA capture selector to target visible people section in this branch.
+
+Evidence capture command executed:
+- `node scripts/qa-homepage-day-with-novi.mjs`
+
+### Final owner evidence artifacts
+
+- `qa-results/day-with-novi-final/novi-idle-scene-desktop.png`
+- `qa-results/day-with-novi-final/novi-alert-scene-desktop.png`
+- `qa-results/day-with-novi-final/novi-work-scene-order-journey-desktop.png`
+- `qa-results/day-with-novi-final/exception-scene-desktop.png`
+- `qa-results/day-with-novi-final/chaos-to-3-decisions-desktop.png`
+- `qa-results/day-with-novi-final/label-scan-desktop.png`
+- `qa-results/day-with-novi-final/people-behind-colors-desktop.png`
+- `qa-results/day-with-novi-final/dream-grant-desktop.png`
+- `qa-results/day-with-novi-final/final-cozy-novi-desktop.png`
+- `qa-results/day-with-novi-final/desktop-fullpage.png`
+- `qa-results/day-with-novi-final/mobile-idle-scene.png`
+- `qa-results/day-with-novi-final/mobile-alert-scene.png`
+- `qa-results/day-with-novi-final/mobile-fullpage.png`
+- `qa-results/day-with-novi-final/reduced-motion-desk-equivalent.png`
+- `qa-results/day-with-novi-final/reduced-motion-fullpage.png`
+- `qa-results/day-with-novi-final/video/page@c0a1dd2cc8ac7bd9248d979ffe2f7794.webm`
+- `qa-results/day-with-novi-final/day-with-novi-report.json`
+
+Reported performance and accessibility from this run:
+- LCP: `256ms`
+- CLS: `0`
+- INP: `2ms`
+- axe violations: `1`
+- axe incomplete: `2`
+
+### Required verification commands executed for this pass
+
+- `bun install --frozen-lockfile` (pass)
+- `node scripts/redact-secret-report.mjs --check` (pass)
+- `bun run check:safety` (pass)
+- `bun run typecheck` (pass)
+- `bun test` (pass: 431 pass, 0 fail)
+- `bun run build` (pass; existing chunk-size warning remains)
+- `git diff --check` (pass)
+
+### Merge policy confirmation
+
+- This final cinematic homepage pass is packaged for owner visual review.
+- Auto-merge is intentionally not requested.
