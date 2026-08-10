@@ -35,7 +35,37 @@
       <p class="story-film-current" data-scene-readout>Scene: Enter ShimmerStock</p>
     </aside>
 
-    <section class="story-opening" aria-labelledby="story-title" id="scene-enter" data-scene-title="Enter ShimmerStock">
+    <section class="story-opening story-opening--cinema" aria-labelledby="story-title" id="scene-enter" data-scene-title="Enter ShimmerStock">
+      <!-- Cinematic warehouse entrance stage -->
+      <div class="cinema-stage" aria-hidden="true" data-cinema-stage>
+        <div class="cinema-room" data-cinema-room>
+          <div class="cinema-ceiling"></div>
+          <div class="cinema-wall"></div>
+          <div class="cinema-shelves cinema-shelves-l">
+            <div class="cinema-shelf"><span class="cinema-box cinema-box-tall"></span><span class="cinema-box"></span><span class="cinema-box cinema-box-wide"></span></div>
+            <div class="cinema-shelf"><span class="cinema-box"></span><span class="cinema-box cinema-box-tall"></span></div>
+          </div>
+          <div class="cinema-shelves cinema-shelves-r">
+            <div class="cinema-shelf"><span class="cinema-box cinema-box-wide"></span><span class="cinema-box cinema-box-tall"></span><span class="cinema-box"></span></div>
+            <div class="cinema-shelf"><span class="cinema-box cinema-box-tall"></span><span class="cinema-box"></span></div>
+          </div>
+          <div class="cinema-spotlight"></div>
+          <div class="cinema-floor-lines"></div>
+          <div class="cinema-desk-area">
+            <div class="cinema-desk-objects">
+              <span class="cinema-obj cinema-obj-laptop"></span>
+              <span class="cinema-obj cinema-obj-monitor"><span class="cinema-monitor-glow"></span></span>
+              <span class="cinema-obj cinema-obj-coffee"></span>
+              <span class="cinema-obj cinema-obj-scanner"></span>
+              <span class="cinema-obj cinema-obj-boxes"></span>
+            </div>
+            <div class="cinema-desk-surface"></div>
+            <!-- Novi full-body character using approved sprite sheet (idle pose / CEO blazer) -->
+            <div class="cinema-novi-character" data-cinema-novi role="img" aria-label="Novi, ShimmerStock's tuxedo-cat mascot in her navy CEO blazer, at her operations desk"></div>
+          </div>
+          <div class="cinema-atmosphere" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+      </div>
       <div class="story-opening-copy container-wide">
         <div class="story-hero-copy">
       <span id="novi-desk" aria-hidden="true"></span>
@@ -278,6 +308,12 @@
         <p class="story-kicker">PRIVATE EARLY ACCESS</p><h2 id="final-title">Your business grew up. <em>Your back office should too.</em></h2><p>ShimmerStock is onboarding product businesses in managed cohorts so the operating system can meet real workflow pressure with honest status labels and careful support.</p><div class="story-actions story-actions-centered"><a class="btn btn-primary cta-primary" href="/early-access">Join Early Access</a><a class="btn btn-secondary cta-secondary" href="/product">See the platform</a></div><p class="story-provenance">No fake urgency. No public spot count. Applications are reviewed for rollout fit.</p></div>
     </section>
   </main>
+
+  <!-- Floating Novi: persists through the scroll journey showing her current state -->
+  <div class="novi-float" data-novi-float aria-live="polite" aria-label="Novi status">
+    <div class="novi-float-portrait" data-novi-float-portrait></div>
+    <span class="novi-float-label" data-novi-float-label>Novi is watching.</span>
+  </div>
 
   <div data-marketing-footer></div>
   <script src="/assets/marketing.js" defer></script>

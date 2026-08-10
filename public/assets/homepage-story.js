@@ -697,6 +697,109 @@
     });
   }
 
+  /* ── Cinema entrance: warehouse zoom-in on page load ──────── */
+  function initCinemaEntrance() {
+    if (!window.gsap || reduceMotion.matches) return;
+    const room = document.querySelector("[data-cinema-room]");
+    if (!room) return;
+    const gsap = window.gsap;
+
+    // Zoom camera from "standing back in the warehouse" to arriving at the desk
+    gsap.fromTo(room,
+      { scale: 1.22, transformOrigin: "50% 68%" },
+      { scale: 1,    transformOrigin: "50% 68%", duration: 2.8, ease: "expo.out", clearProps: "transform" }
+    );
+
+    // Desk area + Novi arrive slightly after the room settles
+    const deskArea = document.querySelector(".cinema-desk-area");
+    const noviChar = document.querySelector("[data-cinema-novi]");
+    if (deskArea) {
+      gsap.fromTo(deskArea, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 1.4, delay: 0.6, ease: "power2.out" });
+    }
+    if (noviChar) {
+      gsap.fromTo(noviChar, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 1.0, delay: 1.0, ease: "power3.out" });
+    }
+
+    // Text copy fades in after the camera arrives
+    const heroCopy = story.querySelector(".story-hero-copy");
+    if (heroCopy) {
+      gsap.fromTo(heroCopy, { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 1.0, delay: 1.2, ease: "power2.out" });
+    }
+  }
+
+  /* ── Floating Novi thread: keeps Novi present during journey ─ */
+  function initFloatingNoviThread() {
+    const floatEl    = document.querySelector("[data-novi-float]");
+    const floatImg   = document.querySelector("[data-novi-float-portrait]");
+    const floatLabel = document.querySelector("[data-novi-float-label]");
+    if (!floatEl || !floatImg || !floatLabel) return;
+
+    // Map Novi state → portrait URL and label copy
+    const stateMap = {
+      idle:    { src: "/assets/novi/novi-idle-desk.webp",  label: "Novi is watching." },
+      alert:   { src: "/assets/novi/novi-alert.webp",      label: "Order arrived." },
+      focused: { src: "/assets/novi/novi-focused.webp",    label: "Novi is focused." },
+      serious: { src: "/assets/novi/novi-serious.webp",    label: "Exception flagged." },
+      success: { src: "/assets/novi/novi-success.webp",    label: "Order shipped!" },
+      cozy:    { src: "/assets/novi/novi-cozy-end.webp",   label: "Caught up." }
+    };
+
+    function updateFloat(state) {
+      const info = stateMap[state] || stateMap.idle;
+      floatImg.style.backgroundImage   = "url(" + info.src + ")";
+      floatLabel.textContent            = info.label;
+    }
+
+    function showFloat() { floatEl.classList.add("is-visible"); }
+    function hideFloat() { floatEl.classList.remove("is-visible"); }
+
+    updateFloat("idle");
+
+    if (typeof IntersectionObserver === "undefined") return;
+
+    // Show float when Order Journey enters view; hide when back at desk or resolution
+    const orderSection = story.querySelector("[data-order-story]");
+    const deskSection  = story.querySelector("[data-desk-scene]");
+    const finalSection = story.querySelector(".story-final");
+
+    const showObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) showFloat();
+      });
+    }, { threshold: 0.15 });
+
+    const hideObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) hideFloat();
+      });
+    }, { threshold: 0.25 });
+
+    if (orderSection) showObserver.observe(orderSection);
+    if (deskSection)  hideObserver.observe(deskSection);
+    if (finalSection) hideObserver.observe(finalSection);
+
+    // Sync float portrait with Novi desk state changes
+    const origSwap = typeof swapNoviPortrait === "function" ? swapNoviPortrait : null;
+    // Patch swapNoviPortrait to also update the float
+    const stateObserver = new MutationObserver(function () {
+      const stage = story.querySelector(".desk-stage");
+      if (!stage) return;
+      const currentState = stage.dataset.deskState || "idle";
+      updateFloat(currentState);
+      // Also update cinema Novi character sprite position
+      const cinemaNovi = document.querySelector("[data-cinema-novi]");
+      if (cinemaNovi) cinemaNovi.dataset.state = currentState;
+    });
+    const deskStage = story.querySelector(".desk-stage");
+    if (deskStage) stateObserver.observe(deskStage, { attributes: true, attributeFilter: ["data-desk-state"] });
+
+    // Also update float from Order Journey Novi reaction state changes
+    const orderNovi = story.querySelector("[data-order-reaction]");
+    if (orderNovi) {
+      stateObserver.observe(orderNovi, { attributes: true, attributeFilter: ["data-novi-state"] });
+    }
+  }
+
   function initializeMotion() {
     if (!window.gsap || !window.ScrollTrigger || reduceMotion.matches) return null;
 
@@ -820,6 +923,8 @@
   initNoviDeskScene();
   initSkuSequence();
   initMissionPreviews();
+  initCinemaEntrance();
+  initFloatingNoviThread();
   const motionContext = initializeMotion();
 
   window.addEventListener("pagehide", function () {
