@@ -883,7 +883,7 @@ button:focus-visible {
   gap: 1rem;
 }
 
-.footer-grid h4 {
+.footer-grid h3 {
   font-family: "Iowan Old Style", "Palatino Linotype", serif;
   margin: 0 0 0.45rem;
 }
@@ -898,6 +898,10 @@ button:focus-visible {
 .small {
   font-size: 0.84rem;
   color: var(--muted);
+}
+
+.site-footer .small {
+  color: #655d70;
 }
 
 .savings-grid {

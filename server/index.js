@@ -3801,6 +3801,9 @@ app.post('/api/waitlist/join', (req, res) => {
 
 // Landing page (public/) — served BEFORE the SPA so / goes to the marketing page
 const publicPath = path.join(import.meta.dirname, "..", "public");
+const gsapDistPath = path.join(import.meta.dirname, "..", "node_modules", "gsap", "dist");
+app.get("/assets/vendor/gsap/gsap.min.js", (_req, res) => res.sendFile(path.join(gsapDistPath, "gsap.min.js")));
+app.get("/assets/vendor/gsap/ScrollTrigger.min.js", (_req, res) => res.sendFile(path.join(gsapDistPath, "ScrollTrigger.min.js")));
 app.use(express.static(publicPath));
 
 // ── Static files & SPA fallback ───────────────────────────────────────
