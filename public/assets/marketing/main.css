@@ -1167,6 +1167,21 @@ button:focus-visible {
   margin-bottom: 0.45rem;
 }
 
+.novi-teaser-heading {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.novi-teaser-avatar {
+  width: 58px;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(91, 63, 140, 0.18);
+}
+
 .signal-card--novi-teaser .signal-actions a {
   color: var(--ink);
   text-decoration: none;
@@ -1278,33 +1293,32 @@ button:focus-visible {
 }
 
 .signal-head {
-  background: #e5f4ea;
-  color: #2f6f51;
-  border-color: #b8d9c7;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.65rem;
   align-items: center;
   margin-bottom: 0.65rem;
 }
-  background: #eee6ff;
-  color: #5b3f8c;
-  border-color: #d0c3ef;
+
+.signal-list {
+  list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
-  background: #f0ebfb;
-  color: #6d55a6;
-  border-color: #d9cfee;
+  gap: 0.45rem;
+}
+
 .signal-list li {
   display: flex;
   justify-content: space-between;
-  background: #edf5ef;
-  color: #4f7e61;
-  border-color: #cfe1d6;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.58rem 0.65rem;
   border-radius: 12px;
   border: 1px solid #e8e0f2;
   background: #fbf9ff;
-  background: #fff1f5;
-  color: #9b566f;
-  border-color: #ebc7d4;
+}
+
 .signal-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1542,6 +1556,50 @@ button:focus-visible {
 
 .novi-copy {
   padding: 0.25rem 0;
+}
+
+.novi-portrait {
+  width: min(100%, 310px);
+  margin: 1.2rem auto 0;
+  position: relative;
+}
+
+.novi-portrait-frame {
+  overflow: hidden;
+  border-radius: 30% 30% 26% 26%;
+  box-shadow: 0 26px 60px rgba(91, 63, 140, 0.2);
+  transform-origin: 50% 80%;
+  animation: noviPortraitFloat 5.6s ease-in-out infinite;
+}
+
+.novi-portrait-frame img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.novi-portrait::after {
+  content: '';
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: -0.8rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: rgba(91, 63, 140, 0.16);
+  filter: blur(7px);
+  animation: noviPortraitShadow 5.6s ease-in-out infinite;
+}
+
+@keyframes noviPortraitFloat {
+  0%, 100% { transform: translateY(0) rotate(-0.4deg); }
+  50% { transform: translateY(-8px) rotate(0.4deg); }
+}
+
+@keyframes noviPortraitShadow {
+  0%, 100% { opacity: 0.72; transform: scaleX(1); }
+  50% { opacity: 0.42; transform: scaleX(0.88); }
 }
 
 .novi-shell-top,
@@ -2496,6 +2554,51 @@ button:focus-visible {
   .savings-result {
     border-radius: 20px;
   }
+}
+
+.motion-ready [data-motion-item] {
+  transition:
+    opacity 620ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 620ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.motion-ready [data-motion-item="hero"] {
+  transition-delay: calc(var(--motion-order, 0) * 70ms);
+}
+
+.motion-ready [data-motion-item][data-motion-state="pending"] {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+.motion-ready [data-motion-item="hero"][data-motion-state="pending"] {
+  transform: translateY(14px) scale(0.99);
+}
+
+.motion-ready [data-motion-item][data-motion-state="revealed"] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.hero-stage.is-state-changing .tour-summary-body,
+.novi-shell.is-state-changing .novi-detail,
+.workflow-detail.is-state-changing {
+  animation: stateContentIn 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hero-stage[data-tour="novi"] .novi-teaser-avatar {
+  animation: noviTeaserHello 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes stateContentIn {
+  from { opacity: 0.35; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes noviTeaserHello {
+  0% { transform: translateY(5px) rotate(-3deg) scale(0.96); }
+  65% { transform: translateY(-2px) rotate(1.5deg) scale(1.02); }
+  100% { transform: translateY(0) rotate(0) scale(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {

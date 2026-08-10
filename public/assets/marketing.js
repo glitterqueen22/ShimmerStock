@@ -444,6 +444,17 @@
     });
   }
 
+  function animateStateChange(node) {
+    if (!node || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    node.classList.remove("is-state-changing");
+    void node.offsetWidth;
+    node.classList.add("is-state-changing");
+    node.addEventListener("animationend", () => {
+      node.classList.remove("is-state-changing");
+    }, { once: true });
+  }
+
   function initProductTour() {
     const shell = document.querySelector(".hero-stage[data-tour]");
     const tabs = document.querySelectorAll("[data-product-tour] .tour-tab");
@@ -512,6 +523,7 @@
         node.textContent = value;
       });
       if (summaryNote) summaryNote.textContent = state.note;
+      animateStateChange(shell);
     }
 
     tabs.forEach((tab) => {
@@ -643,6 +655,7 @@
         // use .novi-data-row divs to match flagship component structure
         detailList.innerHTML = state.rows.map(([left, right]) => `<div class="novi-data-row"><strong>${left}</strong><span>${right}</span></div>`).join("");
       }
+      animateStateChange(root);
     }
 
     buttons.forEach((button) => {
@@ -704,6 +717,7 @@
       if (listNode) {
         listNode.innerHTML = state.rows.map(([left, right]) => `<div class="novi-detail-row"><strong>${left}</strong><span>${right}</span></div>`).join("");
       }
+      animateStateChange(root);
     }
 
     stageButtons.forEach((button) => {
@@ -785,6 +799,48 @@
     });
   }
 
+  function initHomepageMotion() {
+    if (window.location.pathname !== "/") return;
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion || !("IntersectionObserver" in window)) return;
+
+    const heroItems = document.querySelectorAll(".section-hero .hero-copy > *, .section-hero .hero-stage");
+    const sectionItems = document.querySelectorAll("main > .section:not(.section-hero) > .container-wide");
+
+    heroItems.forEach((item, index) => {
+      item.dataset.motionItem = "hero";
+      item.dataset.motionState = "pending";
+      item.style.setProperty("--motion-order", String(index));
+    });
+
+    sectionItems.forEach((item) => {
+      item.dataset.motionItem = "section";
+      item.dataset.motionState = "pending";
+    });
+
+    document.documentElement.classList.add("motion-ready");
+
+    requestAnimationFrame(() => {
+      heroItems.forEach((item) => {
+        item.dataset.motionState = "revealed";
+      });
+    });
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.dataset.motionState = "revealed";
+        observer.unobserve(entry.target);
+      });
+    }, {
+      rootMargin: "0px 0px -12% 0px",
+      threshold: 0.12
+    });
+
+    sectionItems.forEach((item) => observer.observe(item));
+  }
+
   renderHeader();
   renderFooter();
   initSeoMetadata();
@@ -798,4 +854,5 @@
   initSavingsMeter();
   initEarlyAccessApplicationForm();
   initStatusBadges();
+  initHomepageMotion();
 })();
