@@ -144,8 +144,8 @@
     "Novi confirms Vanilla Base has six days of runway.",
     "Novi is focused on Batch #52's component check.",
     "Novi caught the one exception: a label reprint is holding the pack lane.",
-    "Novi is proud — the handoff completed and the order shipped.",
-    "Novi is pleased — Care can reply with full context."
+    "Novi is proud, the handoff completed and the order shipped.",
+    "Novi is pleased, Care can reply with full context."
   ];
 
   const orderStates = ["alert", "focused", "thinking", "serious", "success", "cozy-end"];
@@ -162,6 +162,7 @@
 
   let currentNoviState = null;
   let noviInitialized = false;
+  let orderTokenMoved = false;
 
   function applyNoviAsset(portraits, src, useMotion) {
     const doSwap = function () {
@@ -203,6 +204,61 @@
     stage.dataset.deskState = "active";
     if (caption) caption.textContent = "Go time. Novi is on it.";
     swapNoviPortrait("alert");
+    animateOrderTokenHandoff();
+  }
+
+  function animateOrderTokenHandoff() {
+    if (orderTokenMoved) return;
+    const token = story.querySelector("[data-order-token]");
+    const dock = story.querySelector("[data-order-token-dock]");
+    if (!token || !dock) return;
+
+    const finalize = function () {
+      dock.textContent = "Order #8197 is now in the live journey";
+      dock.classList.add("is-arrived");
+      token.classList.add("is-sent");
+      orderTokenMoved = true;
+    };
+
+    if (!window.gsap || reduceMotion.matches) {
+      finalize();
+      return;
+    }
+
+    const start = token.getBoundingClientRect();
+    const end = dock.getBoundingClientRect();
+    const flight = token.cloneNode(true);
+    flight.classList.add("order-token-flight");
+    document.body.appendChild(flight);
+
+    window.gsap.set(flight, {
+      position: "fixed",
+      top: start.top,
+      left: start.left,
+      width: start.width,
+      height: start.height,
+      margin: 0,
+      zIndex: 80,
+      pointerEvents: "none"
+    });
+
+    window.gsap.timeline({
+      defaults: { ease: "power2.inOut" },
+      onComplete: function () {
+        flight.remove();
+        finalize();
+      }
+    })
+      .to(flight, {
+        x: end.left - start.left,
+        y: end.top - start.top,
+        scale: 0.93,
+        duration: 0.46
+      })
+      .to(flight, {
+        autoAlpha: 0,
+        duration: 0.16
+      });
   }
 
   function initNoviDeskScene() {
@@ -337,6 +393,25 @@
     }
   }
 
+  function initMissionPreviews() {
+    const buttons = Array.from(story.querySelectorAll("[data-mission-preview]"));
+    const output = story.querySelector("[data-mission-preview-output]");
+    if (!buttons.length || !output) return;
+
+    const messages = [
+      "Preview only: inspect the pack-lane exception before approving any change.",
+      "Preview only: verify runway and supplier lead-time math before confirming reorder quantity.",
+      "Preview only: review shipment-linked context before sending a customer reply."
+    ];
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", function () {
+        const index = Number(button.getAttribute("data-mission-preview")) || 0;
+        output.textContent = messages[index] || messages[0];
+      });
+    });
+  }
+
   function initDecisionPreviews() {
     const boundary = story.querySelector(".novi-boundary");
     const actions = story.querySelectorAll(".decision-action");
@@ -468,6 +543,7 @@
   initOrderJourneyPlayer();
   initNoviDeskScene();
   initSkuSequence();
+  initMissionPreviews();
   const motionContext = initializeMotion();
 
   window.addEventListener("pagehide", function () {

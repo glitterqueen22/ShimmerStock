@@ -76,6 +76,68 @@
   margin-top: 2rem;
 }
 
+.cta-primary,
+.cta-secondary,
+.cta-novi,
+.cta-utility,
+.cta-destructive {
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+.cta-primary:hover,
+.cta-secondary:hover,
+.cta-novi:hover,
+.cta-utility:hover {
+  transform: translateY(-1px);
+}
+
+.cta-primary:active,
+.cta-secondary:active,
+.cta-novi:active,
+.cta-utility:active,
+.cta-destructive:active {
+  transform: translateY(0);
+}
+
+.cta-primary:focus-visible,
+.cta-secondary:focus-visible,
+.cta-novi:focus-visible,
+.cta-utility:focus-visible,
+.cta-destructive:focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 2px;
+}
+
+.cta-primary[disabled],
+.cta-secondary[disabled],
+.cta-novi[disabled],
+.cta-utility[disabled],
+.cta-destructive[disabled],
+.cta-primary[aria-disabled="true"],
+.cta-secondary[aria-disabled="true"],
+.cta-novi[aria-disabled="true"],
+.cta-utility[aria-disabled="true"],
+.cta-destructive[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cta-primary.is-loading,
+.cta-secondary.is-loading,
+.cta-novi.is-loading,
+.cta-utility.is-loading,
+.cta-destructive.is-loading {
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+.cta-destructive {
+  border-color: #b91c1c;
+  background: #b91c1c;
+  color: #fff;
+}
+
 .story-text-link {
   min-height: 44px;
   display: inline-flex;
@@ -422,6 +484,23 @@
   transform-origin: left;
 }
 
+.order-token-dock {
+  margin-top: 0.8rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px dashed rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.76);
+  width: fit-content;
+}
+
+.order-token-dock.is-arrived {
+  border-style: solid;
+  border-color: var(--green-mid);
+  color: #d3f6e6;
+  background: rgba(35, 157, 102, 0.2);
+}
+
 .order-novi-reaction {
   display: flex;
   align-items: center;
@@ -474,6 +553,11 @@
 .order-control-btn[aria-pressed="true"] {
   background: var(--pink);
   border-color: var(--pink);
+}
+
+.order-control-btn[disabled] {
+  opacity: 0.52;
+  cursor: not-allowed;
 }
 
 .order-steps,
@@ -1594,6 +1678,28 @@
   color: rgba(255, 255, 255, 0.78);
 }
 
+.desk-order-token {
+  width: fit-content;
+  margin-top: 0.7rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(236, 72, 153, 0.24);
+  color: #ffe3f3;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.desk-order-token.is-sent {
+  opacity: 0.5;
+  background: rgba(163, 168, 185, 0.22);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.order-token-flight {
+  box-shadow: 0 10px 22px rgba(16, 37, 63, 0.34);
+}
+
 .desk-stage[data-desk-state="active"] .desk-notification {
   border-left-color: var(--green);
 }
@@ -1660,6 +1766,112 @@
   outline-offset: 2px;
 }
 
+/* ─── Mission scene ───────────────────────────────────────────── */
+
+.story-missions {
+  background: linear-gradient(180deg, #fcf7fa, #fff);
+}
+
+.missions-grid {
+  margin-top: 1.7rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mission-card {
+  padding: 1.2rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(41, 37, 47, 0.08);
+}
+
+.mission-index {
+  margin: 0;
+  color: var(--violet);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mission-card h3 {
+  margin: 0.55rem 0 0;
+  font-family: "Iowan Old Style", serif;
+  font-size: 1.24rem;
+}
+
+.mission-card p {
+  margin: 0.8rem 0 0;
+  color: var(--ink-soft);
+}
+
+.mission-btn {
+  margin-top: 1rem;
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid var(--violet);
+  border-radius: 8px;
+  background: rgba(236, 72, 153, 0.08);
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.mission-preview-output {
+  margin: 1.2rem 0 0;
+  padding: 0.9rem 1rem;
+  border-left: 3px solid var(--pink);
+  background: #fff;
+  color: var(--ink-soft);
+}
+
+/* ─── People section ──────────────────────────────────────────── */
+
+.story-people {
+  border-top: 1px solid var(--line);
+  background: linear-gradient(180deg, #fff, #f8f4ef);
+}
+
+.people-grid {
+  margin-top: 1.6rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.people-card {
+  padding: 1.2rem;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+}
+
+.people-card h3 {
+  margin: 0;
+  font-family: "Iowan Old Style", serif;
+}
+
+.people-card p {
+  margin: 0.8rem 0 0;
+  color: var(--ink-soft);
+}
+
+.people-card-pink {
+  border-color: rgba(236, 72, 153, 0.45);
+  background: linear-gradient(180deg, rgba(236, 72, 153, 0.11), #fff);
+}
+
+.people-card-purple {
+  border-color: rgba(107, 33, 168, 0.35);
+  background: linear-gradient(180deg, rgba(107, 33, 168, 0.10), #fff);
+}
+
+.people-card-green {
+  border-color: rgba(21, 128, 61, 0.35);
+  background: linear-gradient(180deg, rgba(21, 128, 61, 0.10), #fff);
+}
+
 /* ─── Dream Grant scene ───────────────────────────────────────── */
 
 .story-dream-grant {
@@ -1715,6 +1927,11 @@
 
 @media (max-width: 900px) {
   .desk-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .missions-grid,
+  .people-grid {
     grid-template-columns: 1fr;
   }
 

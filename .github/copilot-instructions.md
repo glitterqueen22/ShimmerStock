@@ -79,6 +79,16 @@ ShimmerStock is an existing multi-tenant e-commerce operating system for product
 - Operational screens prioritize clarity, density, explicit feedback, and efficient repeated action. Do not apply landing-page motion or decorative card layouts to data tables and warehouse workflows.
 - Empty, loading, partial-success, and error states must explain what is happening and provide the next useful action without fabricating activity.
 
+## GSAP implementation rules
+
+- For homepage and marketing motion code, apply the path-specific Copilot instruction files under `.github/instructions/`:
+	- `gsap-core.instructions.md`
+	- `gsap-timeline.instructions.md`
+	- `gsap-scrolltrigger.instructions.md`
+	- `gsap-performance.instructions.md`
+- Use GSAP timelines and ScrollTrigger as the only animation runtime for homepage scroll storytelling; do not introduce an additional animation framework.
+- Prefer transform and autoAlpha animation primitives, predictable timeline positioning, explicit cleanup/revert behavior, and complete reduced-motion parity.
+
 ## Required verification
 
 Use the repository lockfile and the commands defined in `package.json`. For the current application, required P0 checks include:
