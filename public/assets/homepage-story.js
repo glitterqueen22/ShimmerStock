@@ -4,6 +4,7 @@
   document.documentElement.classList.add("story-enhanced");
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let noviBreathTween = null;
   const industryData = {
     craft: {
       title: "Craft supplies workspace",
@@ -147,7 +148,53 @@
     "Novi is pleased — Care can reply with full context."
   ];
 
-  const orderMoods = ["alert", "confident", "thinking", "serious", "success", "pleased"];
+  const orderStates = ["alert", "focused", "thinking", "serious", "success", "cozy-end"];
+
+  const NOVI_ASSET_MANIFEST = {
+    idle: "/assets/novi/novi-idle-desk.webp",
+    alert: "/assets/novi/novi-alert.webp",
+    focused: "/assets/novi/novi-focused.webp",
+    thinking: "/assets/novi/novi-thinking.webp",
+    serious: "/assets/novi/novi-serious.webp",
+    success: "/assets/novi/novi-success.webp",
+    "cozy-end": "/assets/novi/novi-cozy-end.webp"
+  };
+
+  let currentNoviState = null;
+  let noviInitialized = false;
+
+  function applyNoviAsset(portraits, src, useMotion) {
+    const doSwap = function () {
+      portraits.forEach(function (portrait) { portrait.setAttribute("src", src); });
+    };
+    if (useMotion && window.gsap && !reduceMotion.matches) {
+      window.gsap.to(portraits, {
+        autoAlpha: 0, scale: 0.94, duration: 0.16,
+        onComplete: function () {
+          doSwap();
+          window.gsap.to(portraits, { autoAlpha: 1, scale: 1, duration: 0.22, ease: "power2.out" });
+        }
+      });
+    } else {
+      doSwap();
+    }
+  }
+
+  function swapNoviPortrait(stateKey) {
+    if (stateKey === currentNoviState) return;
+    const isFirstCall = !noviInitialized;
+    currentNoviState = stateKey;
+    noviInitialized = true;
+    const portraits = Array.from(story.querySelectorAll("[data-novi-portrait]"));
+    const asset = NOVI_ASSET_MANIFEST[stateKey];
+    if (!portraits.length || !asset) return;
+
+    const probe = new Image();
+    probe.onload = function () {
+      if (currentNoviState === stateKey) applyNoviAsset(portraits, asset, !isFirstCall);
+    };
+    probe.src = asset;
+  }
 
   function markDeskActive() {
     const stage = story.querySelector("[data-desk-scene] .desk-stage");
@@ -155,12 +202,17 @@
     if (!stage || stage.dataset.deskState === "active") return;
     stage.dataset.deskState = "active";
     if (caption) caption.textContent = "Go time. Novi is on it.";
+    swapNoviPortrait("alert");
   }
 
   function initNoviDeskScene() {
     const scene = story.querySelector("[data-desk-scene]");
     const orderSection = story.querySelector("[data-order-story]");
-    if (!scene || !orderSection || typeof IntersectionObserver === "undefined") return;
+    if (!scene) return;
+
+    swapNoviPortrait("idle");
+
+    if (!orderSection || typeof IntersectionObserver === "undefined") return;
 
     const observer = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
@@ -201,7 +253,11 @@
       if (window.gsap) window.gsap.set(progress, { scaleX: scale });
       else progress.style.transform = "scaleX(" + scale + ")";
       if (reactionText) reactionText.textContent = orderReactions[activeIndex] || orderReactions[0];
-      if (reactionEl) reactionEl.dataset.noviMood = orderMoods[activeIndex] || orderMoods[0];
+      if (reactionEl) reactionEl.dataset.noviState = orderStates[activeIndex] || orderStates[0];
+      const deskStage = story.querySelector("[data-desk-scene] .desk-stage");
+      if (deskStage && deskStage.dataset.deskState === "active") {
+        swapNoviPortrait(orderStates[activeIndex] || orderStates[0]);
+      }
     }
 
     function stop() {
@@ -309,6 +365,18 @@
     gsap.registerPlugin(ScrollTrigger);
     document.documentElement.classList.add("story-motion");
 
+    const noviPortrait = story.querySelector("[data-novi-portrait]");
+    if (noviPortrait) {
+      noviBreathTween = gsap.to(noviPortrait, {
+        scale: 1.02,
+        duration: 2.4,
+        ease: "sine.inOut",
+        repeat: -1,
+        yoyo: true,
+        transformOrigin: "center"
+      });
+    }
+
     const media = gsap.matchMedia();
 
     media.add("(min-width: 1101px) and (prefers-reduced-motion: no-preference)", function () {
@@ -404,5 +472,6 @@
 
   window.addEventListener("pagehide", function () {
     if (motionContext) motionContext.revert();
+    if (noviBreathTween) noviBreathTween.kill();
   }, { once: true });
 })();

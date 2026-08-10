@@ -46,7 +46,7 @@ describe("homepage scroll story contract", () => {
     const html = await Bun.file("public/index.html").text();
     const controller = await Bun.file("public/assets/homepage-story.js").text();
 
-    expect(html).toContain('aria-label="Novi approved artwork pending"');
+    expect(html).toContain('alt="Novi reviewing the morning brief"');
     expect(html).toContain('<span class="story-demo-label">Demo</span>');
     expect(html.match(/class="decision-action" aria-pressed="false"/g)).toHaveLength(3);
     expect(html).toContain('id="industry-workspace" role="tabpanel"');
@@ -78,8 +78,9 @@ describe("homepage scroll story contract", () => {
     const controller = await Bun.file("public/assets/homepage-story.js").text();
 
     expect(html).toContain('id="novi-desk"');
-    expect(html).toContain('alt="Novi, ShimmerStock\'s tuxedo-cat mascot — approved character artwork pending"');
-    expect(html).toContain('novi-art-pending.svg');
+    expect(html).toContain('alt="Novi, ShimmerStock\'s tuxedo-cat mascot, working at her desk"');
+    expect(html).toContain('/assets/novi/novi-idle-desk.webp');
+    expect(html).toContain('data-novi-portrait');
     expect(html).toContain('class="novi-desk-portrait"');
     expect(html).toContain('Order #8197 — Vanilla Cupcake Kit x 2');
     expect(html).toContain('data-desk-notification');
@@ -88,14 +89,43 @@ describe("homepage scroll story contract", () => {
     expect(controller).toContain('IntersectionObserver');
   });
 
+  it("uses the seven approved WebP states without placeholder artwork", async () => {
+    const controller = await Bun.file("public/assets/homepage-story.js").text();
+    const html = await Bun.file("public/index.html").text();
+
+    const states = [
+      "novi-idle-desk", "novi-alert", "novi-focused", "novi-thinking",
+      "novi-serious", "novi-success", "novi-cozy-end"
+    ];
+    for (const state of states) {
+      const file = Bun.file(`public/assets/novi/${state}.webp`);
+      expect(await file.exists()).toBe(true);
+      expect(file.size).toBeGreaterThan(100_000);
+    }
+
+    expect(controller).toContain("const NOVI_ASSET_MANIFEST");
+    expect(controller).toContain('idle: "/assets/novi/novi-idle-desk.webp"');
+    expect(controller).toContain('"cozy-end": "/assets/novi/novi-cozy-end.webp"');
+    expect(controller).toContain("function swapNoviPortrait(stateKey)");
+    expect(controller).toContain("const probe = new Image()");
+    expect(controller).toContain("probe.onload = function ()");
+    expect(controller).toContain('swapNoviPortrait("idle")');
+    expect(html).toContain('<img src="/assets/novi/novi-idle-desk.webp"');
+    expect(html).toContain('<img src="/assets/novi/novi-alert.webp"');
+    expect(html).toContain('<img src="/assets/novi/novi-cozy-end.webp"');
+    expect(html).not.toContain("approved art pending");
+    expect(html).not.toMatch(/class="order-novi-mark"[^>]*>N</);
+    expect(controller).not.toContain(".svg");
+  });
+
   it("ties Novi's visual mood to the active Order Journey stage", async () => {
     const controller = await Bun.file("public/assets/homepage-story.js").text();
     const styles = await Bun.file("public/assets/marketing/homepage-story.css").text();
 
-    expect(controller).toContain('const orderMoods = ["alert", "confident", "thinking", "serious", "success", "pleased"]');
-    expect(controller).toContain('reactionEl.dataset.noviMood');
-    expect(styles).toContain('[data-novi-mood="serious"]');
-    expect(styles).toContain('[data-novi-mood="success"]');
+    expect(controller).toContain('const orderStates = ["alert", "focused", "thinking", "serious", "success", "cozy-end"]');
+    expect(controller).toContain('reactionEl.dataset.noviState');
+    expect(controller).toContain('swapNoviPortrait(orderStates[activeIndex]');
+    expect(styles).not.toContain('[data-novi-mood=');
   });
 
   it("visually distinguishes the three owner decisions from the resolved noise", async () => {

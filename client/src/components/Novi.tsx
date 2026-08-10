@@ -19,39 +19,34 @@ export interface NoviProps {
 }
 
 export const NOVI_ASSET_MANIFEST = {
-  default: "/brand/novi/novi-default.png",
-  thinking: "/brand/novi/novi-thinking.png",
-  happy: "/brand/novi/novi-happy.png",
-  serious: "/brand/novi/novi-serious.png",
-  sassy: "/brand/novi/novi-sassy.png",
-  comforting: "/brand/novi/novi-comforting.png",
-  success: "/brand/novi/novi-success.png",
-  scan: "/brand/novi/novi-scan.png",
-  label: "/brand/novi/novi-label.png",
+  idle: "/assets/novi/novi-idle-desk.webp",
+  alert: "/assets/novi/novi-alert.webp",
+  focused: "/assets/novi/novi-focused.webp",
+  thinking: "/assets/novi/novi-thinking.webp",
+  serious: "/assets/novi/novi-serious.webp",
+  success: "/assets/novi/novi-success.webp",
+  "cozy-end": "/assets/novi/novi-cozy-end.webp",
 } as const;
 
-export const NOVI_APPROVED_ART_AVAILABLE = import.meta.env.VITE_NOVI_APPROVED_ART === "true";
-const TEMPORARY_REFERENCE_ASSET = "/brand/novi/novi-art-pending.svg";
-
 const EXPRESSION_ASSET: Record<NoviExpression, keyof typeof NOVI_ASSET_MANIFEST> = {
-  calm: "default",
-  happy: "happy",
+  calm: "idle",
+  happy: "success",
   thinking: "thinking",
   concerned: "serious",
-  proud: "happy",
+  proud: "success",
   celebrating: "success",
-  focused: "serious",
+  focused: "focused",
   curious: "thinking",
-  grateful: "comforting",
-  sassy: "sassy",
+  grateful: "cozy-end",
+  sassy: "serious",
   serious: "serious",
-  comforting: "comforting",
+  comforting: "cozy-end",
   protective: "serious",
-  excited: "success",
-  suspicious: "sassy",
-  cozy: "comforting",
-  scanning: "scan",
-  label: "label",
+  excited: "alert",
+  suspicious: "serious",
+  cozy: "cozy-end",
+  scanning: "focused",
+  label: "focused",
 };
 
 const SIZE_PX: Record<NoviSize, number> = { micro: 26, sm: 36, md: 68, lg: 104, xl: 136 };
@@ -69,7 +64,7 @@ export default function Novi({
 }: NoviProps) {
   const pixels = SIZE_PX[size];
   const assetKey = EXPRESSION_ASSET[expression];
-  const source = NOVI_APPROVED_ART_AVAILABLE ? NOVI_ASSET_MANIFEST[assetKey] : TEMPORARY_REFERENCE_ASSET;
+  const source = NOVI_ASSET_MANIFEST[assetKey];
   const motion = animated && !GROUNDED_EXPRESSIONS.has(expression) ? "novi-art-motion" : "";
 
   return (
@@ -80,7 +75,7 @@ export default function Novi({
       data-asset={assetKey}
       data-accessory={accessory}
       data-notification-side={notificationSide}
-      data-art-status={NOVI_APPROVED_ART_AVAILABLE ? "approved" : "temporary-reference"}
+      data-art-status="approved"
     >
       <img
         src={source}
@@ -90,11 +85,6 @@ export default function Novi({
         loading={priority || size === "micro" || size === "sm" ? "eager" : "lazy"}
         decoding="async"
         draggable={false}
-        onError={(event) => {
-          if (!event.currentTarget.src.endsWith(TEMPORARY_REFERENCE_ASSET)) {
-            event.currentTarget.src = TEMPORARY_REFERENCE_ASSET;
-          }
-        }}
       />
     </span>
   );

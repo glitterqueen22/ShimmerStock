@@ -434,29 +434,16 @@
 }
 
 .order-novi-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
+  display: block;
+  width: 72px;
+  height: 72px;
   flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--pink);
-  color: #fff;
-  font-family: "Iowan Old Style", serif;
-  font-weight: 800;
-  transition: background-color 220ms ease;
+  object-fit: contain;
 }
-
-.order-novi-reaction[data-novi-mood="alert"] .order-novi-mark { background: var(--pink); }
-.order-novi-reaction[data-novi-mood="confident"] .order-novi-mark { background: var(--green); }
-.order-novi-reaction[data-novi-mood="thinking"] .order-novi-mark { background: var(--violet); }
-.order-novi-reaction[data-novi-mood="serious"] .order-novi-mark { background: var(--navy-ink); }
-.order-novi-reaction[data-novi-mood="success"] .order-novi-mark { background: var(--green-mid); }
-.order-novi-reaction[data-novi-mood="pleased"] .order-novi-mark { background: var(--plum-deep); }
 
 .order-controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 1rem;
 }
@@ -630,14 +617,7 @@
 .novi-mark {
   width: 52px;
   height: 52px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--violet), var(--green));
-  color: #fff;
-  font-family: "Iowan Old Style", serif;
-  font-size: 1.45rem;
-  font-weight: 800;
+  object-fit: contain;
 }
 
 .novi-voice {
@@ -1494,18 +1474,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  grid-row: 1 / span 2;
   gap: 0.6rem;
 }
 
 .novi-desk-portrait {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
+  width: min(100%, 360px);
+  height: 320px;
+  object-fit: contain;
 }
 
 .novi-desk-portrait-small {
-  width: 72px;
-  height: 72px;
+  width: 132px;
+  height: 110px;
+  flex-shrink: 0;
 }
 
 .desk-art-label {
@@ -1568,6 +1550,7 @@
 }
 
 .desk-caption {
+  grid-column: 2;
   margin: 1rem 0 0;
   text-align: center;
   color: var(--ink-soft);
@@ -1575,6 +1558,7 @@
 }
 
 .desk-screen {
+  grid-column: 2;
   padding: 1.1rem;
   border: 1px solid var(--navy-ink);
   border-radius: 10px;
@@ -1608,12 +1592,6 @@
   margin-top: 0.3rem;
   font-size: 0.82rem;
   color: rgba(255, 255, 255, 0.78);
-}
-
-.desk-stage[data-desk-state="active"] .novi-desk-portrait {
-  outline: 2px solid var(--pink);
-  outline-offset: 6px;
-  border-radius: 50%;
 }
 
 .desk-stage[data-desk-state="active"] .desk-notification {
@@ -1738,6 +1716,13 @@
 @media (max-width: 900px) {
   .desk-stage {
     grid-template-columns: 1fr;
+  }
+
+  .novi-desk-frame,
+  .desk-caption,
+  .desk-screen {
+    grid-column: auto;
+    grid-row: auto;
   }
 }
 
