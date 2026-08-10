@@ -1914,6 +1914,28 @@
   box-shadow: 0 24px 44px rgba(21, 128, 61, 0.28);
 }
 
+.desk-order-token {
+  width: fit-content;
+  margin-top: 0.7rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(236, 72, 153, 0.24);
+  color: #ffe3f3;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.desk-order-token.is-sent {
+  opacity: 0.5;
+  background: rgba(163, 168, 185, 0.22);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.order-token-flight {
+  box-shadow: 0 10px 22px rgba(16, 37, 63, 0.34);
+}
+
 .desk-stage[data-desk-state="active"] .desk-notification {
   border-left-color: var(--green);
 }
@@ -2179,6 +2201,11 @@
 
   .desk-caption {
     max-width: none;
+  }
+
+  .missions-grid,
+  .people-grid {
+    grid-template-columns: 1fr;
   }
 
   .missions-grid,
