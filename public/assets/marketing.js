@@ -114,18 +114,18 @@
         <div class="container">
           <div class="footer-grid">
             <div>
-              <h4>ShimmerStock</h4>
+              <h3>ShimmerStock</h3>
               <p class="small">Run the business behind your brand from one beautiful workspace.</p>
             </div>
             <div>
-              <h4>Product</h4>
+              <h3>Product</h3>
               <a href="/product">Product</a>
               <a href="/pricing">Pricing</a>
               <a href="/resources/integrations">Integrations</a>
               <a href="/product/novi">Novi</a>
             </div>
             <div>
-              <h4>Solutions</h4>
+              <h3>Solutions</h3>
               <a href="/solutions/craft-suppliers">Craft &amp; Maker Supplies</a>
               <a href="/solutions/ecommerce-brands">E-commerce Brands</a>
               <a href="/solutions/made-to-order">Made-to-Order</a>
@@ -133,14 +133,14 @@
               <a href="/solutions/bakery">Food &amp; Bakery</a>
             </div>
             <div>
-              <h4>Company</h4>
+              <h3>Company</h3>
               <a href="/about">About</a>
               <a href="/early-access">Early Access</a>
               <a href="/dream-grant">Dream Grant</a>
               <a href="/contact">Contact</a>
             </div>
             <div>
-              <h4>Trust</h4>
+              <h3>Trust</h3>
               <a href="/security">Security</a>
               <a href="/privacy">Privacy</a>
               <a href="/terms">Terms</a>
@@ -748,11 +748,11 @@
         stackCost += Number.isFinite(value) ? value : 0;
       });
       const shimmerPlan = 149;
-      const savings = Math.max(0, stackCost - shimmerPlan);
+      const difference = stackCost - shimmerPlan;
 
       if (stackOut) stackOut.textContent = `$${stackCost.toFixed(0)}/mo`;
       if (planOut) planOut.textContent = `$${shimmerPlan}/mo`;
-      if (savingsOut) savingsOut.textContent = `$${savings.toFixed(0)}/mo`;
+      if (savingsOut) savingsOut.textContent = `${difference < 0 ? "−" : ""}$${Math.abs(difference).toFixed(0)}/mo`;
       if (bar) bar.style.setProperty("--savings-fill", `${Math.min(100, Math.max(18, stackCost / 5))}%`);
     }
 
@@ -776,11 +776,11 @@
         stackCost += Number.isFinite(value) ? value : 0;
       });
       const shimmerPlan = 149;
-      const savings = Math.max(0, stackCost - shimmerPlan);
+      const difference = stackCost - shimmerPlan;
 
       if (stackOut) stackOut.textContent = `$${stackCost.toFixed(0)}/mo`;
       if (planOut) planOut.textContent = `$${shimmerPlan}/mo`;
-      if (savingsOut) savingsOut.textContent = `$${savings.toFixed(0)}/mo`;
+      if (savingsOut) savingsOut.textContent = `${difference < 0 ? "−" : ""}$${Math.abs(difference).toFixed(0)}/mo`;
     }
 
     inputs.forEach((input) => input.addEventListener("input", recalc));
@@ -801,6 +801,7 @@
 
   function initHomepageMotion() {
     if (window.location.pathname !== "/") return;
+    if (document.querySelector("[data-homepage-story]")) return;
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reducedMotion || !("IntersectionObserver" in window)) return;
