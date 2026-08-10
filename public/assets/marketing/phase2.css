@@ -366,6 +366,16 @@
   border: 1px solid rgba(169, 203, 181, 0.82);
 }
 
+.origin-card.pink {
+  background: linear-gradient(160deg, #fdeef2, #fbe3ea, #f8d9e3);
+  border: 1px solid rgba(217, 163, 186, 0.82);
+}
+
+.origin-card.navy {
+  background: linear-gradient(160deg, #eaeef3, #dfe5ed, #d4dce6);
+  border: 1px solid rgba(150, 168, 190, 0.82);
+}
+
 .origin-card::after {
   content: '';
   position: absolute;
@@ -387,6 +397,8 @@
 
 .origin-card.purple .origin-subtitle { color: var(--violet); }
 .origin-card.green  .origin-subtitle { color: var(--green); }
+.origin-card.pink   .origin-subtitle { color: var(--pink); }
+.origin-card.navy   .origin-subtitle { color: var(--navy-ink); }
 
 .origin-traits {
   display: flex;
@@ -412,6 +424,18 @@
   background: rgba(221, 240, 228, 0.72);
   color: var(--green);
   border: 1px solid rgba(169, 203, 181, 0.8);
+}
+
+.origin-card.pink .origin-trait {
+  background: rgba(253, 222, 233, 0.72);
+  color: var(--pink);
+  border: 1px solid rgba(217, 163, 186, 0.8);
+}
+
+.origin-card.navy .origin-trait {
+  background: rgba(212, 220, 230, 0.72);
+  color: var(--navy-ink);
+  border: 1px solid rgba(150, 168, 190, 0.8);
 }
 
 /* ─── Product page — day timeline ─────────────────────────── */
