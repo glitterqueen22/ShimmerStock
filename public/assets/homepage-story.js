@@ -4,6 +4,7 @@
   document.documentElement.classList.add("story-enhanced");
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let noviBreathTween = null;
   const industryData = {
     craft: {
       title: "Craft supplies workspace",
@@ -149,12 +150,42 @@
 
   const orderMoods = ["alert", "confident", "thinking", "serious", "success", "pleased"];
 
+  const NOVI_ASSET_MANIFEST = {
+    idle: "/assets/novi/novi-idle-desk.svg",
+    alert: "/assets/novi/novi-alert.svg",
+    confident: "/assets/novi/novi-focused.svg",
+    thinking: "/assets/novi/novi-thinking.svg",
+    serious: "/assets/novi/novi-serious.svg",
+    success: "/assets/novi/novi-success.svg",
+    pleased: "/assets/novi/novi-success.svg",
+    cozy: "/assets/novi/novi-cozy-end.svg"
+  };
+
+  function swapNoviPortrait(moodKey) {
+    const portrait = story.querySelector("[data-novi-portrait]");
+    const nextSrc = NOVI_ASSET_MANIFEST[moodKey];
+    if (!portrait || !nextSrc || portrait.getAttribute("src") === nextSrc) return;
+
+    if (window.gsap && !reduceMotion.matches) {
+      window.gsap.to(portrait, {
+        autoAlpha: 0, scale: 0.94, duration: 0.16,
+        onComplete: function () {
+          portrait.setAttribute("src", nextSrc);
+          window.gsap.to(portrait, { autoAlpha: 1, scale: 1, duration: 0.22, ease: "power2.out" });
+        }
+      });
+    } else {
+      portrait.setAttribute("src", nextSrc);
+    }
+  }
+
   function markDeskActive() {
     const stage = story.querySelector("[data-desk-scene] .desk-stage");
     const caption = story.querySelector("[data-desk-caption]");
     if (!stage || stage.dataset.deskState === "active") return;
     stage.dataset.deskState = "active";
     if (caption) caption.textContent = "Go time. Novi is on it.";
+    swapNoviPortrait("alert");
   }
 
   function initNoviDeskScene() {
@@ -202,6 +233,10 @@
       else progress.style.transform = "scaleX(" + scale + ")";
       if (reactionText) reactionText.textContent = orderReactions[activeIndex] || orderReactions[0];
       if (reactionEl) reactionEl.dataset.noviMood = orderMoods[activeIndex] || orderMoods[0];
+      const deskStage = story.querySelector("[data-desk-scene] .desk-stage");
+      if (deskStage && deskStage.dataset.deskState === "active") {
+        swapNoviPortrait(orderMoods[activeIndex] || orderMoods[0]);
+      }
     }
 
     function stop() {
@@ -309,6 +344,18 @@
     gsap.registerPlugin(ScrollTrigger);
     document.documentElement.classList.add("story-motion");
 
+    const noviPortrait = story.querySelector("[data-novi-portrait]");
+    if (noviPortrait) {
+      noviBreathTween = gsap.to(noviPortrait, {
+        scale: 1.02,
+        duration: 2.4,
+        ease: "sine.inOut",
+        repeat: -1,
+        yoyo: true,
+        transformOrigin: "center"
+      });
+    }
+
     const media = gsap.matchMedia();
 
     media.add("(min-width: 1101px) and (prefers-reduced-motion: no-preference)", function () {
@@ -404,5 +451,6 @@
 
   window.addEventListener("pagehide", function () {
     if (motionContext) motionContext.revert();
+    if (noviBreathTween) noviBreathTween.kill();
   }, { once: true });
 })();
