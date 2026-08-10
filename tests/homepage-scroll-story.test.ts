@@ -79,7 +79,8 @@ describe("homepage scroll story contract", () => {
 
     expect(html).toContain('id="novi-desk"');
     expect(html).toContain('alt="Novi, ShimmerStock\'s tuxedo-cat mascot — approved character artwork pending"');
-    expect(html).toContain('novi-art-pending.svg');
+    expect(html).toContain('/assets/novi/novi-idle-desk.svg');
+    expect(html).toContain('data-novi-portrait');
     expect(html).toContain('class="novi-desk-portrait"');
     expect(html).toContain('Order #8197 — Vanilla Cupcake Kit x 2');
     expect(html).toContain('data-desk-notification');
@@ -88,12 +89,37 @@ describe("homepage scroll story contract", () => {
     expect(controller).toContain('IntersectionObserver');
   });
 
+  it("wires a real 7-state Novi asset manifest with honest pending labeling and no code changes needed to activate final art", async () => {
+    const controller = await Bun.file("public/assets/homepage-story.js").text();
+    const html = await Bun.file("public/index.html").text();
+
+    const states = [
+      "novi-idle-desk", "novi-alert", "novi-focused", "novi-thinking",
+      "novi-serious", "novi-success", "novi-cozy-end"
+    ];
+    for (const state of states) {
+      const file = Bun.file(`public/assets/novi/${state}.svg`);
+      expect(await file.exists()).toBe(true);
+      const source = await file.text();
+      expect(source).toContain("ARTWORK PENDING / TEMPORARY REFERENCE");
+      expect(source).not.toMatch(/in\s+(loving\s+)?memory\s+of/i);
+    }
+
+    expect(controller).toContain("const NOVI_ASSET_MANIFEST");
+    expect(controller).toContain('idle: "/assets/novi/novi-idle-desk.svg"');
+    expect(controller).toContain('cozy: "/assets/novi/novi-cozy-end.svg"');
+    expect(controller).toContain("function swapNoviPortrait(moodKey)");
+    expect(html).toContain('/assets/novi/novi-cozy-end.svg');
+    expect(html).not.toContain("novi-art-pending.svg");
+  });
+
   it("ties Novi's visual mood to the active Order Journey stage", async () => {
     const controller = await Bun.file("public/assets/homepage-story.js").text();
     const styles = await Bun.file("public/assets/marketing/homepage-story.css").text();
 
     expect(controller).toContain('const orderMoods = ["alert", "confident", "thinking", "serious", "success", "pleased"]');
     expect(controller).toContain('reactionEl.dataset.noviMood');
+    expect(controller).toContain('swapNoviPortrait(orderMoods[activeIndex]');
     expect(styles).toContain('[data-novi-mood="serious"]');
     expect(styles).toContain('[data-novi-mood="success"]');
   });

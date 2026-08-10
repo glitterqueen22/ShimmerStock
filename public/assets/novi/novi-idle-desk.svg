@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title description">
+  <title id="title">Novi — IDLE / AT DESK (artwork pending)</title>
+  <desc id="description">Temporary non-character placeholder for owner-approved Novi artwork, state: idle / at desk.</desc>
+  <rect width="320" height="320" rx="48" fill="#fff5f7"/>
+  <rect x="18" y="18" width="284" height="284" rx="38" fill="none" stroke="#a94869" stroke-width="4" stroke-dasharray="10 10"/>
+  <circle cx="160" cy="126" r="54" fill="#ffffff" stroke="#a94869" stroke-width="4"/>
+  <text x="160" y="144" text-anchor="middle" font-family="Georgia, serif" font-size="54" font-weight="700" fill="#a94869">N</text>
+  <path d="M138 214h44v20a22 22 0 0 1-44 0z" fill="none" stroke="#a94869" stroke-width="4"/><path d="M182 220h10a10 10 0 0 1 0 20h-10" fill="none" stroke="#a94869" stroke-width="4"/>
+  <text x="160" y="266" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#24324a">NOVI — IDLE / AT DESK</text>
+  <text x="160" y="288" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#6b7280">ARTWORK PENDING / TEMPORARY REFERENCE</text>
+</svg>
