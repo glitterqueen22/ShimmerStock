@@ -32,6 +32,18 @@ describe("homepage scroll story contract", () => {
     expect(server).toContain('/assets/vendor/gsap/ScrollTrigger.min.js');
   });
 
+  it("adds a connected scene rail for A Day With Novi navigation", async () => {
+    const html = await Bun.file("public/index.html").text();
+    const controller = await Bun.file("public/assets/homepage-story.js").text();
+
+    expect(html).toContain('class="story-film-nav"');
+    expect(html).toContain('A DAY WITH NOVI');
+    expect(html).toContain('data-scene-jump="#scene-order"');
+    expect(html).toContain('data-scene-readout');
+    expect(controller).toContain('function initSceneFilmNav()');
+    expect(controller).toContain('initSceneFilmNav();');
+  });
+
   it("preserves native scrolling and complete reduced-motion content", async () => {
     const controller = await Bun.file("public/assets/homepage-story.js").text();
     const styles = await Bun.file("public/assets/marketing/homepage-story.css").text();
@@ -70,11 +82,13 @@ describe("homepage scroll story contract", () => {
     expect(html).toContain('data-order-replay');
     expect(html.match(/data-order-jump="[0-5]"/g)).toHaveLength(6);
     expect(html).toContain('data-order-reaction-text');
+    expect(html).toContain('data-order-stage-state');
     expect(controller).toContain('function initOrderJourneyPlayer()');
     expect(controller).toContain('initOrderJourneyPlayer();');
     expect(controller).not.toContain('ScrollTrigger.create({\n          trigger: orderStory');
     expect(controller).toContain('setInterval(function ()');
     expect(controller).toContain('aria-current');
+    expect(controller).toContain('orderStageMessages');
   });
 
   it("gives Novi a cinematic desk scene that connects to the same Order #8197", async () => {
@@ -164,7 +178,14 @@ describe("homepage scroll story contract", () => {
     expect(html).toContain('data-label-sequence');
     expect(html.match(/data-label-stage="[0-4]"/g)).toHaveLength(5);
     expect(html).toContain('data-scan-trigger');
+    expect(html).toContain('data-label-action="review"');
+    expect(html).toContain('data-label-action="approve"');
+    expect(html).toContain('data-label-action="print"');
+    expect(html).toContain('data-thermal-printer');
+    expect(html).toContain('data-thermal-label');
+    expect(html).toContain('data-label-output');
     expect(controller).toContain('function initSkuSequence()');
+    expect(controller).toContain('function printLabel(triggeredByUser)');
   });
 
   it("introduces mission previews and a people-behind-the-colors section with truthful CTAs", async () => {
