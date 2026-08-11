@@ -17,7 +17,7 @@
   <div data-marketing-header></div>
 
   <main id="main-content" data-homepage-story>
-    <aside class="story-film-nav" aria-label="Homepage scene progression">
+    <aside class="story-film-nav" data-debug-scene-nav aria-label="Homepage scene progression" aria-hidden="true" hidden>
       <p class="story-film-label">A DAY WITH NOVI</p>
       <ol class="story-film-list">
         <li><button type="button" data-scene-jump="#scene-enter">Film</button></li>
@@ -41,7 +41,6 @@
             <a class="btn btn-primary cta-primary" href="/early-access">Join Early Access</a>
             <a class="story-text-link cta-utility" href="#order-journey">Follow Order #8197 <span aria-hidden="true">↓</span></a>
           </div>
-          <p class="story-order-token" data-story-order-token aria-hidden="true">Order #8197</p>
           <p class="story-provenance">Approved Novi film. Built from real product-business operations.</p>
         </div>
         <div class="story-hero-media" data-novi-hero>
@@ -172,11 +171,19 @@
 
     <section class="story-section story-final" id="scene-resolution" aria-labelledby="final-title" data-scene-title="Back At Novi's Desk">
       <div class="container story-final-inner">
-        <div class="story-resolution" data-desk-resolution>
-          <img src="/assets/novi/novi-cozy-end.webp" alt="Novi, ShimmerStock's tuxedo-cat mascot, settled back at her desk" class="novi-desk-portrait novi-desk-portrait-small" width="132" height="110" loading="lazy" decoding="async">
-          <p class="story-resolution-text">Order #8197 is handled. Novi is back at her desk. <strong>You're caught up.</strong></p>
+        <div class="story-final-composition" data-desk-resolution>
+          <img src="/assets/novi/novi-cozy-end.webp" alt="Novi, ShimmerStock's tuxedo-cat mascot, settled back at her desk" class="story-final-novi" width="360" height="300" loading="lazy" decoding="async">
+          <div class="story-final-copy">
+            <p class="story-final-catchup">You're caught up.</p>
+            <p class="story-resolution-text">Order #8197 is handled. Novi is back at her desk.</p>
+            <h2 id="final-title">Run the business. Novi will keep an eye on the busy stuff.</h2>
+            <p class="story-final-note">Build the thing you love while ShimmerStock keeps the pressure visible, honest, and moving.</p>
+            <div class="story-actions">
+              <a class="btn btn-primary cta-primary" href="/early-access">Join Early Access</a>
+            </div>
+          </div>
         </div>
-        <h2 id="final-title">Bring Novi into your workflow.</h2><p>ShimmerStock keeps the pressure visible, the decisions honest, and the work moving.</p><div class="story-actions story-actions-centered"><a class="btn btn-primary cta-primary" href="/early-access">Join Early Access</a></div></div>
+      </div>
     </section>
   </main>
 

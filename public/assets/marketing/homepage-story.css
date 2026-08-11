@@ -16,6 +16,7 @@
 }
 
 .story-film-nav {
+  display: none;
   position: fixed;
   top: 105px;
   right: clamp(0.5rem, 1.8vw, 1.4rem);
@@ -27,6 +28,10 @@
   background: rgba(255, 253, 249, 0.66);
   backdrop-filter: blur(8px);
   box-shadow: 0 8px 20px rgba(16, 37, 63, 0.12);
+}
+
+[data-homepage-story][data-debug-scenes="true"] .story-film-nav {
+  display: block;
 }
 
 .story-film-label {
@@ -216,6 +221,24 @@
   color: #fff;
 }
 
+.story-opening .cta-primary,
+.story-final .cta-primary {
+  border-color: #d3397e;
+  background: linear-gradient(135deg, #eb4f90 0%, #d3397e 58%, #bf2f6f 100%);
+  color: #fff;
+  box-shadow: 0 14px 30px rgba(211, 57, 126, 0.26);
+}
+
+.story-opening .cta-primary:hover,
+.story-final .cta-primary:hover {
+  box-shadow: 0 18px 34px rgba(211, 57, 126, 0.32);
+}
+
+.story-opening .cta-utility,
+.story-final .cta-utility {
+  color: var(--ink-soft);
+}
+
 .story-text-link {
   min-height: 44px;
   display: inline-flex;
@@ -262,7 +285,10 @@
 .story-hero-film {
   position: relative;
   overflow: clip;
-  min-height: clamp(500px, 58vw, 760px);
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: clamp(420px, 44vw, 620px);
+  max-height: 680px;
   border: 1px solid rgba(16, 37, 63, 0.36);
   border-radius: 12px;
   background: linear-gradient(145deg, #13243c 0%, #0f1c2f 62%, #1a2e4a 100%);
@@ -290,8 +316,8 @@
 .story-hero-video {
   width: 100%;
   height: 100%;
-  min-height: inherit;
   object-fit: cover;
+  object-position: center 42%;
   display: block;
   opacity: 0;
   transition: opacity 420ms ease;
@@ -1655,31 +1681,58 @@
 }
 
 .story-final-inner {
-  max-width: 980px;
-  text-align: center;
+  max-width: 1120px;
 }
 
 .story-final h2 {
-  font-size: clamp(2.75rem, 6.4vw, 6.2rem);
-  line-height: 0.96;
+  margin: 0.6rem 0 0;
+  font-size: clamp(2.25rem, 5vw, 4.9rem);
+  line-height: 0.97;
   letter-spacing: 0 !important;
   text-wrap: balance;
 }
 
-.story-final-inner > p:not(.story-kicker, .story-provenance) {
-  max-width: 60ch;
-  margin: 1.15rem auto 0;
+.story-final-composition {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.44fr) minmax(0, 0.56fr);
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: center;
+}
+
+.story-final-novi {
+  width: min(100%, 420px);
+  height: auto;
+  justify-self: center;
+  filter: drop-shadow(0 20px 42px rgba(16, 37, 63, 0.22));
+}
+
+.story-final-copy {
+  text-align: left;
+}
+
+.story-final-catchup {
+  margin: 0;
+  color: var(--pink);
+  font-size: clamp(1.35rem, 2.2vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.story-resolution-text {
+  margin: 0.6rem 0 0;
   color: var(--ink-soft);
-  font-size: 1.08rem;
+  font-size: 1.05rem;
 }
 
-.story-actions-centered {
-  justify-content: center;
+.story-final-note {
+  margin: 1rem 0 0;
+  max-width: 52ch;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
 }
 
-.story-final .story-provenance {
-  margin-left: auto;
-  margin-right: auto;
+.story-final-copy .story-actions {
+  margin-top: 1.5rem;
 }
 
 .homepage-story-page :focus-visible {
@@ -1704,7 +1757,8 @@
   }
 
   .story-hero-film {
-    min-height: clamp(420px, 72vw, 640px);
+    min-height: clamp(360px, 66vw, 560px);
+    max-height: 600px;
   }
 
   .story-industry-compact .industry-workspace-body,
@@ -1787,7 +1841,13 @@
   }
 
   .story-hero-film {
-    min-height: 290px;
+    min-height: 0;
+    aspect-ratio: 4 / 5;
+    max-height: none;
+  }
+
+  .story-hero-video {
+    object-position: center 34%;
   }
 
   .story-hero-video {
@@ -2746,26 +2806,25 @@
 
 /* ─── Story resolution coda ───────────────────────────────────── */
 
-.story-resolution {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  margin: 0 auto 1.5rem;
-  padding-bottom: 1.5rem;
-  max-width: 62ch;
-  border-bottom: 1px solid var(--line);
-  text-align: left;
-}
-
-.story-resolution-text {
-  margin: 0;
-  color: var(--ink-soft);
-}
-
 @media (max-width: 900px) {
-  .story-film-nav {
-    display: none;
+  .story-final-composition {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    gap: 1.25rem;
+  }
+
+  .story-final-copy {
+    text-align: center;
+  }
+
+  .story-final-note {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .story-final-copy .story-actions {
+    justify-content: center;
   }
 
   .desk-scene {
