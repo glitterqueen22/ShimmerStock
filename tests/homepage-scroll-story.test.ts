@@ -38,15 +38,20 @@ describe("homepage scroll story contract", () => {
     expect(server).toContain('/assets/vendor/gsap/ScrollTrigger.min.js');
   });
 
-  it("adds a connected scene rail for the shortened Novi homepage", async () => {
+  it("keeps scene rail debug-only while preserving scene-state tracking", async () => {
     const html = await Bun.file("public/index.html").text();
     const controller = await Bun.file("public/assets/homepage-story.js").text();
 
     expect(html).toContain('class="story-film-nav"');
+    expect(html).toContain('data-debug-scene-nav');
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain('hidden>');
     expect(html).toContain('A DAY WITH NOVI');
     expect(html).toContain('data-scene-jump="#order-journey"');
     expect(html).toContain('data-scene-readout');
     expect(controller).toContain('function initSceneFilmNav()');
+    expect(controller).toContain('params.get("sceneNav") === "1"');
+    expect(controller).toContain('story.setAttribute("data-active-scene", scene.id);');
     expect(controller).toContain('initSceneFilmNav();');
   });
 
@@ -69,6 +74,7 @@ describe("homepage scroll story contract", () => {
     const controller = await Bun.file("public/assets/homepage-story.js").text();
 
     expect(html).toContain('data-novi-hero-video');
+    expect(html).not.toContain('data-story-order-token');
     expect(html).toContain('id="order-journey"');
     expect(html).toContain('data-order-play');
     expect(html).toContain('data-order-stage-state');

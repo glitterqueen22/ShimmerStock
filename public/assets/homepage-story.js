@@ -284,27 +284,67 @@
   const deskAmbientTweens = [];
 
   function initSceneFilmNav() {
-    const nav = story.querySelector(".story-film-nav");
-    if (!nav) return;
+    const nav = story.querySelector("[data-debug-scene-nav]");
+    const params = new URLSearchParams(window.location.search);
+    const debugScenes = params.get("sceneNav") === "1";
 
-    const buttons = Array.from(nav.querySelectorAll("[data-scene-jump]"));
-    const readout = nav.querySelector("[data-scene-readout]");
+    if (nav && debugScenes) {
+      nav.hidden = false;
+      nav.removeAttribute("aria-hidden");
+      story.setAttribute("data-debug-scenes", "true");
+    } else if (nav) {
+      nav.hidden = true;
+      nav.setAttribute("aria-hidden", "true");
+      story.removeAttribute("data-debug-scenes");
+    }
+
+    const buttons = nav && debugScenes
+      ? Array.from(nav.querySelectorAll("[data-scene-jump]"))
+      : [];
+    const readout = nav && debugScenes ? nav.querySelector("[data-scene-readout]") : null;
     const sections = Array.from(story.querySelectorAll("[data-scene-title]"));
+    if (!sections.length) return;
     const byId = new Map();
+    const activeSet = new Set();
 
     sections.forEach(function (section) {
       if (section.id) byId.set(`#${section.id}`, section);
     });
 
-    function setActive(hash) {
+    function setActiveByScene(scene) {
+      if (!scene || !scene.id) return;
+      const hash = `#${scene.id}`;
       buttons.forEach(function (button) {
         button.classList.toggle("is-active", button.getAttribute("data-scene-jump") === hash);
       });
-      const scene = byId.get(hash);
-      if (scene && readout) {
+      if (readout) {
         readout.textContent = `Scene: ${scene.getAttribute("data-scene-title")}`;
-        story.setAttribute("data-active-scene", scene.id);
       }
+      story.setAttribute("data-active-scene", scene.id);
+    }
+
+    function resolveActiveFromCenter() {
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+        const finalSection = sections[sections.length - 1];
+        if (finalSection) {
+          setActiveByScene(finalSection);
+          return;
+        }
+      }
+
+      const viewportCenter = window.innerHeight * 0.5;
+      const candidates = (activeSet.size ? Array.from(activeSet) : sections).filter(Boolean);
+      if (!candidates.length) return;
+
+      const best = candidates
+        .map(function (section) {
+          const rect = section.getBoundingClientRect();
+          const midpoint = rect.top + (rect.height / 2);
+          return { section, distance: Math.abs(midpoint - viewportCenter) };
+        })
+        .sort(function (a, b) { return a.distance - b.distance; })[0];
+
+      if (best && best.section) setActiveByScene(best.section);
     }
 
     buttons.forEach(function (button) {
@@ -313,25 +353,31 @@
         const target = hash ? byId.get(hash) : null;
         if (!target) return;
         target.scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "start" });
-        setActive(hash);
+        const scene = hash ? byId.get(hash) : null;
+        if (!scene) return;
+        setActiveByScene(scene);
       });
     });
 
     if (typeof IntersectionObserver === "undefined") {
-      if (buttons[0]) setActive(buttons[0].getAttribute("data-scene-jump"));
+      setActiveByScene(sections[0]);
       return;
     }
 
     const observer = new IntersectionObserver(function (entries) {
-      const visible = entries
-        .filter(function (entry) { return entry.isIntersecting; })
-        .sort(function (a, b) { return b.intersectionRatio - a.intersectionRatio; })[0];
-      if (!visible || !visible.target.id) return;
-      setActive(`#${visible.target.id}`);
-    }, { threshold: [0.35, 0.5, 0.7] });
+      entries.forEach(function (entry) {
+        if (!entry.target || !entry.target.id) return;
+        if (entry.isIntersecting) activeSet.add(entry.target);
+        else activeSet.delete(entry.target);
+      });
+      resolveActiveFromCenter();
+    }, {
+      threshold: [0, 0.25, 0.5, 0.75],
+      rootMargin: "-45% 0px -45% 0px"
+    });
 
     sections.forEach(function (section) { observer.observe(section); });
-    if (buttons[0]) setActive(buttons[0].getAttribute("data-scene-jump"));
+    setActiveByScene(sections[0]);
   }
 
   function applyNoviAsset(portraits, src, useMotion) {
@@ -386,7 +432,7 @@
 
   function animateOrderTokenHandoff() {
     if (orderTokenMoved) return;
-    const token = story.querySelector("[data-story-order-token]");
+    const token = story.querySelector(".story-hero-copy .story-text-link[href='#order-journey']");
     const dock = story.querySelector("[data-order-token-dock]");
     if (!dock) return;
 
