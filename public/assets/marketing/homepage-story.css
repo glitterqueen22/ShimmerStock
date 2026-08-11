@@ -20,13 +20,13 @@
   top: 105px;
   right: clamp(0.5rem, 1.8vw, 1.4rem);
   z-index: 35;
-  width: min(190px, 42vw);
-  padding: 0.8rem;
-  border: 1px solid rgba(16, 37, 63, 0.2);
+  width: min(178px, 40vw);
+  padding: 0.68rem;
+  border: 1px solid rgba(16, 37, 63, 0.14);
   border-radius: 12px;
-  background: rgba(255, 253, 249, 0.78);
+  background: rgba(255, 253, 249, 0.66);
   backdrop-filter: blur(8px);
-  box-shadow: 0 12px 28px rgba(16, 37, 63, 0.16);
+  box-shadow: 0 8px 20px rgba(16, 37, 63, 0.12);
 }
 
 .story-film-label {
@@ -46,7 +46,7 @@
 }
 
 .story-film-list button {
-  min-height: 34px;
+  min-height: 44px;
   width: 100%;
   border: 1px solid rgba(16, 37, 63, 0.16);
   border-radius: 999px;
@@ -94,7 +94,7 @@
   padding: clamp(4rem, 7vh, 6rem) 0 4rem;
   display: grid;
   grid-template-columns: minmax(0, 0.48fr) minmax(320px, 0.52fr);
-  gap: clamp(2rem, 5vw, 5rem);
+  gap: clamp(1.6rem, 4vw, 3.6rem);
   align-items: center;
 }
 
@@ -113,8 +113,8 @@
 
 .story-hero-copy h1 {
   max-width: 12ch;
-  font-size: clamp(3.55rem, 6.6vw, 7rem);
-  line-height: 0.95;
+  font-size: clamp(3.1rem, 6vw, 6.2rem);
+  line-height: 0.98;
   letter-spacing: 0 !important;
   text-wrap: balance;
 }
@@ -127,10 +127,23 @@
 
 .story-lead {
   max-width: 34ch;
-  margin: 1.8rem 0 0;
+  margin: 1.35rem 0 0;
   color: var(--ink-soft);
   font-size: clamp(1rem, 1.4vw, 1.2rem);
   line-height: 1.55;
+}
+
+.story-order-token {
+  width: fit-content;
+  margin: 1rem 0 0;
+  padding: 0.3rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 37, 63, 0.2);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--violet);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .story-actions {
@@ -208,10 +221,10 @@
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
-  color: var(--ink);
-  font-weight: 800;
+  color: var(--ink-soft);
+  font-weight: 700;
   text-decoration: none;
-  border-bottom: 1px solid currentColor;
+  border-bottom: 1px solid rgba(16, 37, 63, 0.35);
 }
 
 .story-text-link span {
@@ -254,6 +267,24 @@
   border-radius: 12px;
   background: linear-gradient(145deg, #13243c 0%, #0f1c2f 62%, #1a2e4a 100%);
   box-shadow: 0 36px 90px rgba(16, 37, 63, 0.22);
+}
+
+.story-hero-film.is-complete::after {
+  content: "Film complete";
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  min-height: 30px;
+  padding: 0 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(9, 18, 33, 0.52);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 
 .story-hero-video {
@@ -628,7 +659,26 @@
 
 .story-section {
   position: relative;
-  padding: clamp(6rem, 11vw, 10rem) 0;
+  padding: clamp(4.8rem, 9vw, 8rem) 0;
+}
+
+.story-order,
+.story-novi,
+.story-industry {
+  padding-top: clamp(5rem, 9vw, 8rem);
+  padding-bottom: clamp(5rem, 9vw, 8rem);
+}
+
+.story-trust,
+.story-people,
+.story-dream-grant {
+  padding-top: clamp(4.2rem, 7vw, 6.2rem);
+  padding-bottom: clamp(4.2rem, 7vw, 6.2rem);
+}
+
+.story-final {
+  padding-top: clamp(5rem, 9vw, 8rem);
+  padding-bottom: clamp(5rem, 9vw, 8rem);
 }
 
 .story-section-heading {
@@ -919,7 +969,7 @@
 }
 
 .story-industry-compact .industry-tabs button {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 0.95rem;
   border: 1px solid rgba(41, 37, 47, 0.14);
   border-radius: 999px;
@@ -1618,7 +1668,7 @@
 
 .story-final-inner > p:not(.story-kicker, .story-provenance) {
   max-width: 60ch;
-  margin: 1.5rem auto 0;
+  margin: 1.15rem auto 0;
   color: var(--ink-soft);
   font-size: 1.08rem;
 }
@@ -1738,6 +1788,10 @@
 
   .story-hero-film {
     min-height: 290px;
+  }
+
+  .story-hero-video {
+    object-position: center 38%;
   }
 
   .story-hero-copy h1 {
@@ -1881,10 +1935,14 @@
     gap: 0.35rem;
   }
 
-  .story-actions .btn,
-  .story-actions .story-text-link {
+  .story-actions .btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .story-actions .story-text-link {
+    width: auto;
+    justify-content: flex-start;
   }
 
   .story-hero-toggle {
