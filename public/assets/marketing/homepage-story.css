@@ -138,6 +138,19 @@
   line-height: 1.55;
 }
 
+.story-order-token {
+  width: fit-content;
+  margin: 1rem 0 0;
+  padding: 0.3rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 37, 63, 0.2);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--violet);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
 .story-actions {
   display: flex;
   align-items: center;
@@ -1835,6 +1848,10 @@
 
   .story-hero-video {
     object-position: center 34%;
+  }
+
+  .story-hero-video {
+    object-position: center 38%;
   }
 
   .story-hero-copy h1 {
