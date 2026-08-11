@@ -16,9 +16,25 @@
     if (!heroRoot || !film || !video || !toggle || !status) return;
 
     let userPaused = false;
+    let hasCompleted = false;
 
     function setStatus(text) {
       status.textContent = text;
+    }
+
+    function setToggle(state) {
+      if (state === "playing") {
+        toggle.textContent = "Pause film";
+        toggle.setAttribute("aria-pressed", "true");
+        return;
+      }
+      if (state === "paused") {
+        toggle.textContent = "Play film";
+        toggle.setAttribute("aria-pressed", "false");
+        return;
+      }
+      toggle.textContent = "Replay film";
+      toggle.setAttribute("aria-pressed", "false");
     }
 
     function setReady() {
@@ -48,13 +64,22 @@
     video.playsInline = true;
     video.setAttribute("muted", "");
     video.setAttribute("playsinline", "");
+    video.loop = false;
+
+    function playFromCurrent(restart) {
+      if (restart) video.currentTime = 0;
+      return video.play().then(function () {
+        hasCompleted = false;
+        userPaused = false;
+        film.classList.remove("is-complete");
+        setToggle("playing");
+        setStatus("Novi film is playing.");
+      });
+    }
 
     const onCanPlay = function () {
       setReady();
-      video.play().then(function () {
-        toggle.textContent = "Pause film";
-        toggle.setAttribute("aria-pressed", "true");
-      }).catch(function () {
+      playFromCurrent(false).catch(function () {
         setFallback("Autoplay is blocked. Showing poster.");
       });
     };
@@ -69,21 +94,31 @@
       if (!film.classList.contains("is-ready")) setStatus("Still loading Novi film.");
     });
 
+    video.addEventListener("ended", function () {
+      hasCompleted = true;
+      userPaused = false;
+      film.classList.add("is-complete");
+      story.setAttribute("data-film-state", "complete");
+      setToggle("replay");
+      setStatus("Film complete. Replay whenever you're ready.");
+    });
+
     toggle.addEventListener("click", function () {
+      if (hasCompleted) {
+        playFromCurrent(true).catch(function () {
+          setFallback("Playback not available right now. Showing poster.");
+        });
+        return;
+      }
+
       if (video.paused) {
-        userPaused = false;
-        video.play().then(function () {
-          toggle.textContent = "Pause film";
-          toggle.setAttribute("aria-pressed", "true");
-          setStatus("Novi film is playing.");
-        }).catch(function () {
+        playFromCurrent(false).catch(function () {
           setFallback("Playback not available right now. Showing poster.");
         });
       } else {
         userPaused = true;
         video.pause();
-        toggle.textContent = "Play film";
-        toggle.setAttribute("aria-pressed", "false");
+        setToggle("paused");
         setStatus("Film paused.");
       }
     });
@@ -180,6 +215,7 @@
 
       const changingNodes = Object.values(nodes).filter(Boolean);
       if (window.gsap && !reduceMotion.matches && changingNodes.length) {
+        window.gsap.killTweensOf(changingNodes);
         window.gsap.to(changingNodes, {
           autoAlpha: 0.35,
           duration: 0.14,
@@ -303,6 +339,7 @@
       portraits.forEach(function (portrait) { portrait.setAttribute("src", src); });
     };
     if (useMotion && window.gsap && !reduceMotion.matches) {
+      window.gsap.killTweensOf(portraits);
       window.gsap.to(portraits, {
         autoAlpha: 0, scale: 0.94, duration: 0.16,
         onComplete: function () {
@@ -331,164 +368,35 @@
     probe.src = asset;
   }
 
-  function setDeskQueueSnapshot(counts) {
-    const ready = story.querySelector("[data-queue-ready]");
-    const production = story.querySelector("[data-queue-production]");
-    const customer = story.querySelector("[data-queue-customer]");
-    if (ready) ready.textContent = counts.ready;
-    if (production) production.textContent = counts.production;
-    if (customer) customer.textContent = counts.customer;
-  }
-
-  function startDeskAmbientMotion() {
-    if (!window.gsap || reduceMotion.matches) return;
-    const portrait = story.querySelector(".desk-stage .novi-desk-portrait");
-    const blink = story.querySelector("[data-desk-blink]");
-    const steam = Array.from(story.querySelectorAll(".desk-steam span"));
-    const panel = story.querySelector("[data-queue-panel]");
-    const props = story.querySelector(".desk-props");
-
-    if (portrait) {
-      deskAmbientTweens.push(window.gsap.to(portrait, {
-        y: -2,
-        scale: 1.022,
-        duration: 2.8,
-        ease: "sine.inOut",
-        repeat: -1,
-        yoyo: true,
-        transformOrigin: "center 62%"
-      }));
-      deskAmbientTweens.push(window.gsap.timeline({ repeat: -1, repeatDelay: 2.4 })
-        .to(portrait, { x: 4, rotation: -0.6, duration: 0.34, ease: "sine.out" })
-        .to(portrait, { x: 0, rotation: 0, duration: 0.42, ease: "sine.inOut" }));
-    }
-
-    if (blink) {
-      deskAmbientTweens.push(window.gsap.timeline({ repeat: -1, repeatDelay: 3.1 })
-        .set(blink, { autoAlpha: 0 })
-        .to(blink, { autoAlpha: 0.72, duration: 0.06 })
-        .to(blink, { autoAlpha: 0, duration: 0.08 })
-        .to(blink, { autoAlpha: 0.66, duration: 0.05 }, "+=0.09")
-        .to(blink, { autoAlpha: 0, duration: 0.08 }));
-    }
-
-    if (steam.length) {
-      deskAmbientTweens.push(window.gsap.to(steam, {
-        y: -5,
-        x: function (index) { return index ? 2 : -2; },
-        autoAlpha: 0.22,
-        duration: 1.7,
-        ease: "sine.inOut",
-        repeat: -1,
-        yoyo: true,
-        stagger: 0.16
-      }));
-    }
-
-    if (panel) {
-      deskAmbientTweens.push(window.gsap.to(panel, {
-        boxShadow: "0 22px 40px rgba(16,37,63,0.42)",
-        duration: 2.2,
-        repeat: -1,
-        yoyo: true,
-        ease: "sine.inOut"
-      }));
-    }
-
-    if (props) {
-      deskAmbientTweens.push(window.gsap.to(props, {
-        y: -1,
-        duration: 2,
-        repeat: -1,
-        yoyo: true,
-        ease: "sine.inOut"
-      }));
-    }
-  }
-
   function markDeskActive() {
-    const stage = story.querySelector("[data-desk-scene] .desk-stage");
-    const caption = story.querySelector("[data-desk-caption]");
-    const notification = story.querySelector("[data-desk-notification]");
-    const queuePanel = story.querySelector("[data-queue-panel]");
-    const queueLane = story.querySelector("[data-queue-lane]");
-    if (!stage || deskActivationStarted) return;
+    const anchor = story.querySelector(".order-anchor");
+    const lane = story.querySelector("[data-order-token-dock]");
+    if (!anchor) return;
 
-    deskActivationStarted = true;
-
-    const finalize = function () {
-      stage.dataset.deskState = "focused";
-      if (queuePanel) queuePanel.dataset.queueState = "focused";
-      if (caption) caption.textContent = "Go time. Novi moved Order #8197 into the live journey.";
-      if (queueLane) queueLane.textContent = "Queue active. Order #8197 moved into the journey.";
-      setDeskQueueSnapshot({
-        ready: "15 ready",
-        production: "2 need production",
-        customer: "1 customer waiting"
-      });
-      swapNoviPortrait("focused");
+    if (!deskActivationStarted) {
+      deskActivationStarted = true;
       animateOrderTokenHandoff();
-    };
-
-    if (!notification) {
-      finalize();
-      return;
     }
 
-    notification.hidden = false;
-
-    if (!window.gsap || reduceMotion.matches) {
-      stage.dataset.deskState = "alert";
-      if (queuePanel) queuePanel.dataset.queueState = "alert";
-      if (caption) caption.textContent = "Order notification in. Novi is shifting from calm to alert.";
-      if (queueLane) queueLane.textContent = "Queue waking up. Routing Order #8197 now.";
-      setDeskQueueSnapshot({
-        ready: "14 ready",
-        production: "3 need production",
-        customer: "1 customer waiting"
-      });
-      swapNoviPortrait("alert");
-      finalize();
-      return;
+    anchor.setAttribute("data-order-state", "active");
+    if (lane && !orderTokenMoved) {
+      lane.textContent = "Routing Order #8197 into the journey";
     }
-
-    const portrait = story.querySelector(".desk-stage .novi-desk-portrait");
-    const tl = window.gsap.timeline({ defaults: { ease: "power2.out" } });
-    tl
-      .set(notification, { autoAlpha: 0, y: 16, scale: 0.97 })
-      .call(function () {
-        stage.dataset.deskState = "alert";
-        if (queuePanel) queuePanel.dataset.queueState = "alert";
-        if (caption) caption.textContent = "Order notification in. Novi notices the queue changed.";
-        if (queueLane) queueLane.textContent = "Queue waking up. Routing Order #8197 now.";
-        setDeskQueueSnapshot({
-          ready: "14 ready",
-          production: "3 need production",
-          customer: "1 customer waiting"
-        });
-        swapNoviPortrait("alert");
-      })
-      .to(notification, { autoAlpha: 1, y: 0, scale: 1, duration: 0.34 })
-      .to(notification, { borderLeftColor: "#9ddab8", duration: 0.24 }, "<")
-      .to(portrait, { x: 7, rotation: -1, duration: 0.24 }, "<")
-      .to(portrait, { x: 0, rotation: 0, duration: 0.28 })
-      .call(finalize);
   }
 
   function animateOrderTokenHandoff() {
     if (orderTokenMoved) return;
-    const token = story.querySelector("[data-order-token]");
+    const token = story.querySelector("[data-story-order-token]");
     const dock = story.querySelector("[data-order-token-dock]");
-    if (!token || !dock) return;
+    if (!dock) return;
 
     const finalize = function () {
       dock.textContent = "Order #8197 is now in the live journey";
       dock.classList.add("is-arrived");
-      token.classList.add("is-sent");
       orderTokenMoved = true;
     };
 
-    if (!window.gsap || reduceMotion.matches) {
+    if (!token || !window.gsap || reduceMotion.matches) {
       finalize();
       return;
     }
@@ -520,39 +428,17 @@
       .to(flight, {
         x: end.left - start.left,
         y: end.top - start.top,
-        scale: 0.93,
-        duration: 0.46
+        scale: 0.9,
+        duration: 0.52
       })
       .to(flight, {
         autoAlpha: 0,
-        duration: 0.16
+        duration: 0.18
       });
   }
 
   function initNoviDeskScene() {
-    const scene = story.querySelector("[data-desk-scene]");
-    const orderSection = story.querySelector("[data-order-story]");
-    if (!scene) return;
-
-    setDeskQueueSnapshot({
-      ready: "14 ready",
-      production: "2 need production",
-      customer: "1 customer waiting"
-    });
     swapNoviPortrait("idle");
-    startDeskAmbientMotion();
-
-    if (!orderSection || typeof IntersectionObserver === "undefined") return;
-
-    const observer = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          markDeskActive();
-          observer.disconnect();
-        }
-      });
-    }, { threshold: 0.3 });
-    observer.observe(orderSection);
   }
 
   function initOrderJourneyPlayer() {
@@ -588,6 +474,7 @@
       if (reactionEl) reactionEl.dataset.noviState = orderStates[activeIndex] || orderStates[0];
       if (stageState) stageState.textContent = orderStageMessages[activeIndex] || orderStageMessages[0];
       if (anchor) anchor.setAttribute("data-order-stage", String(activeIndex));
+      root.setAttribute("data-story-beat", orderStates[activeIndex] || orderStates[0]);
       swapNoviPortrait(orderStates[activeIndex] || orderStates[0]);
     }
 
@@ -779,77 +666,6 @@
     const media = gsap.matchMedia();
 
     media.add("(min-width: 1101px) and (prefers-reduced-motion: no-preference)", function () {
-      const deskScene = story.querySelector("[data-desk-enter]");
-      const deskHeading = story.querySelector(".story-desk .story-section-heading");
-      const deskBackdrop = story.querySelector(".desk-backdrop");
-      const deskNovi = story.querySelector(".desk-novi-zone");
-      const deskQueue = story.querySelector("[data-queue-panel]");
-      if (deskScene && deskHeading && deskBackdrop && deskNovi && deskQueue) {
-        gsap.timeline({
-          defaults: { ease: "none" },
-          scrollTrigger: {
-            trigger: deskScene,
-            start: "top 82%",
-            end: "bottom 46%",
-            scrub: 0.5
-          }
-        })
-          .fromTo(deskScene, { y: 56, scale: 0.955, autoAlpha: 0.88 }, { y: 0, scale: 1, autoAlpha: 1, immediateRender: false }, 0)
-          .fromTo(deskHeading, { y: 34, autoAlpha: 0.55 }, { y: 0, autoAlpha: 1, immediateRender: false }, 0)
-          .fromTo(deskBackdrop, { yPercent: -8 }, { yPercent: 6, immediateRender: false }, 0)
-          .fromTo(deskNovi, { y: 22, x: -14 }, { y: 0, x: 0, immediateRender: false }, 0.08)
-          .fromTo(deskQueue, { y: 26, x: 28, autoAlpha: 0.8 }, { y: 0, x: 0, autoAlpha: 1, immediateRender: false }, 0.1);
-      }
-
-      const assembly = story.querySelector("[data-story-assembly]");
-      const stageWrap = story.querySelector(".story-stage-wrap");
-      const frame = story.querySelector("[data-command-frame]");
-      const fragments = Array.from(story.querySelectorAll(".story-fragment"));
-      const slots = Array.from(story.querySelectorAll(".command-slots span"));
-      const state = story.querySelector("[data-assembly-state]");
-
-      if (assembly && stageWrap && frame && fragments.length === slots.length) {
-        const targetDelta = function (fragment, slot, axis) {
-          const fragmentRect = fragment.getBoundingClientRect();
-          const slotRect = slot.getBoundingClientRect();
-          return axis === "x" ? slotRect.left - fragmentRect.left + 8 : slotRect.top - fragmentRect.top + 8;
-        };
-
-        const assemblyTimeline = gsap.timeline({
-          defaults: { ease: "none" },
-          scrollTrigger: {
-            trigger: assembly,
-            start: "top top",
-            end: "+=1050",
-            scrub: 0.65,
-            pin: stageWrap,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
-            onUpdate: function (self) {
-              if (!state) return;
-              state.textContent = self.progress < 0.34 ? "Disconnected work" : self.progress < 0.72 ? "Records aligning" : "One Command Center";
-            }
-          }
-        });
-
-        assemblyTimeline
-          .addLabel("fragmentation")
-          .to(fragments, { x: function (index) { return index % 2 ? 20 : -20; }, y: function (index) { return index % 3 ? 10 : -14; }, stagger: 0.035, duration: 0.22 })
-          .addLabel("alignment")
-          .to(frame, { autoAlpha: 1, scale: 1, duration: 0.22 }, "alignment")
-          .to(fragments, {
-            x: function (index, element) { return targetDelta(element, slots[index], "x"); },
-            y: function (index, element) { return targetDelta(element, slots[index], "y"); },
-            rotation: 0,
-            scale: 0.72,
-            transformOrigin: "top left",
-            stagger: 0.025,
-            duration: 0.4
-          }, "alignment+=0.06")
-          .addLabel("command")
-          .to(fragments, { boxShadow: "0 7px 18px rgba(16,37,63,0.10)", duration: 0.15 });
-      }
-
       const reduction = story.querySelector("[data-novi-reduction]");
       const records = story.querySelectorAll(".record-field span");
       const resolvedRecords = story.querySelectorAll(".record-field span:not([data-decision-linked])");
@@ -859,20 +675,11 @@
         gsap.timeline({
           scrollTrigger: { trigger: reduction, start: "top 75%", end: "center 45%", scrub: 0.55 }
         })
-          .from(records, { autoAlpha: 0, scale: 0.82, stagger: { amount: 0.35, from: "random" }, duration: 0.45, immediateRender: false })
+          .from(records, { autoAlpha: 0, scale: 0.82, stagger: { amount: 0.35, from: "start" }, duration: 0.45, immediateRender: false })
           .from(brief, { autoAlpha: 0, x: 70, duration: 0.5, immediateRender: false }, "-=0.2")
           .addLabel("resolve")
           .to(resolvedRecords, { autoAlpha: 0.22, scale: 0.86, y: 6, stagger: { amount: 0.2, from: "edges" }, duration: 0.35 }, "resolve")
           .to(linkedRecords, { autoAlpha: 1, scale: 1.06, borderColor: "var(--pink)", stagger: 0.04, duration: 0.35 }, "resolve");
-      }
-
-      const scan = story.querySelector(".scan-result");
-      const beam = story.querySelector(".scan-beam");
-      if (scan && beam) {
-        gsap.timeline({ scrollTrigger: { trigger: scan, start: "top 78%", toggleActions: "play none none reverse" } })
-          .set(beam, { autoAlpha: 1, y: 0 })
-          .to(beam, { y: function () { return scan.clientHeight - 2; }, duration: 0.75, ease: "power1.inOut" })
-          .to(beam, { autoAlpha: 0, duration: 0.18 });
       }
 
       return function () {
@@ -890,8 +697,6 @@
   initDecisionPreviews();
   initOrderJourneyPlayer();
   initNoviDeskScene();
-  initSkuSequence();
-  initMissionPreviews();
   const motionContext = initializeMotion();
 
   window.addEventListener("pagehide", function () {
