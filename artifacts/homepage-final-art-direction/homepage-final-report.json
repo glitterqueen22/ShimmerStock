@@ -1,0 +1,33 @@
+{
+  "generatedAt": "2026-08-11T16:34:49.890Z",
+  "baseUrl": "http://127.0.0.1:3000/?sceneNav=1",
+  "files": [
+    "/workspaces/ShimmerStock/artifacts/homepage-final-art-direction/people-behind-colors.png",
+    "/workspaces/ShimmerStock/artifacts/homepage-final-art-direction/dream-grant.png",
+    "/workspaces/ShimmerStock/artifacts/homepage-final-art-direction/final-novi-cta.png",
+    "/workspaces/ShimmerStock/artifacts/homepage-final-art-direction/desktop-full.png",
+    "/workspaces/ShimmerStock/artifacts/homepage-final-art-direction/mobile-full.png",
+    "/workspaces/ShimmerStock/artifacts/homepage-final-art-direction/homepage-full-experience.webm",
+    "/workspaces/ShimmerStock/artifacts/homepage-final-art-direction/film-to-order-transition.webm",
+    "/workspaces/ShimmerStock/artifacts/homepage-final-art-direction/chaos-to-three-decisions.webm",
+    "/workspaces/ShimmerStock/artifacts/homepage-final-art-direction/reduced-motion-proof.png"
+  ],
+  "performance": {
+    "lcpMs": 408,
+    "cls": 0,
+    "inpMs": 1,
+    "domContentLoadedMs": 205,
+    "loadEventMs": 387
+  },
+  "accessibility": {
+    "violations": 1,
+    "incomplete": 2,
+    "passes": 46,
+    "firstViolation": {
+      "id": "color-contrast",
+      "impact": "serious",
+      "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+      "nodes": 19
+    }
+  }
+}
