@@ -127,8 +127,9 @@
               <a href="/solutions/craft-suppliers">Makers &amp; Craft</a>
               <a href="/solutions/candles">Home &amp; Fragrance</a>
               <a href="/solutions/apparel">Apparel &amp; Accessories</a>
-              <a href="/solutions/candles">Beauty &amp; Body</a>
+              <a href="/solutions/made-to-order">Beauty &amp; Body</a>
               <a href="/solutions/bakery">Food &amp; Bakery</a>
+              <a href="/solutions/boutiques">Boutique &amp; Retail</a>
             </div>
             <div>
               <h3>Company</h3>
