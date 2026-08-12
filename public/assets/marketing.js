@@ -22,15 +22,12 @@
       ["Team & Permissions", "/product/partners"]
     ],
     solutions: [
-      ["Craft & Maker Supplies", "/solutions/craft-suppliers"],
-      ["E-commerce Brands", "/solutions/ecommerce-brands"],
-      ["Made-to-Order & Manufacturing", "/solutions/made-to-order"],
-      ["Apparel & Print", "/solutions/apparel"],
+      ["Makers & Craft", "/solutions/craft-suppliers"],
+      ["Home & Fragrance", "/solutions/candles"],
+      ["Apparel & Accessories", "/solutions/apparel"],
+      ["Beauty & Body", "/solutions/made-to-order"],
       ["Food & Bakery", "/solutions/bakery"],
-      ["Candles, Bath & Body & Home Fragrance", "/solutions/candles"],
-      ["Boutiques & Retail", "/solutions/boutiques"],
-      ["Subscription Boxes", "/solutions/subscription-boxes"],
-      ["Freshie Businesses", "/solutions/freshies"]
+      ["Boutique & Retail", "/solutions/boutiques"]
     ],
     resources: [
       ["How It Works", "/resources/how-it-works"],
