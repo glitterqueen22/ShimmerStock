@@ -25,7 +25,7 @@
       ["Makers & Craft", "/solutions/craft-suppliers"],
       ["Home & Fragrance", "/solutions/candles"],
       ["Apparel & Accessories", "/solutions/apparel"],
-      ["Beauty & Body", "/solutions/candles"],
+      ["Beauty & Body", "/solutions/made-to-order"],
       ["Food & Bakery", "/solutions/bakery"],
       ["Boutique & Retail", "/solutions/boutiques"],
       ["Subscription Boxes", "/solutions/subscription-boxes"]

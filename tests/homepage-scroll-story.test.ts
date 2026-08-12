@@ -99,6 +99,7 @@ describe("homepage scroll story contract", () => {
     expect(html).toContain('Makers &amp; Craft');
     expect(html).toContain('Home &amp; Fragrance');
     expect(html).toContain('Physical-product commerce');
+    expect(html).not.toContain('Freshies');
     expect(controller).toContain('event.key === "ArrowRight"');
     expect(controller).toContain('event.key === "ArrowLeft"');
     expect(controller).toContain('event.key === "Home"');
