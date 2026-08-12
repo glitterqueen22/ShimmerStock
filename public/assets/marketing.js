@@ -123,10 +123,10 @@
             </div>
             <div>
               <h3>Solutions</h3>
-              <a href="/solutions/craft-suppliers">Craft &amp; Maker Supplies</a>
-              <a href="/solutions/ecommerce-brands">E-commerce Brands</a>
-              <a href="/solutions/made-to-order">Made-to-Order</a>
-              <a href="/solutions/apparel">Apparel</a>
+              <a href="/solutions/craft-suppliers">Makers &amp; Craft</a>
+              <a href="/solutions/candles">Home &amp; Fragrance</a>
+              <a href="/solutions/made-to-order">Beauty &amp; Body</a>
+              <a href="/solutions/apparel">Apparel &amp; Accessories</a>
               <a href="/solutions/bakery">Food &amp; Bakery</a>
             </div>
             <div>
