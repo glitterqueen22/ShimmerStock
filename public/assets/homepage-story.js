@@ -130,48 +130,48 @@
     });
   }
   const industryData = {
-    freshies: {
-      title: "Freshies workspace",
-      focus: "Formula, batch, and material runway",
-      copy: "Aroma beads, fragrance oils, molds, and curing work stay connected to the orders they support.",
-      inventory: "Aroma Beads / Formula 26 / Molds",
-      production: "Freshie Batch #284",
-      alert: "Formula 26 has 6 days of runway"
+    makers: {
+      title: "Makers & Craft workspace",
+      focus: "Materials, formulas, and batch rhythm",
+      copy: "Fragrance oils, molds, blanks, packaging, and supplier lead times stay connected to order demand.",
+      inventory: "Fragrance oils / Blanks / Molds / Packaging",
+      production: "Batch #284 / Formula run",
+      alert: "Material runway is compressing this week"
+    },
+    home: {
+      title: "Home & Fragrance workspace",
+      focus: "Component flow and scent execution",
+      copy: "Wax, fragrance oils, vessels, labels, and seasonal demand stay aligned with the production queue.",
+      inventory: "Wax / Fragrance oils / Vessels",
+      production: "Candle Pour #52",
+      alert: "Fragrance re-order window is closing"
     },
     apparel: {
-      title: "Apparel workspace",
+      title: "Apparel & Accessories workspace",
       focus: "Variant pressure and personalization",
       copy: "Blank inventory, size and color variants, artwork, and personalization queues share the same context.",
       inventory: "Comfort Colors / Sizes / Colorways",
       production: "Retro Summer Tee / 18 orders",
       alert: "Black Large blanks are low"
     },
-    bakery: {
-      title: "Bakery workspace",
-      focus: "Ingredients, prep, and pickup windows",
-      copy: "Recipe demand, ingredient availability, batch yield, and pickup timing stay visible together.",
-      inventory: "Flour / Vanilla / Butter / Boxes",
-      production: "Birthday Cake Batch",
-      alert: "Vanilla extract reorder suggested"
-    },
-    candles: {
-      title: "Candles workspace",
-      focus: "Components and curing windows",
-      copy: "Wax, fragrance oils, vessels, labels, and seasonal demand stay aligned with the production queue.",
-      inventory: "Wax / Fragrance oils / Vessels",
-      production: "Candle Pour #52",
-      alert: "Wick packs are low"
-    },
-    bath: {
-      title: "Bath and body workspace",
+    beauty: {
+      title: "Beauty & Body workspace",
       focus: "Formula and lot-aware planning",
       copy: "Ingredients, jars, formula work, and replenishment timing use language that fits the operation.",
       inventory: "Lotions / Soaps / Oils / Jars",
       production: "Glow Set Run #12",
       alert: "Ingredient lot review due today"
     },
+    food: {
+      title: "Food & Bakery workspace",
+      focus: "Ingredients, prep, and pickup windows",
+      copy: "Recipe demand, ingredient availability, batch yield, and pickup timing stay visible together.",
+      inventory: "Flour / Vanilla / Butter / Boxes",
+      production: "Birthday Cake Batch",
+      alert: "Vanilla extract reorder suggested"
+    },
     boutique: {
-      title: "Boutique workspace",
+      title: "Boutique & Retail workspace",
       focus: "Incoming stock and merchandising rhythm",
       copy: "Seasonal drops, display inventory, fulfillment pacing, and incoming stock remain in one view.",
       inventory: "Accessories / Drops / Display stock",

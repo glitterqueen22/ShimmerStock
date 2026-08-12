@@ -94,8 +94,13 @@ describe("homepage scroll story contract", () => {
     expect(html.match(/class="decision-action cta-novi" aria-pressed="false"/g)).toHaveLength(3);
     expect(html).toContain('id="industry-workspace" role="tabpanel"');
     expect(html.match(/aria-controls="industry-workspace"/g)).toHaveLength(6);
-    expect(html).toContain('data-industry="freshies"');
-    expect(html).toContain('data-industry="bath"');
+    expect(html).not.toContain('Freshies');
+    expect(html).toContain('data-industry="makers"');
+    expect(html).toContain('data-industry="home"');
+    expect(html).toContain('data-industry="apparel"');
+    expect(html).toContain('data-industry="beauty"');
+    expect(html).toContain('data-industry="food"');
+    expect(html).toContain('data-industry="boutique"');
     expect(controller).toContain('event.key === "ArrowRight"');
     expect(controller).toContain('event.key === "ArrowLeft"');
     expect(controller).toContain('event.key === "Home"');
