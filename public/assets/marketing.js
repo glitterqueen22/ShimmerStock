@@ -22,15 +22,13 @@
       ["Team & Permissions", "/product/partners"]
     ],
     solutions: [
-      ["Craft & Maker Supplies", "/solutions/craft-suppliers"],
-      ["E-commerce Brands", "/solutions/ecommerce-brands"],
-      ["Made-to-Order & Manufacturing", "/solutions/made-to-order"],
-      ["Apparel & Print", "/solutions/apparel"],
+      ["Makers & Craft", "/solutions/craft-suppliers"],
+      ["Home & Fragrance", "/solutions/candles"],
+      ["Apparel & Accessories", "/solutions/apparel"],
+      ["Beauty & Body", "/solutions/candles"],
       ["Food & Bakery", "/solutions/bakery"],
-      ["Candles, Bath & Body & Home Fragrance", "/solutions/candles"],
-      ["Boutiques & Retail", "/solutions/boutiques"],
-      ["Subscription Boxes", "/solutions/subscription-boxes"],
-      ["Freshie Businesses", "/solutions/freshies"]
+      ["Boutique & Retail", "/solutions/boutiques"],
+      ["Subscription Boxes", "/solutions/subscription-boxes"]
     ],
     resources: [
       ["How It Works", "/resources/how-it-works"],
@@ -126,10 +124,10 @@
             </div>
             <div>
               <h3>Solutions</h3>
-              <a href="/solutions/craft-suppliers">Craft &amp; Maker Supplies</a>
-              <a href="/solutions/ecommerce-brands">E-commerce Brands</a>
-              <a href="/solutions/made-to-order">Made-to-Order</a>
-              <a href="/solutions/apparel">Apparel</a>
+              <a href="/solutions/craft-suppliers">Makers &amp; Craft</a>
+              <a href="/solutions/candles">Home &amp; Fragrance</a>
+              <a href="/solutions/apparel">Apparel &amp; Accessories</a>
+              <a href="/solutions/candles">Beauty &amp; Body</a>
               <a href="/solutions/bakery">Food &amp; Bakery</a>
             </div>
             <div>

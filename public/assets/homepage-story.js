@@ -130,51 +130,51 @@
     });
   }
   const industryData = {
-    freshies: {
-      title: "Freshies workspace",
-      focus: "Formula, batch, and material runway",
-      copy: "Aroma beads, fragrance oils, molds, and curing work stay connected to the orders they support.",
-      inventory: "Aroma Beads / Formula 26 / Molds",
-      production: "Freshie Batch #284",
-      alert: "Formula 26 has 6 days of runway"
+    "makers-craft": {
+      title: "Makers & Craft workspace",
+      focus: "Material runway, production batches, and manufacturing planning",
+      copy: "Silicone molds, resin, pigments, raw materials, design files, and finished-goods inventory all stay connected to the production orders they support.",
+      inventory: "Silicone molds / Resin / Pigments / Raw materials",
+      production: "Resin Batch #218 / mold queue",
+      alert: "Resin pigment lot is under 12-day cover"
     },
-    apparel: {
-      title: "Apparel workspace",
+    "home-fragrance": {
+      title: "Home & Fragrance workspace",
+      focus: "Formula, wax, and seasonal demand rhythm",
+      copy: "Candles, wax melts, room sprays, and freshie formulas share the same production logic: fragrance, vessel, packaging, and stock coverage.",
+      inventory: "Wax / Fragrance oils / Jars / Freshie blends",
+      production: "Candle Pour #52 / Freshie Batch #284",
+      alert: "Freshie Formula 26 has 6 days of runway"
+    },
+    "apparel-accessories": {
+      title: "Apparel & Accessories workspace",
       focus: "Variant pressure and personalization",
-      copy: "Blank inventory, size and color variants, artwork, and personalization queues share the same context.",
-      inventory: "Comfort Colors / Sizes / Colorways",
+      copy: "Blank inventory, size and color variants, print queues, labels, and packaging are visible before the next order wave lands.",
+      inventory: "Blank tees / Transfers / Sizes / Packaging",
       production: "Retro Summer Tee / 18 orders",
       alert: "Black Large blanks are low"
     },
-    bakery: {
-      title: "Bakery workspace",
-      focus: "Ingredients, prep, and pickup windows",
-      copy: "Recipe demand, ingredient availability, batch yield, and pickup timing stay visible together.",
-      inventory: "Flour / Vanilla / Butter / Boxes",
-      production: "Birthday Cake Batch",
-      alert: "Vanilla extract reorder suggested"
-    },
-    candles: {
-      title: "Candles workspace",
-      focus: "Components and curing windows",
-      copy: "Wax, fragrance oils, vessels, labels, and seasonal demand stay aligned with the production queue.",
-      inventory: "Wax / Fragrance oils / Vessels",
-      production: "Candle Pour #52",
-      alert: "Wick packs are low"
-    },
-    bath: {
-      title: "Bath and body workspace",
-      focus: "Formula and lot-aware planning",
-      copy: "Ingredients, jars, formula work, and replenishment timing use language that fits the operation.",
-      inventory: "Lotions / Soaps / Oils / Jars",
+    "beauty-body": {
+      title: "Beauty & Body workspace",
+      focus: "Formula, lot tracking, and replenishment timing",
+      copy: "Lotions, soaps, oils, jars, pumps, and ingredient lots stay aligned with production and customer demand.",
+      inventory: "Lotions / Oils / Butters / Packaging",
       production: "Glow Set Run #12",
       alert: "Ingredient lot review due today"
     },
-    boutique: {
-      title: "Boutique workspace",
+    "food-bakery": {
+      title: "Food & Bakery workspace",
+      focus: "Ingredients, prep, and pickup windows",
+      copy: "Flour, butter, fillings, packaging, and batch yield track together with the orders and pickup times they serve.",
+      inventory: "Flour / Butter / Fillings / Boxes",
+      production: "Birthday Cake Batch",
+      alert: "Vanilla extract reorder suggested"
+    },
+    "boutique-retail": {
+      title: "Boutique & Retail workspace",
       focus: "Incoming stock and merchandising rhythm",
-      copy: "Seasonal drops, display inventory, fulfillment pacing, and incoming stock remain in one view.",
-      inventory: "Accessories / Drops / Display stock",
+      copy: "Seasonal drops, display inventory, replenishment timing, and channel orders remain in one operational view.",
+      inventory: "Accessories / Drops / Display stock / Subscriptions",
       production: "Boutique Drop #09",
       alert: "Display refresh is due tomorrow"
     }
