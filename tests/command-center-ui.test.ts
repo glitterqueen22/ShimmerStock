@@ -21,17 +21,16 @@ describe("Novi Command Center UI contract", () => {
     expect(source).not.toContain("Everything is shipped");
   });
 
-  it("uses one reusable pink-forward wordmark and favicon treatment", async () => {
+  it("uses one reusable approved wordmark and favicon treatment", async () => {
     const brand = await Bun.file("client/src/components/BrandMark.tsx").text();
     const navbar = await Bun.file("client/src/components/ui/Navbar.tsx").text();
     const html = await Bun.file("client/index.html").text();
     expect(brand).toContain('aria-label="ShimmerStock"');
-    expect(brand).toContain("#f43f72");
-    expect(brand).toContain("#6d28d9");
-    expect(brand).toContain("#a7dc9b");
+    expect(brand).toContain("/brand/shimmerstock-logo-horizontal.svg");
+    expect(brand).toContain("/brand/shimmerstock-mark-dark.svg");
     expect(navbar.match(/<BrandMark/g)).toHaveLength(2);
-    expect(html).toContain('href="/favicon.svg"');
-    expect(html).toContain('content="#f43f72"');
+    expect(html).toContain('href="/brand/favicon.svg"');
+    expect(html).toContain('content="#0F172A"');
   });
 
   it("renders Novi from an explicit approved-art manifest without generating character artwork", async () => {

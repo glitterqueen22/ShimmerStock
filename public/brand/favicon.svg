@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ShimmerStock">
+  <defs>
+    <linearGradient id="orbit" x1="10" y1="12" x2="55" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF86C1"/>
+      <stop offset="1" stop-color="#B38CFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0F172A"/>
+  <path d="M49 14C38 5 20 9 12 21C3 34 10 51 24 57C36 62 50 55 55 44" fill="none" stroke="url(#orbit)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M39 12C31 8 20 11 18 20C16 28 24 31 31 34C37 37 40 40 39 45C38 50 32 53 26 51C21 50 17 46 15 41L11 46C15 55 23 59 32 58C42 58 49 52 49 44C50 34 41 31 34 27C27 24 24 22 25 18C26 15 31 14 35 16C39 17 41 20 43 23L47 18C45 16 42 14 39 12Z" fill="#FFF7F2"/>
+  <path d="M14 27C15 31 17 33 21 34C17 35 15 37 14 41C13 37 11 35 7 34C11 33 13 31 14 27Z" fill="#FF86C1"/>
+  <path d="M51 8C52 11 53 12 56 13C53 14 52 15 51 18C50 15 49 14 46 13C49 12 50 11 51 8Z" fill="#B38CFF"/>
+</svg>

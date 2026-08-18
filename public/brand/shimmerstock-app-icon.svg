@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ShimmerStock app icon">
+  <defs>
+    <linearGradient id="bg" x1="52" y1="28" x2="454" y2="484" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16213D"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="orbit" x1="82" y1="83" x2="441" y2="445" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF86C1"/>
+      <stop offset="1" stop-color="#B38CFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <path d="M398 118C311 39 167 56 84 155C6 250 38 399 144 465C239 524 372 489 441 378" fill="none" stroke="url(#orbit)" stroke-width="28" stroke-linecap="round"/>
+  <path d="M318 90C258 58 166 78 146 146C126 214 186 246 246 274C298 298 330 322 322 366C314 410 262 438 210 426C162 414 130 378 114 334L82 370C110 442 174 478 246 474C334 470 390 422 394 354C398 270 326 238 262 210C206 182 182 162 190 134C198 106 238 94 278 110C310 122 334 146 350 174L382 130C362 110 342 98 318 90Z" fill="#FFF7F2"/>
+  <path d="M94 248C102 284 114 296 150 304C114 312 102 324 94 360C86 324 74 312 38 304C74 296 86 284 94 248Z" fill="#FF86C1"/>
+  <path d="M420 58C424 78 430 84 450 88C430 92 424 98 420 118C416 98 410 92 390 88C410 84 416 78 420 58Z" fill="#B38CFF"/>
+</svg>

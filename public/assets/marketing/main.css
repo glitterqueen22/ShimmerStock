@@ -270,16 +270,49 @@ button:focus-visible {
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
   text-decoration: none;
-  font-weight: 700;
-  font-size: 1.1rem;
 }
 
-.brand small {
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.brand-logo img {
   display: block;
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-weight: 500;
+  width: 190px;
+  height: 41px;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.brand-logo--mark img {
+  width: 42px;
+  height: 42px;
+}
+
+.brand-logo-tagline {
+  display: block;
+  max-width: 20rem;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.brand-footer {
+  margin-bottom: 0.65rem;
+}
+
+.brand-footer .brand-logo {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
 .nav-desktop {
@@ -387,6 +420,11 @@ button:focus-visible {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.6rem;
+}
+
+.brand-mobile .brand-logo--mark img {
+  width: 40px;
+  height: 40px;
 }
 
 .mobile-head button {
@@ -883,9 +921,10 @@ button:focus-visible {
   gap: 1rem;
 }
 
-.footer-grid h3 {
+.footer-grid h2 {
   font-family: "Iowan Old Style", "Palatino Linotype", serif;
   margin: 0 0 0.45rem;
+  font-size: 1.17rem;
 }
 
 .footer-grid a {
@@ -2272,6 +2311,10 @@ button:focus-visible {
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
+}
+
+.price-card .plan-tag h2 {
+  font-size: clamp(1.17rem, 2.5vw, 1.55rem);
 }
 
 .price-card .fit-list {

@@ -77,10 +77,9 @@
 }
 
 .novi-greeting .novi-dot {
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--violet-2), var(--green));
+  width: 0.9rem;
+  height: 0.9rem;
+  background: url("/brand/novi-sparkle.svg") center / contain no-repeat;
   animation: noviPulse 2.4s ease-in-out infinite;
 }
 
