@@ -1,0 +1,189 @@
+{
+  "generatedAt": "2026-08-16T02:41:56.083Z",
+  "baseUrl": "http://127.0.0.1:3210",
+  "results": [
+    {
+      "name": "homepage-desktop",
+      "route": "/",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshot": "artifacts/brand-system/homepage-desktop.png",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "metrics": {
+        "viewportWidth": 1440,
+        "documentWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "logo": {
+          "width": 190,
+          "height": 41,
+          "naturalWidth": 300,
+          "naturalHeight": 79
+        },
+        "brandNavCollision": false,
+        "brandActionsCollision": false
+      },
+      "accessibilityViolations": []
+    },
+    {
+      "name": "homepage-mobile",
+      "route": "/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "screenshot": "artifacts/brand-system/homepage-mobile.png",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "metrics": {
+        "viewportWidth": 390,
+        "documentWidth": 390,
+        "hasHorizontalOverflow": false,
+        "logo": {
+          "width": 190,
+          "height": 41,
+          "naturalWidth": 300,
+          "naturalHeight": 79
+        },
+        "brandNavCollision": false,
+        "brandActionsCollision": false
+      },
+      "accessibilityViolations": []
+    },
+    {
+      "name": "mobile-navigation",
+      "route": "/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "screenshot": "artifacts/brand-system/mobile-navigation.png",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "metrics": {
+        "viewportWidth": 390,
+        "documentWidth": 390,
+        "hasHorizontalOverflow": false,
+        "logo": {
+          "width": 190,
+          "height": 41,
+          "naturalWidth": 300,
+          "naturalHeight": 79
+        },
+        "brandNavCollision": false,
+        "brandActionsCollision": false
+      },
+      "accessibilityViolations": []
+    },
+    {
+      "name": "light-page-header",
+      "route": "/pricing",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshot": "artifacts/brand-system/light-page-header.png",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "metrics": {
+        "viewportWidth": 1440,
+        "documentWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "logo": {
+          "width": 190,
+          "height": 41,
+          "naturalWidth": 300,
+          "naturalHeight": 79
+        },
+        "brandNavCollision": false,
+        "brandActionsCollision": false
+      },
+      "accessibilityViolations": []
+    },
+    {
+      "name": "login",
+      "route": "/login",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshot": "artifacts/brand-system/login.png",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "metrics": {
+        "viewportWidth": 1440,
+        "documentWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "logo": null,
+        "brandNavCollision": false,
+        "brandActionsCollision": false
+      },
+      "accessibilityViolations": []
+    },
+    {
+      "name": "early-access",
+      "route": "/early-access",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshot": "artifacts/brand-system/early-access.png",
+      "consoleErrors": [],
+      "networkErrors": [],
+      "metrics": {
+        "viewportWidth": 1440,
+        "documentWidth": 1440,
+        "hasHorizontalOverflow": false,
+        "logo": {
+          "width": 190,
+          "height": 41,
+          "naturalWidth": 300,
+          "naturalHeight": 79
+        },
+        "brandNavCollision": false,
+        "brandActionsCollision": false
+      },
+      "accessibilityViolations": []
+    },
+    {
+      "name": "header-dark",
+      "screenshot": "artifacts/brand-system/header-dark.png"
+    },
+    {
+      "name": "favicon-16",
+      "assetPath": "/brand/favicon.svg",
+      "viewport": {
+        "width": 16,
+        "height": 16
+      },
+      "screenshot": "artifacts/brand-system/favicon-16.png"
+    },
+    {
+      "name": "favicon-32",
+      "assetPath": "/brand/favicon.svg",
+      "viewport": {
+        "width": 32,
+        "height": 32
+      },
+      "screenshot": "artifacts/brand-system/favicon-32.png"
+    },
+    {
+      "name": "app-icon-64",
+      "assetPath": "/brand/shimmerstock-app-icon-192.png",
+      "viewport": {
+        "width": 64,
+        "height": 64
+      },
+      "screenshot": "artifacts/brand-system/app-icon-64.png"
+    }
+  ],
+  "summary": {
+    "consoleErrors": 0,
+    "networkErrors": 0,
+    "horizontalOverflows": 0,
+    "headerCollisions": 0,
+    "accessibilityViolations": 0
+  }
+}

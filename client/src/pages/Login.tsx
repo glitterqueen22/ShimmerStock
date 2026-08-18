@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui";
+import BrandMark from "../components/BrandMark";
 
 type ViewState = "login" | "forgot-password" | "forgot-sent" | "change-password" | "register";
 
@@ -136,7 +137,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4"
+    <main className="min-h-screen flex items-center justify-center px-4"
          style={{
            background: "linear-gradient(135deg, #fdf2f5 0%, #ffdae1 50%, #f7e8ec 100%)",
            backgroundAttachment: "fixed",
@@ -144,11 +145,9 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Brand header */}
         <div className="text-center mb-8">
-          <span className="text-5xl drop-shadow-sm block mb-3">✨</span>
-          <h1 className="text-3xl font-bold font-[family-name:var(--font-heading)] text-[#121212]">
-            ShimmerStock
-          </h1>
-          <p className="text-rose-400 mt-2 text-sm font-medium">
+          <h1 className="sr-only">ShimmerStock account access</h1>
+          <BrandMark layout="horizontal" className="justify-center" />
+          <p className="text-slate-700 mt-2 text-sm font-medium">
             {view === "change-password" ? "Change your password" :
              view === "forgot-password" ? "Reset your password" :
              view === "forgot-sent" ? "Recovery options" :
@@ -171,7 +170,7 @@ export default function Login() {
               )}
 
               <div>
-                <label htmlFor="username" className="block text-sm font-semibold text-rose-500 mb-1.5">
+                <label htmlFor="username" className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Username
                 </label>
                 <input
@@ -191,7 +190,7 @@ export default function Login() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-rose-500 mb-1.5">
+                <label htmlFor="password" className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Password
                 </label>
                 <input
@@ -217,7 +216,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => { setView("forgot-password"); setError(null); }}
-                  className="text-sm text-rose-400 hover:text-rose-600 font-medium transition-colors"
+                  className="text-sm text-slate-600 hover:text-slate-900 font-medium transition-colors"
                 >
                   Forgot password?
                 </button>
@@ -227,7 +226,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => { setView("register"); setError(null); }}
-                  className="text-sm text-rose-500 hover:text-rose-700 font-semibold transition-colors"
+                  className="text-sm text-rose-700 hover:text-rose-900 font-semibold transition-colors"
                 >
                   Create Account
                 </button>
@@ -250,7 +249,7 @@ export default function Login() {
               </p>
 
               <div>
-                <label htmlFor="forgot-username" className="block text-sm font-semibold text-rose-500 mb-1.5">
+                <label htmlFor="forgot-username" className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Username
                 </label>
                 <input
@@ -277,7 +276,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={resetToLogin}
-                  className="text-sm text-rose-400 hover:text-rose-600 font-medium transition-colors"
+                  className="text-sm text-slate-600 hover:text-slate-900 font-medium transition-colors"
                 >
                   ← Back to login
                 </button>
@@ -307,7 +306,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={resetToLogin}
-                  className="text-sm text-rose-400 hover:text-rose-600 font-medium transition-colors"
+                  className="text-sm text-slate-600 hover:text-slate-900 font-medium transition-colors"
                 >
                   ← Back to login
                 </button>
@@ -326,7 +325,7 @@ export default function Login() {
               )}
 
               <div>
-                <label htmlFor="reg-displayname" className="block text-sm font-semibold text-rose-500 mb-1.5">
+                <label htmlFor="reg-displayname" className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Your Name
                 </label>
                 <input
@@ -345,7 +344,7 @@ export default function Login() {
               </div>
 
               <div>
-                <label htmlFor="reg-businessname" className="block text-sm font-semibold text-rose-500 mb-1.5">
+                <label htmlFor="reg-businessname" className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Business Name
                 </label>
                 <input
@@ -363,7 +362,7 @@ export default function Login() {
               </div>
 
               <div>
-                <label htmlFor="reg-username" className="block text-sm font-semibold text-rose-500 mb-1.5">
+                <label htmlFor="reg-username" className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Username
                 </label>
                 <input
@@ -382,7 +381,7 @@ export default function Login() {
               </div>
 
               <div>
-                <label htmlFor="reg-password" className="block text-sm font-semibold text-rose-500 mb-1.5">
+                <label htmlFor="reg-password" className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Password
                 </label>
                 <input
@@ -408,7 +407,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={resetToLogin}
-                  className="text-sm text-rose-400 hover:text-rose-600 font-medium transition-colors"
+                  className="text-sm text-slate-600 hover:text-slate-900 font-medium transition-colors"
                 >
                   ← Back to login
                 </button>
@@ -446,7 +445,7 @@ export default function Login() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-rose-500 mb-1.5">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                       Current Password
                     </label>
                     <input
@@ -464,7 +463,7 @@ export default function Login() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-rose-500 mb-1.5">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                       New Password
                     </label>
                     <input
@@ -481,7 +480,7 @@ export default function Login() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-rose-500 mb-1.5">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                       Confirm New Password
                     </label>
                     <input
@@ -506,6 +505,6 @@ export default function Login() {
           )}
         </div>
       </div>
-    </div>
+    </main>
   );
 }

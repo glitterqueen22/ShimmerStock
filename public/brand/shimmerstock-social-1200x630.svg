@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">ShimmerStock social preview</title>
+  <desc id="desc">The ShimmerStock identity and operating system message on a cream background.</desc>
+  <defs>
+    <linearGradient id="orbit" x1="81" y1="87" x2="414" y2="457" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF86C1"/>
+      <stop offset="1" stop-color="#786CFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#FFF7F2"/>
+  <rect x="0" y="0" width="1200" height="18" fill="#FF86C1"/>
+  <g transform="translate(92 84) scale(3.15)">
+    <path d="M100 25C78 5 42 9 21 34C1 58 9 96 36 113C60 128 94 119 111 91" fill="none" stroke="url(#orbit)" stroke-width="7" stroke-linecap="round"/>
+    <path d="M80 18C65 10 42 15 37 32C32 49 47 57 62 64C75 70 83 76 81 87C79 98 66 105 53 102C41 99 33 90 29 79L21 88C28 106 44 115 62 114C84 113 98 101 99 84C100 63 82 55 66 48C52 41 46 36 48 29C50 22 60 19 70 23C78 26 84 32 88 39L96 28C91 23 86 20 80 18Z" fill="#0F172A"/>
+    <path d="M24 61C26 70 29 73 38 75C29 77 26 80 24 89C22 80 19 77 10 75C19 73 22 70 24 61Z" fill="#FF86C1"/>
+    <path d="M105 17C106 22 108 24 113 25C108 26 106 28 105 33C104 28 102 26 97 25C102 24 104 22 105 17Z" fill="#786CFF"/>
+  </g>
+  <text x="510" y="244" fill="#0F172A" font-family="Georgia, 'Times New Roman', serif" font-size="80">Shimmer<tspan fill="#786CFF">Stock</tspan></text>
+  <text x="515" y="312" fill="#0F172A" font-family="Arial, sans-serif" font-size="25" font-weight="700" letter-spacing="5">THE OPERATING SYSTEM</text>
+  <text x="515" y="353" fill="#0F172A" font-family="Arial, sans-serif" font-size="25" font-weight="700" letter-spacing="5">FOR PRODUCT BUSINESSES</text>
+  <path d="M516 411H1020" stroke="#E9EAF1" stroke-width="3"/>
+  <text x="515" y="462" fill="#4B5563" font-family="Arial, sans-serif" font-size="27">Inventory, orders, production, fulfillment,</text>
+  <text x="515" y="501" fill="#4B5563" font-family="Arial, sans-serif" font-size="27">customer care, and Novi in one connected system.</text>
+</svg>

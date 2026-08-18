@@ -1,6 +1,10 @@
-# ShimmerStock Brand System
+# ShimmerStock Interface Brand System
 
-> Source of truth for all visual, layout, and component conventions.
+> Source of truth for interface layout and component conventions. The approved
+> logo identity, asset hierarchy, and core identity palette are documented in
+> `docs/brand/README.md` and the approved board stored beside it. Where this
+> older interface guide conflicts with those identity sources, the approved
+> board and `docs/brand/README.md` take precedence.
 
 ---
 

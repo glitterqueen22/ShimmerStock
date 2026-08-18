@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">ShimmerStock mark for dark backgrounds</title>
+  <desc id="desc">A cream S inside a partial pink and purple orbit with two four-point sparkles.</desc>
+  <defs>
+    <linearGradient id="orbit" x1="13" y1="25" x2="112" y2="113" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF86C1"/>
+      <stop offset="1" stop-color="#B38CFF"/>
+    </linearGradient>
+  </defs>
+  <path d="M100 25C78 5 42 9 21 34C1 58 9 96 36 113C60 128 94 119 111 91" fill="none" stroke="url(#orbit)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M80 18C65 10 42 15 37 32C32 49 47 57 62 64C75 70 83 76 81 87C79 98 66 105 53 102C41 99 33 90 29 79L21 88C28 106 44 115 62 114C84 113 98 101 99 84C100 63 82 55 66 48C52 41 46 36 48 29C50 22 60 19 70 23C78 26 84 32 88 39L96 28C91 23 86 20 80 18Z" fill="#FFF7F2"/>
+  <path d="M24 61C26 70 29 73 38 75C29 77 26 80 24 89C22 80 19 77 10 75C19 73 22 70 24 61Z" fill="#FF86C1"/>
+  <path d="M105 17C106 22 108 24 113 25C108 26 106 28 105 33C104 28 102 26 97 25C102 24 104 22 105 17Z" fill="#B38CFF"/>
+</svg>

@@ -6,15 +6,25 @@
    ============================================================ */
 
 :root {
+  /* Approved identity palette */
+  --brand-navy:    #0f172a;
+  --brand-purple:  #786cff;
+  --brand-lilac:   #b38cff;
+  --brand-pink:    #ff86c1;
+  --brand-peach:   #ffd2a8;
+  --brand-sage:    #c7e0d5;
+  --brand-cream:   #fff7f2;
+  --brand-grey:    #e9eaf1;
+
   /* Extended palette — new in Phase 2 */
   --plum-deep:    #2d1b4e;
   --violet-mist:  #f0ecfd;
   --green-mid:    #6aad86;
   --cream:        #fffaf2;
-  --cream-warm:   #fff7ee;
-  --navy-deep:    #10253f;
+  --cream-warm:   var(--brand-cream);
+  --navy-deep:    var(--brand-navy);
   --navy-ink:     #173553;
-  --pink:         #a94869;
+  --pink:         var(--brand-pink);
   --grey-slate:   #5b6572;
 
   /* Atmospheric glows */

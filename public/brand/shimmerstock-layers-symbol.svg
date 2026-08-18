@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 116" role="img" aria-labelledby="title desc">
+  <title id="title">ShimmerStock layers symbol</title>
+  <desc id="desc">A sparkle above three connected operational layers.</desc>
+  <defs>
+    <linearGradient id="layers" x1="23" y1="42" x2="72" y2="98" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF86C1"/>
+      <stop offset="0.5" stop-color="#B38CFF"/>
+      <stop offset="1" stop-color="#786CFF"/>
+    </linearGradient>
+  </defs>
+  <path d="M48 3C51 19 56 24 72 27C56 30 51 35 48 51C45 35 40 30 24 27C40 24 45 19 48 3Z" fill="#FF86C1"/>
+  <path d="M48 48L78 64L48 80L18 64L48 48ZM18 75L48 91L78 75V84L48 100L18 84V75Z" fill="url(#layers)"/>
+  <path d="M18 88L48 104L78 88V97L48 113L18 97V88Z" fill="#0F172A" opacity="0.72"/>
+</svg>

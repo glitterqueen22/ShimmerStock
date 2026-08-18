@@ -42,6 +42,21 @@
     return items.map((item) => `<a href="${item[1]}">${item[0]}</a>`).join("");
   }
 
+  function brandLogo({ variant = "light", layout = "horizontal", showTagline = false, compact = false } = {}) {
+    const resolvedLayout = compact ? "mark" : layout;
+    const source = resolvedLayout === "mark"
+      ? (variant === "dark" ? "shimmerstock-mark-dark.svg" : "shimmerstock-mark.svg")
+      : resolvedLayout === "stacked"
+        ? "shimmerstock-logo-stacked.svg"
+        : (variant === "dark" ? "shimmerstock-logo-horizontal-dark.svg" : "shimmerstock-logo-horizontal.svg");
+    const dimensions = resolvedLayout === "mark" ? 'width="44" height="44"' : 'width="235" height="50"';
+    const tagline = showTagline
+      ? '<span class="brand-logo-tagline">The operating system for product businesses</span>'
+      : "";
+
+    return `<span class="brand-logo brand-logo--${resolvedLayout}" data-brand-variant="${variant}"><img src="/brand/${source}" alt="" ${dimensions} decoding="async">${tagline}</span>`;
+  }
+
   function renderHeader() {
     const host = document.querySelector("[data-marketing-header]");
     if (!host) return;
@@ -50,7 +65,7 @@
       <a class="skip-link" href="#main-content">Skip to content</a>
       <header class="site-header">
         <div class="container nav-shell">
-          <a class="brand" href="/">ShimmerStock<small>The operating system for product businesses</small></a>
+          <a class="brand" href="/" aria-label="ShimmerStock home">${brandLogo()}</a>
 
           <nav class="nav-desktop" aria-label="Primary">
             <div class="menu-wrap" data-menu>
@@ -80,7 +95,7 @@
       <div class="mobile-overlay" id="mobile-overlay" data-open="false"></div>
       <aside class="mobile-panel" id="mobile-nav" data-open="false" aria-label="Mobile navigation">
         <div class="mobile-head">
-          <strong>ShimmerStock</strong>
+          <a class="brand brand-mobile" href="/" aria-label="ShimmerStock home">${brandLogo({ compact: true })}</a>
           <button id="mobile-close" aria-label="Close navigation">Close</button>
         </div>
         <nav class="mobile-nav" aria-label="Mobile primary">
@@ -112,18 +127,18 @@
         <div class="container">
           <div class="footer-grid">
             <div>
-              <h3>ShimmerStock</h3>
+              <a class="brand brand-footer" href="/" aria-label="ShimmerStock home">${brandLogo({ showTagline: true })}</a>
               <p class="small">Run the business behind your brand from one beautiful workspace.</p>
             </div>
             <div>
-              <h3>Product</h3>
+              <h2>Product</h2>
               <a href="/product">Product</a>
               <a href="/pricing">Pricing</a>
               <a href="/resources/integrations">Integrations</a>
               <a href="/product/novi">Novi</a>
             </div>
             <div>
-              <h3>Solutions</h3>
+              <h2>Solutions</h2>
               <a href="/solutions/craft-suppliers">Makers &amp; Craft</a>
               <a href="/solutions/candles">Home &amp; Fragrance</a>
               <a href="/solutions/apparel">Apparel &amp; Accessories</a>
@@ -132,14 +147,14 @@
               <a href="/solutions/boutiques">Boutique &amp; Retail</a>
             </div>
             <div>
-              <h3>Company</h3>
+              <h2>Company</h2>
               <a href="/about">About</a>
               <a href="/early-access">Early Access</a>
               <a href="/dream-grant">Dream Grant</a>
               <a href="/contact">Contact</a>
             </div>
             <div>
-              <h3>Trust</h3>
+              <h2>Trust</h2>
               <a href="/security">Security</a>
               <a href="/privacy">Privacy</a>
               <a href="/terms">Terms</a>
@@ -207,7 +222,8 @@
     const runtime = await getPublicRuntime();
     const activeOrigin = runtime.siteOrigin || window.location.origin;
     const canonicalUrl = `${activeOrigin}${window.location.pathname === "/" ? "/" : window.location.pathname.replace(/\/$/, "")}`;
-    const socialImage = `${activeOrigin}/assets/shimmerstock-social-1200x630.svg`;
+    const socialImage = `${activeOrigin}/brand/shimmerstock-social-1200x630.png`;
+    const logoUrl = `${activeOrigin}/brand/shimmerstock-logo-horizontal.svg`;
 
     if (runtime.noindex) {
       upsertMeta("name", "robots", "noindex, nofollow, noarchive");
@@ -220,8 +236,13 @@
     upsertMeta("property", "og:type", "website");
     upsertMeta("property", "og:url", canonicalUrl);
     upsertMeta("property", "og:image", socialImage);
+    upsertMeta("property", "og:image:width", "1200");
+    upsertMeta("property", "og:image:height", "630");
     upsertMeta("name", "twitter:card", "summary_large_image");
     upsertMeta("name", "twitter:image", socialImage);
+    upsertLink("icon", "/brand/favicon.svg");
+    upsertLink("apple-touch-icon", "/brand/apple-touch-icon.png");
+    upsertLink("manifest", "/brand/site.webmanifest");
 
     if (!document.head.querySelector('script[data-structured="organization"]')) {
       const org = {
@@ -229,6 +250,7 @@
         "@type": "Organization",
         "name": "ShimmerStock",
         "url": activeOrigin,
+        "logo": logoUrl,
         "description": "ShimmerStock is the commerce operating system for product businesses.",
         "sameAs": []
       };
